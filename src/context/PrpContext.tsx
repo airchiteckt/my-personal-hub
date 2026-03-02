@@ -44,6 +44,8 @@ function dbToEnterprise(row: any): Enterprise {
     strategicImportance: row.strategic_importance ?? 3,
     growthPotential: row.growth_potential ?? 3,
     phase: row.phase ?? 'setup',
+    businessCategory: row.business_category ?? 'scale_opportunity',
+    timeHorizon: row.time_horizon ?? 'medium',
     priorityUntil: row.priority_until ?? undefined,
     createdAt: row.created_at,
   };
@@ -174,6 +176,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       strategic_importance: e.strategicImportance,
       growth_potential: e.growthPotential,
       phase: e.phase,
+      business_category: e.businessCategory,
+      time_horizon: e.timeHorizon,
       priority_until: e.priorityUntil ?? null,
     }).select().single();
     if (error) { toast.error('Errore creazione impresa'); return; }
@@ -189,6 +193,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.strategicImportance !== undefined) dbUpdates.strategic_importance = updates.strategicImportance;
     if (updates.growthPotential !== undefined) dbUpdates.growth_potential = updates.growthPotential;
     if (updates.phase !== undefined) dbUpdates.phase = updates.phase;
+    if (updates.businessCategory !== undefined) dbUpdates.business_category = updates.businessCategory;
+    if (updates.timeHorizon !== undefined) dbUpdates.time_horizon = updates.timeHorizon;
     if (updates.priorityUntil !== undefined) dbUpdates.priority_until = updates.priorityUntil ?? null;
     await supabase.from('enterprises').update(dbUpdates).eq('id', id);
   }, []);

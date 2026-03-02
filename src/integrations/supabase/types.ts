@@ -52,6 +52,7 @@ export type Database = {
       }
       enterprises: {
         Row: {
+          business_category: string
           color: string
           created_at: string
           growth_potential: number
@@ -61,9 +62,11 @@ export type Database = {
           priority_until: string | null
           status: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance: number
+          time_horizon: string
           user_id: string | null
         }
         Insert: {
+          business_category?: string
           color?: string
           created_at?: string
           growth_potential?: number
@@ -73,9 +76,11 @@ export type Database = {
           priority_until?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance?: number
+          time_horizon?: string
           user_id?: string | null
         }
         Update: {
+          business_category?: string
           color?: string
           created_at?: string
           growth_potential?: number
@@ -85,6 +90,7 @@ export type Database = {
           priority_until?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance?: number
+          time_horizon?: string
           user_id?: string | null
         }
         Relationships: []

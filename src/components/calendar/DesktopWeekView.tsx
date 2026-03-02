@@ -75,6 +75,10 @@ export function DesktopWeekView() {
           <p className="text-sm text-muted-foreground">{weekLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
+            <Clock className="h-4 w-4 mr-1" />
+            Task
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
             <CalendarClock className="h-4 w-4 mr-1" />
             Appuntamento

@@ -6,7 +6,7 @@ import { Plus, Building2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo } from 'react';
 import { CreateEnterpriseDialog } from '@/components/CreateEnterpriseDialog';
-import { ENTERPRISE_STATUS_LABELS, ENTERPRISE_PHASE_LABELS, EnterprisePhase } from '@/types/prp';
+import { ENTERPRISE_STATUS_LABELS, ENTERPRISE_PHASE_LABELS, BUSINESS_CATEGORY_CONFIG, EnterprisePhase, BusinessCategory } from '@/types/prp';
 import { calculateEnterpriseScore, getScoreBadge, detectAllocationMismatch } from '@/lib/enterprise-scoring';
 import { formatMinutes } from '@/lib/calendar-utils';
 
@@ -79,9 +79,10 @@ const Enterprises = () => {
                   >
                     <Building2 className="h-4 w-4 md:h-5 md:w-5" style={{ color: `hsl(${e.color})` }} />
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="secondary" className="text-[10px] md:text-xs">
-                      {ENTERPRISE_STATUS_LABELS[e.status]}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className="text-[10px] md:text-xs">
+                      {BUSINESS_CATEGORY_CONFIG[e.businessCategory as BusinessCategory]?.emoji}{' '}
+                      {BUSINESS_CATEGORY_CONFIG[e.businessCategory as BusinessCategory]?.label ?? e.businessCategory}
                     </Badge>
                     <Badge className={`text-[10px] border ${badgeInfo.className}`}>
                       {badgeInfo.emoji} {score.total}
@@ -93,7 +94,7 @@ const Enterprises = () => {
                   {e.name}
                 </h3>
                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {ENTERPRISE_PHASE_LABELS[e.phase as EnterprisePhase]} · {projCount} progetti · {taskCount} task
+                  {ENTERPRISE_STATUS_LABELS[e.status]} · {ENTERPRISE_PHASE_LABELS[e.phase as EnterprisePhase]} · {projCount} progetti · {taskCount} task
                 </p>
 
                 {/* Score Indicators */}

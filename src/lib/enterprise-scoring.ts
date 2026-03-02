@@ -1,4 +1,4 @@
-import { Enterprise, Task } from '@/types/prp';
+import { Enterprise, Task, BUSINESS_CATEGORY_CONFIG } from '@/types/prp';
 
 export interface EnterpriseScore {
   strategic: number;
@@ -59,10 +59,13 @@ export function calculateEnterpriseScore(
   const urgency = calculateUrgencyIndex(tasks, enterprise.id);
   const operationalLoad = calculateOperationalLoad(tasks, enterprise.id);
 
-  // Check if priority_until is active
+  // Priority until boost
   const priorityBoost = enterprise.priorityUntil && new Date(enterprise.priorityUntil) >= new Date() ? 2 : 0;
 
-  const total = (strategic * strategicWeight) + growth + urgency + operationalLoad + priorityBoost;
+  // Time horizon boost: short-term businesses get a slight urgency lift
+  const horizonBoost = enterprise.timeHorizon === 'short' ? 1 : enterprise.timeHorizon === 'long' ? -0.5 : 0;
+
+  const total = (strategic * strategicWeight) + growth + urgency + operationalLoad + priorityBoost + horizonBoost;
 
   const badge: 'high' | 'medium' | 'low' =
     total >= 15 ? 'high' : total >= 10 ? 'medium' : 'low';

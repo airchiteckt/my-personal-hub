@@ -1,5 +1,7 @@
 export type EnterpriseStatus = 'active' | 'development' | 'paused';
 export type EnterprisePhase = 'idea' | 'setup' | 'launch' | 'scaling' | 'stable';
+export type BusinessCategory = 'core_growth' | 'scale_opportunity' | 'cash_generator' | 'experimental' | 'support';
+export type TimeHorizon = 'short' | 'medium' | 'long';
 export type ProjectType = 'strategic' | 'operational' | 'maintenance';
 export type TaskStatus = 'backlog' | 'scheduled' | 'done';
 export type TaskPriority = 'high' | 'medium' | 'low';
@@ -11,6 +13,20 @@ export const ENTERPRISE_PHASE_LABELS: Record<EnterprisePhase, string> = {
   launch: '🚀 Lancio',
   scaling: '📈 Scaling',
   stable: '⚖️ Stabilizzazione',
+};
+
+export const BUSINESS_CATEGORY_CONFIG: Record<BusinessCategory, { label: string; emoji: string; description: string; defaultWeight: number }> = {
+  core_growth: { label: 'Core Growth', emoji: '🚀', description: 'Business destinato a diventare centrale', defaultWeight: 5 },
+  scale_opportunity: { label: 'Scale Opportunity', emoji: '📈', description: 'Potenziale di crescita forte', defaultWeight: 4 },
+  cash_generator: { label: 'Cash Generator', emoji: '💰', description: 'Business stabile che genera cassa', defaultWeight: 3 },
+  experimental: { label: 'Experimental', emoji: '🧪', description: 'Test / MVP / validazione idea', defaultWeight: 2 },
+  support: { label: 'Support Function', emoji: '🧱', description: 'Funzione di supporto ad altre imprese', defaultWeight: 2 },
+};
+
+export const TIME_HORIZON_LABELS: Record<TimeHorizon, string> = {
+  short: '< 6 mesi',
+  medium: '6–18 mesi',
+  long: '18+ mesi',
 };
 
 export const ENTERPRISE_COLORS = [
@@ -63,6 +79,8 @@ export interface Enterprise {
   strategicImportance: number;
   growthPotential: number;
   phase: EnterprisePhase;
+  businessCategory: BusinessCategory;
+  timeHorizon: TimeHorizon;
   priorityUntil?: string;
   createdAt: string;
 }

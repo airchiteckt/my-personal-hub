@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2 } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ interface Props {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
 
 export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const { session } = useAuth();
@@ -37,9 +38,131 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
+
+  // Voice state
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Strip markdown for TTS
+  const stripMarkdown = (text: string) =>
+    text.replace(/[*_~`#>[\]()!|]/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').trim();
+
+  // Play AI response via ElevenLabs TTS
+  const speakText = useCallback(async (text: string) => {
+    if (!voiceEnabled || !text) return;
+    const cleanText = stripMarkdown(text);
+    if (cleanText.length < 3) return;
+
+    try {
+      setIsSpeaking(true);
+      const response = await fetch(TTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({ text: cleanText }),
+      });
+
+      if (!response.ok) throw new Error('TTS failed');
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        URL.revokeObjectURL(audioUrl);
+      };
+      await audio.play();
+    } catch (e) {
+      console.error('TTS error:', e);
+      setIsSpeaking(false);
+    }
+  }, [voiceEnabled, session]);
+
+  // Stop speaking
+  const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsSpeaking(false);
+    }
+  }, []);
+
+  // Web Speech API for STT
+  const startListening = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error('Il tuo browser non supporta il riconoscimento vocale');
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'it-IT';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setInput(transcript);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+      if (event.error === 'not-allowed') {
+        toast.error('Permesso microfono negato');
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+    if (!voiceEnabled) setVoiceEnabled(true);
+  }, [voiceEnabled]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) recognitionRef.current.abort();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -206,6 +329,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
           return prev;
         });
+      } else {
+        // Speak the completed response
+        speakText(assistantContent);
       }
     } catch (e: any) {
       console.error(e);
@@ -385,12 +511,31 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">· {enterprise.name}</span>
           </div>
         </div>
-        <button
-          onClick={() => setIsOpen(false)}
-          className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center transition-colors"
-        >
-          <X className="h-3.5 w-3.5 text-muted-foreground" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Voice toggle */}
+          <button
+            onClick={() => {
+              if (voiceEnabled) {
+                stopSpeaking();
+                setVoiceEnabled(false);
+              } else {
+                setVoiceEnabled(true);
+              }
+            }}
+            className={`h-6 w-6 rounded-md flex items-center justify-center transition-colors ${
+              voiceEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
+            }`}
+            title={voiceEnabled ? 'Disattiva risposte vocali' : 'Attiva risposte vocali'}
+          >
+            {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            onClick={() => setIsOpen(false)}
+            className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center transition-colors"
+          >
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </div>
       </div>
 
       {/* Messages area */}
@@ -452,17 +597,50 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
       {/* Input area */}
       <div className="border-t border-border/50 p-2.5 md:p-3 bg-muted/20">
+        {/* Speaking indicator */}
+        {isSpeaking && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse [animation-delay:150ms]" />
+              <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse [animation-delay:300ms]" />
+            </div>
+            <span className="text-[11px] text-muted-foreground">Sta parlando...</span>
+            <button onClick={stopSpeaking} className="text-[11px] text-primary hover:underline ml-auto">Stop</button>
+          </div>
+        )}
+        {/* Listening indicator */}
+        {isListening && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+            <span className="text-[11px] text-muted-foreground">Ti sto ascoltando...</span>
+            <button onClick={stopListening} className="text-[11px] text-primary hover:underline ml-auto">Stop</button>
+          </div>
+        )}
         <div className="flex items-end gap-2 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-shadow">
           <textarea
             ref={inputRef}
             value={input}
             onChange={handleTextareaInput}
             onKeyDown={handleKeyDown}
-            placeholder="Scrivi qui..."
+            placeholder={isListening ? 'Parla ora...' : 'Scrivi o usa il microfono...'}
             className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/60 min-h-[32px] max-h-[80px] py-1"
             rows={1}
             disabled={isLoading}
           />
+          {/* Mic button */}
+          <button
+            onClick={isListening ? stopListening : startListening}
+            disabled={isLoading}
+            className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
+              isListening
+                ? 'bg-destructive text-destructive-foreground animate-pulse'
+                : 'hover:bg-muted text-muted-foreground hover:text-foreground'
+            }`}
+            title={isListening ? 'Smetti di ascoltare' : 'Parla con il Wizard'}
+          >
+            {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+          </button>
           <Button
             size="icon"
             onClick={handleSend}

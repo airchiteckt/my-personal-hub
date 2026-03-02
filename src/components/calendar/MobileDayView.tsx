@@ -5,7 +5,7 @@ import { usePrp } from '@/context/PrpContext';
 import { Task, Appointment } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -13,6 +13,7 @@ import {
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
+import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -25,7 +26,7 @@ export function MobileDayView() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted } = usePrp();
   const dayAppts = getAppointmentsForDate(dateStr);
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && (t.status === 'scheduled' || t.status === 'done'));
@@ -210,6 +211,48 @@ export function MobileDayView() {
               </div>
             );
           })}
+
+          {/* Ritual blocks */}
+          {(() => {
+            const dayRituals = getRitualsForDate(selectedDate);
+            return dayRituals.map(ritual => {
+              const time = ritual.suggested_time || '07:00';
+              const startSlot = timeToSlot(time);
+              const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+              const top = startSlot * MOBILE_SLOT_HEIGHT;
+              const height = slotsNeeded * MOBILE_SLOT_HEIGHT;
+              const color = getRitualCalendarColor(ritual.category);
+              const completed = isRitualCompleted(ritual.id, dateStr);
+              const CatIcon = getRitualIcon(ritual.category);
+
+              return (
+                <div
+                  key={`ritual-${ritual.id}`}
+                  className={`absolute rounded-xl overflow-hidden z-10 ${completed ? 'opacity-40' : ''}`}
+                  style={{
+                    top,
+                    height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                    right: 4,
+                    width: '40%',
+                    backgroundColor: `hsl(${color} / 0.12)`,
+                    borderLeft: `3px solid hsl(${color} / 0.6)`,
+                  }}
+                >
+                  <div className="p-2 h-full flex flex-col justify-center">
+                    <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
+                      <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                      {completed && '✅ '}
+                      {ritual.name}
+                    </p>
+                    <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
+                      <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+                      Rituale
+                    </p>
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 

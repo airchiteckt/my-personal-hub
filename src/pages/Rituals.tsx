@@ -18,6 +18,7 @@ import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, subDays } f
 import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { CreateRitualDialog } from '@/components/rituals/CreateRitualDialog';
+import { EditRitualDialog } from '@/components/rituals/EditRitualDialog';
 
 interface Ritual {
   id: string;
@@ -88,6 +89,7 @@ export default function Rituals() {
   const [completions, setCompletions] = useState<RitualCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingRitual, setEditingRitual] = useState<Ritual | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
   const today = useMemo(() => new Date(), []);
@@ -127,6 +129,23 @@ export default function Rituals() {
     });
     if (error) toast.error('Errore nella creazione');
     else { toast.success('Rituale creato!'); fetchData(); }
+  };
+
+  const handleEdit = async (id: string, data: any) => {
+    const { error } = await supabase.from('rituals').update({
+      name: data.name,
+      category: data.category,
+      frequency: data.frequency,
+      custom_frequency_days: data.customFrequencyDays,
+      estimated_minutes: data.estimatedMinutes,
+      enterprise_id: data.enterpriseId === 'none' ? null : data.enterpriseId,
+      suggested_time: data.suggestedTime,
+      description: data.description,
+      weekly_specific_days: data.weeklySpecificDays,
+      weekly_times_per_week: data.weeklyTimesPerWeek,
+    }).eq('id', id);
+    if (error) toast.error('Errore nella modifica');
+    else { toast.success('Rituale aggiornato!'); fetchData(); }
   };
 
   const toggleCompletion = async (ritualId: string, date: Date) => {
@@ -328,6 +347,9 @@ export default function Rituals() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setEditingRitual(ritual)}>
+                          <Pencil className="h-3.5 w-3.5 mr-2" /> Modifica
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toggleActive(ritual.id, !ritual.is_active)}>
                           {ritual.is_active ? 'Disattiva' : 'Attiva'}
                         </DropdownMenuItem>
@@ -417,6 +439,14 @@ export default function Rituals() {
         onOpenChange={setCreateOpen}
         enterprises={enterprises}
         onSubmit={handleCreate}
+      />
+
+      <EditRitualDialog
+        open={!!editingRitual}
+        onOpenChange={(open) => !open && setEditingRitual(null)}
+        enterprises={enterprises}
+        ritual={editingRitual}
+        onSubmit={handleEdit}
       />
     </div>
   );

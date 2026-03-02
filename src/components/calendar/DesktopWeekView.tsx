@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat } from 'lucide-react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import type { Task, Appointment } from '@/types/prp';
@@ -16,10 +16,11 @@ import { SmartBacklog } from './SmartBacklog';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
+import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings } = usePrp();
+  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -352,6 +353,53 @@ export function DesktopWeekView() {
                         </div>
                       );
                     })}
+
+                    {/* Ritual blocks */}
+                    {(() => {
+                      const dayRituals = getRitualsForDate(day);
+                      return dayRituals.map(ritual => {
+                        const time = ritual.suggested_time || '07:00';
+                        const startSlot = timeToSlot(time);
+                        const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                        const top = startSlot * DESKTOP_SLOT_HEIGHT;
+                        const height = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                        const color = getRitualCalendarColor(ritual.category);
+                        const completed = isRitualCompleted(ritual.id, dayDate);
+                        const CatIcon = getRitualIcon(ritual.category);
+
+                        return (
+                          <div
+                            key={`ritual-${ritual.id}`}
+                            onMouseDown={e => e.stopPropagation()}
+                            className={`absolute rounded-lg overflow-hidden z-10 cursor-default ${completed ? 'opacity-40' : ''}`}
+                            style={{
+                              top: top + 1,
+                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                              right: 2,
+                              width: '45%',
+                              backgroundColor: `hsl(${color} / 0.12)`,
+                              borderLeft: `3px solid hsl(${color} / 0.6)`,
+                              borderRight: `1px solid hsl(${color} / 0.2)`,
+                              borderTop: `1px solid hsl(${color} / 0.2)`,
+                              borderBottom: `1px solid hsl(${color} / 0.2)`,
+                            }}
+                            title={`${ritual.name} [Rituale – ${getRitualCategoryLabel(ritual.category)}]`}
+                          >
+                            <div className="p-1.5 h-full flex flex-col">
+                              <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
+                                <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                                {completed && '✅ '}
+                                {ritual.name}
+                              </p>
+                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
+                                <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+                                Rituale · {getRitualCategoryLabel(ritual.category)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 );
               })}

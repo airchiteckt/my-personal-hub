@@ -519,6 +519,62 @@ export type Database = {
           },
         ]
       }
+      task_requests: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          description: string | null
+          enterprise_id: string | null
+          host_user_id: string
+          id: string
+          requester_email: string
+          requester_name: string
+          resolved_at: string | null
+          status: string
+          suggested_deadline: string | null
+          suggested_priority: string | null
+          title: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          enterprise_id?: string | null
+          host_user_id: string
+          id?: string
+          requester_email: string
+          requester_name: string
+          resolved_at?: string | null
+          status?: string
+          suggested_deadline?: string | null
+          suggested_priority?: string | null
+          title: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          description?: string | null
+          enterprise_id?: string | null
+          host_user_id?: string
+          id?: string
+          requester_email?: string
+          requester_name?: string
+          resolved_at?: string | null
+          status?: string
+          suggested_deadline?: string | null
+          suggested_priority?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_requests_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null

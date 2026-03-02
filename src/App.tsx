@@ -16,6 +16,7 @@ import Radar from "./pages/Radar";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PublicBooking from "./pages/PublicBooking";
+import PublicTaskRequest from "./pages/PublicTaskRequest";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
+            <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>

@@ -3,12 +3,13 @@ import { usePrp } from '@/context/PrpContext';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, ArrowLeft, Trash2, Check, Clock } from 'lucide-react';
+import { Plus, ArrowLeft, Trash2, Check, Clock, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS } from '@/types/prp';
 import { formatMinutes } from '@/lib/calendar-utils';
+import { getDisplayPriority, getPriorityEmoji, getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 
 const typeStyles: Record<string, string> = {
   strategic: 'bg-strategic-light text-strategic',
@@ -19,7 +20,7 @@ const typeStyles: Record<string, string> = {
 const EnterpriseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getEnterprise, getProjectsForEnterprise, getTasksForProject, deleteEnterprise, completeTask, deleteTask } = usePrp();
+  const { getEnterprise, getProjectsForEnterprise, getTasksForProject, deleteEnterprise, completeTask, deleteTask, getProjectType, prioritySettings } = usePrp();
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [createTaskForProject, setCreateTaskForProject] = useState<string | null>(null);
 
@@ -110,6 +111,7 @@ const EnterpriseDetail = () => {
                           </div>
                         )}
                         <span className={`flex-1 text-xs md:text-sm min-w-0 truncate ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
+                          {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
                           {task.title}
                         </span>
                         <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
@@ -120,7 +122,8 @@ const EnterpriseDetail = () => {
                           {TASK_STATUS_LABELS[task.status]}
                         </Badge>
                         <Badge variant="outline" className="text-[10px] hidden md:inline-flex">
-                          {PRIORITY_LABELS[task.priority]}
+                          {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
+                          {PRIORITY_LABELS[getDisplayPriority(task, getProjectType(task.projectId), prioritySettings)]}
                         </Badge>
                         <Button size="icon" variant="ghost" className="h-6 w-6 md:h-7 md:w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTask(task.id)}>
                           <Trash2 className="h-3 w-3" />

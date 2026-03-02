@@ -10,6 +10,7 @@ import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
+import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -18,10 +19,10 @@ export function MobileDayView() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, scheduleTask, completeTask, unscheduleTask, updateTask, getBacklogTasks } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, completeTask, unscheduleTask, updateTask, getSortedBacklogTasks, prioritySettings } = usePrp();
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && t.status !== 'done');
-  const backlogTasks = getBacklogTasks();
+  const backlogTasks = getSortedBacklogTasks();
   const totalMinutes = dayTasks.reduce((s, t) => s + t.estimatedMinutes, 0);
 
   const isViewingToday = isToday(selectedDate);
@@ -147,7 +148,10 @@ export function MobileDayView() {
                   onClick={() => setSelectedTask(task)}
                 >
                   <div className="p-2.5 h-full flex flex-col justify-center">
-                    <p className="font-medium text-sm leading-tight truncate">{task.title}</p>
+                    <p className="font-medium text-sm leading-tight truncate">
+                      {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
+                      {task.title}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-muted-foreground">{enterprise?.name}</span>
                       <span className="text-xs text-muted-foreground">·</span>
@@ -200,8 +204,11 @@ export function MobileDayView() {
                       scheduleTask(task.id, dateStr, slotToTime(selectedSlot!));
                       setSelectedSlot(null);
                     }}
-                  >
-                    <p className="font-medium text-sm">{task.title}</p>
+                   >
+                    <p className="font-medium text-sm">
+                      {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
+                      {task.title}
+                    </p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {ent?.name} · {proj?.name} · {formatMinutes(task.estimatedMinutes)}
                     </p>

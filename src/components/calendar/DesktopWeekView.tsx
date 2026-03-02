@@ -8,14 +8,15 @@ import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
+import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, getEnterprise, getProject, scheduleTask, unscheduleTask, updateTask, getBacklogTasks } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, unscheduleTask, updateTask, getSortedBacklogTasks, prioritySettings } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const backlogTasks = getBacklogTasks();
+  const backlogTasks = getSortedBacklogTasks();
 
   const weekLabel = `${format(weekStart, 'd MMM', { locale: it })} — ${format(addDays(weekStart, 6), 'd MMM yyyy', { locale: it })}`;
 
@@ -195,7 +196,10 @@ export function DesktopWeekView() {
                             }}
                           >
                             <div className="p-1.5 h-full flex flex-col">
-                              <p className="font-medium text-xs leading-tight truncate">{task.title}</p>
+                              <p className="font-medium text-xs leading-tight truncate">
+                                {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
+                                {task.title}
+                              </p>
                               <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                 {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                               </p>
@@ -259,11 +263,17 @@ export function DesktopWeekView() {
                     <div className="flex items-start gap-1.5">
                       <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">{task.title}</p>
+                        <p className="text-xs font-medium truncate">
+                          {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
+                          {task.title}
+                        </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{ent?.name}</p>
                         <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
                           <Clock className="h-2.5 w-2.5" />
                           {formatMinutes(task.estimatedMinutes)}
+                          {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) && (
+                            <span className="ml-1">{getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}</span>
+                          )}
                         </div>
                       </div>
                     </div>

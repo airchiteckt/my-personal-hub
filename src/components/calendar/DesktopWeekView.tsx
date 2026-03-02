@@ -30,17 +30,21 @@ interface RitualCalendarCardProps {
   onComplete: () => void;
   onSkip: () => void;
   onDelete?: () => void;
+  onDragStart?: (e: React.DragEvent) => void;
 }
 
-function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete }: RitualCalendarCardProps) {
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart }: RitualCalendarCardProps) {
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';
+  const canDrag = isPlanned;
 
   return (
     <div
+      draggable={canDrag}
+      onDragStart={e => { e.stopPropagation(); onDragStart?.(e); }}
       onMouseDown={e => e.stopPropagation()}
-      className={`absolute rounded-lg overflow-hidden z-10 cursor-default border-2 group ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
+      className={`absolute rounded-lg overflow-hidden z-10 border-2 group ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
       style={{
         top: top + 1,
         height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
@@ -576,6 +580,12 @@ export function DesktopWeekView() {
                             onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
                             onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
                             onDelete={() => deleteRitualCompletion(comp.id)}
+                            onDragStart={e => {
+                              // Delete old completion, then start drag as new ritual placement
+                              deleteRitualCompletion(comp.id);
+                              e.dataTransfer.setData('text/plain', `ritual:${ritual.id}`);
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
                           />
                         );
                       });

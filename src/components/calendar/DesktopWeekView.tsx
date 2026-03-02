@@ -310,8 +310,8 @@ export function DesktopWeekView() {
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                            left: 2,
                             right: 2,
-                            width: '40%',
                             backgroundColor: `hsl(${color} / 0.1)`,
                             borderColor: `hsl(${color} / 0.4)`,
                           }}

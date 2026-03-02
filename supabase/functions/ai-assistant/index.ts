@@ -7,6 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const res = await fetch(url, options);
+    if (res.status === 429 && attempt < maxRetries - 1) {
+      const retryAfter = res.headers.get("retry-after");
+      const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 8000);
+      console.log(`Rate limited, retrying in ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await res.text(); // consume body
+      await new Promise(r => setTimeout(r, waitMs));
+      continue;
+    }
+    return res;
+  }
+  // Should not reach here, but just in case
+  return fetch(url, options);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { headers: corsHeaders });
@@ -540,7 +557,7 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
       // Override system prompt
       aiMessages[0] = { role: "system", content: globalSystemPrompt };
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -687,7 +704,7 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
         },
       ];
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -781,7 +798,7 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
     }
 
     if (toolDef) {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${OPENAI_API_KEY}`,
@@ -819,7 +836,7 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
     }
 
     // Streaming for chat-like interactions
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,

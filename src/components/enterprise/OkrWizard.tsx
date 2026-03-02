@@ -99,6 +99,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isLoadingRef = useRef(false);
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
@@ -405,7 +406,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
-    setIsLoading(true);
+    setIsLoading(true); isLoadingRef.current = true;
     if (inputRef.current) inputRef.current.style.height = 'auto';
     let assistantContent = '';
 
@@ -487,7 +488,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
       if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 1000);
     }
-    setIsLoading(false);
+    setIsLoading(false); isLoadingRef.current = false;
   };
 
   const handleSend = async () => {
@@ -534,11 +535,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
       // Auto-continue: send a follow-up message to AI so it proceeds to next step
       if (action.applied && appliedLabel) {
-        // Small delay to let state update
-        setTimeout(() => {
-          const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
-          doSend(continuationMsg, false);
-        }, 600);
+        const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
+        // Wait until isLoading is false before sending continuation
+        const waitAndSend = () => {
+          const checkInterval = setInterval(() => {
+            // Access isLoading via ref to avoid stale closure
+            if (!isLoadingRef.current) {
+              clearInterval(checkInterval);
+              doSend(continuationMsg, false);
+            }
+          }, 300);
+          // Safety timeout: give up after 10 seconds
+          setTimeout(() => clearInterval(checkInterval), 10000);
+        };
+        waitAndSend();
       }
     } catch (e) {
       console.error('Error applying action:', e);

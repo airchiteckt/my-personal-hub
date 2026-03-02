@@ -68,7 +68,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/p/:slug/opencalendar" element={<PublicBooking />} />
+            <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>

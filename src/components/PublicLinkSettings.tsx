@@ -56,7 +56,7 @@ export function PublicLinkSettings() {
     }
   };
 
-  const publicUrl = savedSlug ? `${window.location.origin}/p/${savedSlug}/opencalendar` : null;
+  const publicUrl = savedSlug ? `${window.location.origin}/${savedSlug}/opencalendar` : null;
 
   const copyUrl = () => {
     if (!publicUrl) return;
@@ -80,7 +80,7 @@ export function PublicLinkSettings() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground whitespace-nowrap">/p/</span>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">/</span>
           <Input
             value={slug}
             onChange={e => setSlug(sanitize(e.target.value))}

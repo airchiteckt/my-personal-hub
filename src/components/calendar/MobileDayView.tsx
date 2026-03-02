@@ -58,7 +58,7 @@ export function MobileDayView() {
   };
 
   return (
-    <div className="flex flex-col h-full -mx-4 -mt-4">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Date nav */}
       <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSelectedDate(d => addDays(d, -1))}>
@@ -81,7 +81,7 @@ export function MobileDayView() {
       </div>
 
       {/* Timeline */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="relative" style={{ height: TOTAL_SLOTS * MOBILE_SLOT_HEIGHT, marginLeft: 48 }}>
           {/* Time labels + grid lines */}
           {Array.from({ length: TOTAL_SLOTS }, (_, i) => {

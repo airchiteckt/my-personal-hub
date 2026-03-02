@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X } from 'lucide-react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import type { Task, Appointment } from '@/types/prp';
@@ -16,11 +16,91 @@ import { SmartBacklog } from './SmartBacklog';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
-import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
+import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon, type RitualData } from '@/lib/ritual-utils';
+import { DESKTOP_SLOT_HEIGHT as SH } from '@/lib/calendar-utils';
+
+interface RitualCalendarCardProps {
+  ritual: RitualData;
+  status: string;
+  top: number;
+  height: number;
+  color: string;
+  CatIcon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  time: string;
+  onComplete: () => void;
+  onSkip: () => void;
+  onDelete?: () => void;
+}
+
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete }: RitualCalendarCardProps) {
+  const isDone = status === 'done';
+  const isSkipped = status === 'skipped';
+  const isPlanned = status === 'planned' || status === 'pending';
+
+  return (
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      className={`absolute rounded-lg overflow-hidden z-10 cursor-default border-2 group ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
+      style={{
+        top: top + 1,
+        height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        right: 2,
+        width: '45%',
+        backgroundColor: `hsl(${color} / ${isDone ? '0.15' : isSkipped ? '0.05' : '0.08'})`,
+        borderColor: `hsl(${color} / ${isDone ? '0.6' : '0.4'})`,
+      }}
+      title={`${ritual.name} [${isDone ? 'Completato' : isSkipped ? 'Saltato' : 'Pianificato'}]`}
+    >
+      <div className="p-1.5 h-full flex flex-col">
+        <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${isDone ? 'line-through' : ''}`}>
+          <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+          {isDone && '✅ '}
+          {isSkipped && '⏭ '}
+          {ritual.name}
+        </p>
+        <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
+          <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+          {time} · {getRitualCategoryLabel(ritual.category)}
+        </p>
+      </div>
+
+      {/* Action buttons */}
+      {isPlanned && (
+        <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
+          <button
+            onClick={e => { e.stopPropagation(); onComplete(); }}
+            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600"
+            title="Segna completato"
+          >
+            <Check className="h-3 w-3" /> Fatto
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onSkip(); }}
+            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
+            title="Salta"
+          >
+            <X className="h-3 w-3" /> Salta
+          </button>
+        </div>
+      )}
+
+      {/* Delete/reset for done/skipped */}
+      {(isDone || isSkipped) && onDelete && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-muted-foreground hover:text-destructive"
+          title="Rimuovi"
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, completeRitualOnDate } = usePrp();
+  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -39,10 +119,7 @@ export function DesktopWeekView() {
   // All active rituals for the drag widget
   const activeRituals = rituals.filter(r => r.is_active);
   const getWeeklyCount = (ritualId: string) => {
-    return days.reduce((count, d) => {
-      const dateStr = format(d, 'yyyy-MM-dd');
-      return count + (ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr) ? 1 : 0);
-    }, 0);
+    return ritualCompletions.filter(c => c.ritual_id === ritualId && c.status === 'done' && days.some(d => format(d, 'yyyy-MM-dd') === c.completed_date)).length;
   };
   const getWeeklyTarget = (ritual: typeof activeRituals[0]) => {
     if (ritual.planning_mode === 'flexible') return ritual.weekly_times_per_week || 2;
@@ -81,7 +158,7 @@ export function DesktopWeekView() {
 
     const ritualId = e.dataTransfer.getData('ritualId');
     if (ritualId) {
-      completeRitualOnDate(ritualId, dayDate, time);
+      planRitualOnDate(ritualId, dayDate, time);
       return;
     }
 
@@ -410,90 +487,79 @@ export function DesktopWeekView() {
                       );
                     })}
 
-                    {/* Ritual blocks (fixed only) */}
+                    {/* Ritual blocks (fixed - from schedule) */}
                     {(() => {
                       const dayRituals = getRitualsForDate(day).filter(r => r.planning_mode === 'fixed');
                       return dayRituals.map(ritual => {
                         const time = ritual.suggested_time || '07:00';
                         const startSlot = timeToSlot(time);
                         const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                        const top = startSlot * DESKTOP_SLOT_HEIGHT;
-                        const height = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                        const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
+                        const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
                         const color = getRitualCalendarColor(ritual.category);
-                        const completed = isRitualCompleted(ritual.id, dayDate);
+                        const comp = ritualCompletions.find(c => c.ritual_id === ritual.id && c.completed_date === dayDate);
+                        const status = comp?.status || 'pending';
                         const CatIcon = getRitualIcon(ritual.category);
 
                         return (
-                          <div
-                            key={`ritual-${ritual.id}`}
-                            onMouseDown={e => e.stopPropagation()}
-                            className={`absolute rounded-lg overflow-hidden z-10 cursor-default border-2 border-dotted ${completed ? 'opacity-40' : ''}`}
-                            style={{
-                              top: top + 1,
-                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-                              right: 2,
-                              width: '45%',
-                              backgroundColor: `hsl(${color} / 0.08)`,
-                              borderColor: `hsl(${color} / 0.4)`,
+                          <RitualCalendarCard
+                            key={`ritual-${ritual.id}-${dayDate}`}
+                            ritual={ritual}
+                            status={status}
+                            top={topPos}
+                            height={heightVal}
+                            color={color}
+                            CatIcon={CatIcon}
+                            time={time}
+                            onComplete={() => {
+                              if (!comp) {
+                                // Plan then complete
+                                planRitualOnDate(ritual.id, dayDate, time).then(() => completeRitualOnDate(ritual.id, dayDate));
+                              } else {
+                                completeRitualOnDate(ritual.id, dayDate);
+                              }
                             }}
-                            title={`${ritual.name} [Rituale – ${getRitualCategoryLabel(ritual.category)}]`}
-                          >
-                            <div className="p-1.5 h-full flex flex-col">
-                              <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
-                                <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                {completed && '✅ '}
-                                {ritual.name}
-                              </p>
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
-                                <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
-                                Rituale · {getRitualCategoryLabel(ritual.category)}
-                              </p>
-                            </div>
-                          </div>
+                            onSkip={() => {
+                              if (!comp) {
+                                planRitualOnDate(ritual.id, dayDate, time).then(() => skipRitualOnDate(ritual.id, dayDate));
+                              } else {
+                                skipRitualOnDate(ritual.id, dayDate);
+                              }
+                            }}
+                            onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
+                          />
                         );
                       });
                     })()}
 
-                    {/* Flexible ritual completion blocks (from drag & drop) */}
+                    {/* Flexible ritual blocks (from drag & drop) */}
                     {(() => {
                       const dayCompletions = ritualCompletions.filter(c => c.completed_date === dayDate && c.completed_time);
                       return dayCompletions.map(comp => {
                         const ritual = rituals.find(r => r.id === comp.ritual_id);
-                        if (!ritual) return null;
+                        if (!ritual || ritual.planning_mode === 'fixed') return null;
                         const time = comp.completed_time!;
                         const startSlot = timeToSlot(time);
                         const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                        const top = startSlot * DESKTOP_SLOT_HEIGHT;
-                        const height = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                        const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
+                        const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
                         const color = getRitualCalendarColor(ritual.category);
                         const CatIcon = getRitualIcon(ritual.category);
 
                         return (
-                          <div
+                          <RitualCalendarCard
                             key={`ritual-comp-${comp.id}`}
-                            onMouseDown={e => e.stopPropagation()}
-                            className="absolute rounded-lg overflow-hidden z-10 cursor-default border-2 border-dotted opacity-70"
-                            style={{
-                              top: top + 1,
-                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-                              right: 2,
-                              width: '45%',
-                              backgroundColor: `hsl(${color} / 0.12)`,
-                              borderColor: `hsl(${color} / 0.4)`,
-                            }}
-                            title={`${ritual.name} [Rituale completato]`}
-                          >
-                            <div className="p-1.5 h-full flex flex-col">
-                              <p className="font-medium text-xs leading-tight truncate flex items-center gap-1 line-through">
-                                <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                ✅ {ritual.name}
-                              </p>
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
-                                <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
-                                Rituale · {time}
-                              </p>
-                            </div>
-                          </div>
+                            ritual={ritual}
+                            status={comp.status}
+                            top={topPos}
+                            height={heightVal}
+                            color={color}
+                            CatIcon={CatIcon}
+                            time={time}
+                            onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
+                            onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
+                            onDelete={() => deleteRitualCompletion(comp.id)}
+                          />
                         );
                       });
                     })()}

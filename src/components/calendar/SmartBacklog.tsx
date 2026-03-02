@@ -1,0 +1,305 @@
+import { useMemo, useState } from 'react';
+import { format } from 'date-fns';
+import { usePrp } from '@/context/PrpContext';
+import { Task } from '@/types/prp';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Clock, GripVertical, Zap, Target, Pin, Sparkles, AlertTriangle } from 'lucide-react';
+import { formatMinutes, slotToTime, timeToSlot } from '@/lib/calendar-utils';
+import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji, calculateEffectivePriority } from '@/lib/priority-engine';
+import {
+  computeFreeTime, getTaskFitStatus, getFitEmoji, getFitLabel,
+  categorizeBacklog, findSlotsForTasks,
+} from '@/lib/scheduling-utils';
+
+interface Props {
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDrop: (e: React.DragEvent) => void;
+}
+
+export function SmartBacklog({ onDragStart, onDrop }: Props) {
+  const {
+    tasks, getEnterprise, getProject, getProjectType,
+    getSortedBacklogTasks, prioritySettings, scheduleTask,
+  } = usePrp();
+  const [autoOrder, setAutoOrder] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const todayTasks = useMemo(
+    () => tasks.filter(t => t.scheduledDate === todayStr && t.status !== 'done'),
+    [tasks, todayStr]
+  );
+
+  const backlogTasks = getSortedBacklogTasks();
+
+  // Free time analysis
+  const { freeMinutes, maxConsecutiveFreeMinutes } = useMemo(
+    () => computeFreeTime(todayTasks),
+    [todayTasks]
+  );
+
+  // Categorize into sections
+  const sections = useMemo(
+    () => categorizeBacklog(backlogTasks, getProjectType, prioritySettings),
+    [backlogTasks, getProjectType, prioritySettings]
+  );
+
+  // Schedule Top 3 preview
+  const top3 = useMemo(() => backlogTasks.slice(0, 3), [backlogTasks]);
+  const top3Slots = useMemo(
+    () => findSlotsForTasks(top3, todayTasks),
+    [top3, todayTasks]
+  );
+
+  const handleScheduleTop3 = () => {
+    for (const task of top3) {
+      const slot = top3Slots.get(task.id);
+      if (slot !== undefined) {
+        scheduleTask(task.id, todayStr, slotToTime(slot));
+      }
+    }
+    setShowPreview(false);
+  };
+
+  // High impact suggestion count
+  const highImpactCount = sections.planToday.length + sections.highStrategic.length;
+  const suggestedCount = Math.min(highImpactCount, Math.floor(freeMinutes / 60));
+
+  return (
+    <div
+      className="w-72 shrink-0 border rounded-xl bg-card flex flex-col overflow-hidden"
+      onDragOver={e => e.preventDefault()}
+      onDrop={onDrop}
+    >
+      {/* Header */}
+      <div className="p-3 border-b shrink-0 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm">
+            Backlog
+            <span className="ml-1.5 text-muted-foreground font-normal">({backlogTasks.length})</span>
+          </h3>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">Auto</span>
+            <Switch
+              checked={autoOrder}
+              onCheckedChange={setAutoOrder}
+              className="scale-75"
+            />
+          </div>
+        </div>
+
+        {/* Scheduling Assist */}
+        {freeMinutes > 0 && backlogTasks.length > 0 && (
+          <div className="rounded-lg bg-accent/50 p-2.5 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span>Hai {formatMinutes(freeMinutes)} libere oggi</span>
+            </div>
+            {suggestedCount > 0 && (
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Suggerimento: pianifica {suggestedCount} task ad alto impatto
+              </p>
+            )}
+          </div>
+        )}
+
+        {freeMinutes === 0 && backlogTasks.length > 0 && (
+          <div className="rounded-lg bg-destructive/10 p-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>Giornata piena</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Task list */}
+      <div className="flex-1 overflow-auto p-2 space-y-1">
+        {backlogTasks.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-4 text-center">Tutto pianificato! 🎉</p>
+        ) : (
+          <>
+            {/* Section: Da Pianificare Oggi */}
+            {sections.planToday.length > 0 && (
+              <BacklogSection
+                icon={<Zap className="h-3 w-3" />}
+                label="Da Pianificare Oggi"
+                tasks={sections.planToday}
+                onDragStart={onDragStart}
+                freeMinutes={freeMinutes}
+                maxConsecutive={maxConsecutiveFreeMinutes}
+                accentClass="text-destructive"
+              />
+            )}
+
+            {/* Section: Alta Priorità Strategica */}
+            {sections.highStrategic.length > 0 && (
+              <BacklogSection
+                icon={<Target className="h-3 w-3" />}
+                label="Alta Priorità Strategica"
+                tasks={sections.highStrategic}
+                onDragStart={onDragStart}
+                freeMinutes={freeMinutes}
+                maxConsecutive={maxConsecutiveFreeMinutes}
+                accentClass="text-primary"
+              />
+            )}
+
+            {/* Section: Resto */}
+            {sections.rest.length > 0 && (
+              <BacklogSection
+                icon={<Pin className="h-3 w-3" />}
+                label="Resto del Backlog"
+                tasks={sections.rest}
+                onDragStart={onDragStart}
+                freeMinutes={freeMinutes}
+                maxConsecutive={maxConsecutiveFreeMinutes}
+                accentClass="text-muted-foreground"
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Schedule Top 3 */}
+      {backlogTasks.length >= 1 && (
+        <div className="p-2 border-t shrink-0 space-y-2">
+          {showPreview ? (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Preview Top {Math.min(3, top3.length)}
+              </p>
+              {top3.map(task => {
+                const slot = top3Slots.get(task.id);
+                return (
+                  <div key={task.id} className="flex items-center gap-1.5 text-[11px] rounded-md bg-muted/50 px-2 py-1.5">
+                    <span className="font-medium truncate flex-1">{task.title}</span>
+                    {slot !== undefined ? (
+                      <span className="text-primary font-mono shrink-0">{slotToTime(slot)}</span>
+                    ) : (
+                      <span className="text-destructive shrink-0">❌</span>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="flex gap-1.5">
+                <Button size="sm" className="flex-1 h-7 text-xs" onClick={handleScheduleTop3}>
+                  Conferma
+                </Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setShowPreview(false)}>
+                  Annulla
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full h-8 text-xs"
+              onClick={() => setShowPreview(true)}
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+              Schedule Top {Math.min(3, backlogTasks.length)}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- BacklogSection sub-component ---
+
+interface BacklogSectionProps {
+  icon: React.ReactNode;
+  label: string;
+  tasks: Task[];
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+  freeMinutes: number;
+  maxConsecutive: number;
+  accentClass: string;
+}
+
+function BacklogSection({ icon, label, tasks, onDragStart, freeMinutes, maxConsecutive, accentClass }: BacklogSectionProps) {
+  const { getEnterprise, getProjectType, prioritySettings } = usePrp();
+
+  return (
+    <div className="mb-2">
+      <div className={`flex items-center gap-1.5 px-1 py-1 text-[10px] font-semibold uppercase tracking-wider ${accentClass}`}>
+        {icon}
+        <span>{label}</span>
+        <span className="text-muted-foreground font-normal">({tasks.length})</span>
+      </div>
+      <div className="space-y-1">
+        {tasks.map(task => {
+          const ent = getEnterprise(task.enterpriseId);
+          const projectType = getProjectType(task.projectId);
+          const displayPriority = getDisplayPriority(task, projectType, prioritySettings);
+          const urgency = getUrgencyLevel(task.deadline, prioritySettings);
+          const fit = getTaskFitStatus(task.estimatedMinutes, freeMinutes, maxConsecutive);
+          const urgencyDot = getUrgencyDot(urgency);
+          const impact = task.impact ?? 2;
+
+          return (
+            <div
+              key={task.id}
+              draggable
+              onDragStart={e => onDragStart(e, task.id)}
+              className="p-2 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors group"
+              style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})` }}
+            >
+              {/* Title row */}
+              <div className="flex items-start gap-1">
+                <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <p className="text-xs font-medium leading-tight truncate flex-1">
+                  {task.title}
+                </p>
+              </div>
+
+              {/* Micro KPIs row */}
+              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                {/* Priority */}
+                <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium gap-0.5">
+                  {getPriorityEmoji(displayPriority)}
+                </Badge>
+
+                {/* Urgency */}
+                {urgencyDot && (
+                  <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium">
+                    {urgencyDot}
+                  </Badge>
+                )}
+
+                {/* Impact dots */}
+                <span className="flex items-center gap-px">
+                  {[1, 2, 3].map(i => (
+                    <span
+                      key={i}
+                      className={`inline-block h-1.5 w-1.5 rounded-full ${i <= impact ? 'bg-primary' : 'bg-border'}`}
+                    />
+                  ))}
+                </span>
+
+                {/* Project type */}
+                <span className="text-[9px] text-muted-foreground">
+                  {projectType === 'strategic' ? '🔵' : projectType === 'operational' ? '🟡' : '⚪'}
+                </span>
+
+                {/* Duration */}
+                <span className="text-[9px] text-muted-foreground flex items-center gap-0.5 ml-auto">
+                  <Clock className="h-2.5 w-2.5" />
+                  {formatMinutes(task.estimatedMinutes)}
+                </span>
+
+                {/* Fit indicator */}
+                <span className="text-[9px]">{getFitEmoji(fit)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

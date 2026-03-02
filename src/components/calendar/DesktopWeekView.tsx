@@ -3,20 +3,20 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
+import { SmartBacklog } from './SmartBacklog';
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, unscheduleTask, updateTask, getSortedBacklogTasks, prioritySettings } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, unscheduleTask, updateTask, prioritySettings } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const backlogTasks = getSortedBacklogTasks();
 
   const weekLabel = `${format(weekStart, 'd MMM', { locale: it })} — ${format(addDays(weekStart, 6), 'd MMM yyyy', { locale: it })}`;
 
@@ -233,56 +233,10 @@ export function DesktopWeekView() {
           </div>
         </div>
 
-        {/* Backlog sidebar */}
-        <div
-          className="w-56 shrink-0 border rounded-xl bg-card flex flex-col overflow-hidden"
-          onDragOver={e => e.preventDefault()}
+        <SmartBacklog
+          onDragStart={handleDragStart}
           onDrop={handleBacklogDrop}
-        >
-          <div className="p-3 border-b shrink-0">
-            <h3 className="font-semibold text-sm">
-              Backlog
-              <span className="ml-1.5 text-muted-foreground font-normal">({backlogTasks.length})</span>
-            </h3>
-          </div>
-          <div className="flex-1 overflow-auto p-2 space-y-1.5">
-            {backlogTasks.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">Tutto pianificato! 🎉</p>
-            ) : (
-              backlogTasks.map(task => {
-                const ent = getEnterprise(task.enterpriseId);
-                const proj = getProject(task.projectId);
-                return (
-                  <div
-                    key={task.id}
-                    draggable
-                    onDragStart={e => handleDragStart(e, task.id)}
-                    className="p-2.5 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors"
-                    style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})` }}
-                  >
-                    <div className="flex items-start gap-1.5">
-                      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">
-                          {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
-                          {task.title}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{ent?.name}</p>
-                        <div className="flex items-center gap-1 mt-0.5 text-[10px] text-muted-foreground">
-                          <Clock className="h-2.5 w-2.5" />
-                          {formatMinutes(task.estimatedMinutes)}
-                          {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) && (
-                            <span className="ml-1">{getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+        />
       </div>
     </div>
   );

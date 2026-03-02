@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, GripVertical } from 'lucide-react';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
+  computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 
 export function DesktopWeekView() {
@@ -160,51 +161,67 @@ export function DesktopWeekView() {
                     )}
 
                     {/* Task blocks */}
-                    {dayTasks.map(task => {
-                      const time = task.scheduledTime || '09:00';
-                      const { top, height } = getTaskPosition(time, task.estimatedMinutes, DESKTOP_SLOT_HEIGHT);
-                      const ent = getEnterprise(task.enterpriseId);
+                    {(() => {
+                      const taskTimeInfos: TaskTimeInfo[] = dayTasks.map(t => {
+                        const time = t.scheduledTime || '09:00';
+                        const startSlot = timeToSlot(time);
+                        return { id: t.id, startSlot, endSlot: startSlot + Math.ceil(t.estimatedMinutes / 30) };
+                      });
+                      const layout = computeOverlapLayout(taskTimeInfos);
 
-                      return (
-                        <div
-                          key={task.id}
-                          draggable
-                          onDragStart={e => handleDragStart(e, task.id)}
-                          className="absolute left-0.5 right-0.5 rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group z-10"
-                          style={{
-                            top: top + 1,
-                            height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-                            backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
-                            borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
-                          }}
-                        >
-                          <div className="p-1.5 h-full flex flex-col">
-                            <p className="font-medium text-xs leading-tight truncate">{task.title}</p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                              {ent?.name} · {formatMinutes(task.estimatedMinutes)}
-                            </p>
-                          </div>
+                      return dayTasks.map(task => {
+                        const time = task.scheduledTime || '09:00';
+                        const { top, height } = getTaskPosition(time, task.estimatedMinutes, DESKTOP_SLOT_HEIGHT);
+                        const ent = getEnterprise(task.enterpriseId);
+                        const taskLayout = layout.get(task.id);
+                        const col = taskLayout?.column ?? 0;
+                        const totalCols = taskLayout?.totalColumns ?? 1;
+                        const widthPercent = 100 / totalCols;
+                        const leftPercent = col * widthPercent;
 
-                          {/* Resize controls on hover */}
-                          <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
-                            {task.estimatedMinutes > 30 && (
+                        return (
+                          <div
+                            key={task.id}
+                            draggable
+                            onDragStart={e => handleDragStart(e, task.id)}
+                            className="absolute rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group z-10"
+                            style={{
+                              top: top + 1,
+                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                              left: `calc(${leftPercent}% + 2px)`,
+                              width: `calc(${widthPercent}% - 4px)`,
+                              backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
+                              borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
+                            }}
+                          >
+                            <div className="p-1.5 h-full flex flex-col">
+                              <p className="font-medium text-xs leading-tight truncate">{task.title}</p>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                {ent?.name} · {formatMinutes(task.estimatedMinutes)}
+                              </p>
+                            </div>
+
+                            {/* Resize controls on hover */}
+                            <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
+                              {task.estimatedMinutes > 30 && (
+                                <button
+                                  onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes - 30 }); }}
+                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
+                                >
+                                  −30
+                                </button>
+                              )}
                               <button
-                                onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes - 30 }); }}
+                                onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes + 30 }); }}
                                 className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
                               >
-                                −30
+                                +30
                               </button>
-                            )}
-                            <button
-                              onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes + 30 }); }}
-                              className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
-                            >
-                              +30
-                            </button>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 );
               })}

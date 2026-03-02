@@ -136,14 +136,12 @@ export function DesktopWeekView() {
   }, []);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('text/taskId', taskId);
-    e.dataTransfer.setData('text/ritualId', '');
+    e.dataTransfer.setData('text/plain', `task:${taskId}`);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleRitualDragStart = (e: React.DragEvent, ritualId: string) => {
-    e.dataTransfer.setData('text/ritualId', ritualId);
-    e.dataTransfer.setData('text/taskId', '');
+    e.dataTransfer.setData('text/plain', `ritual:${ritualId}`);
     e.dataTransfer.effectAllowed = 'copy';
   };
 
@@ -156,21 +154,26 @@ export function DesktopWeekView() {
     const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
 
-    const ritualId = e.dataTransfer.getData('text/ritualId');
-    if (ritualId) {
-      planRitualOnDate(ritualId, dayDate, time);
+    const payload = e.dataTransfer.getData('text/plain');
+    if (payload.startsWith('ritual:')) {
+      const ritualId = payload.slice(7);
+      if (ritualId) planRitualOnDate(ritualId, dayDate, time);
       return;
     }
-
-    const taskId = e.dataTransfer.getData('text/taskId');
-    if (!taskId) return;
-    scheduleTask(taskId, dayDate, time);
+    if (payload.startsWith('task:')) {
+      const taskId = payload.slice(5);
+      if (taskId) scheduleTask(taskId, dayDate, time);
+      return;
+    }
   };
 
   const handleBacklogDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const taskId = e.dataTransfer.getData('text/taskId');
-    if (taskId) unscheduleTask(taskId);
+    const payload = e.dataTransfer.getData('text/plain');
+    if (payload.startsWith('task:')) {
+      const taskId = payload.slice(5);
+      if (taskId) unscheduleTask(taskId);
+    }
   };
 
   // Current time

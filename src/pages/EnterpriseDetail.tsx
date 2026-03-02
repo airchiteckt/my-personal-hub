@@ -214,32 +214,124 @@ const EnterpriseDetail = () => {
               <p className="text-muted-foreground text-sm">Nessun Focus Period. Definisci il tuo primo ciclo!</p>
             </Card>
           ) : (
-            focusPeriods.map(fp => (
-              <Card key={fp.id} className={`p-4 ${fp.status === 'active' ? 'ring-2 ring-primary/30' : fp.status === 'archived' ? 'opacity-60' : ''}`}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{fp.name}</h3>
-                    <Badge variant="outline" className="text-[10px]">{FOCUS_STATUS_LABELS[fp.status]}</Badge>
+            <>
+              {/* Active Focus */}
+              {(() => {
+                const active = focusPeriods.filter(fp => fp.status === 'active');
+                if (active.length === 0) return (
+                  <Card className="p-4 border-dashed text-center">
+                    <p className="text-sm text-muted-foreground">Nessun Focus Period attivo</p>
+                  </Card>
+                );
+                return active.map(fp => {
+                  const objs = getObjectivesForFocus(fp.id);
+                  const totalProgress = objs.length > 0
+                    ? Math.round(objs.reduce((s, o) => s + getObjectiveProgress(o.id), 0) / objs.length)
+                    : 0;
+                  return (
+                    <Card key={fp.id} className="p-4 ring-2 ring-primary/30 bg-primary/[0.02]">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                          <h3 className="font-semibold">{fp.name}</h3>
+                          <Badge variant="default" className="text-[10px]">Attivo</Badge>
+                        </div>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteFocusPeriod(fp.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {fnsFormat(parseISO(fp.startDate), 'd MMM yyyy', { locale: it })} – {fnsFormat(parseISO(fp.endDate), 'd MMM yyyy', { locale: it })}
+                      </p>
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                          <span>Progresso temporale</span>
+                          <span>{differenceInDays(parseISO(fp.endDate), new Date())} giorni rimanenti</span>
+                        </div>
+                        <Progress value={Math.max(0, Math.min(100, Math.round(
+                          (differenceInDays(new Date(), parseISO(fp.startDate)) / differenceInDays(parseISO(fp.endDate), parseISO(fp.startDate))) * 100
+                        )))} className="h-1.5" />
+                      </div>
+                      {objs.length > 0 && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                            <span>{objs.length} Objective</span>
+                            <span>OKR {totalProgress}%</span>
+                          </div>
+                          <Progress value={totalProgress} className="h-1.5" />
+                        </div>
+                      )}
+                    </Card>
+                  );
+                });
+              })()}
+
+              {/* Future Focus */}
+              {(() => {
+                const future = focusPeriods.filter(fp => fp.status === 'future').sort((a, b) => a.startDate.localeCompare(b.startDate));
+                if (future.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="h-3 w-3" /> Pianificati ({future.length})
+                    </h3>
+                    {future.map(fp => {
+                      const objs = getObjectivesForFocus(fp.id);
+                      return (
+                        <Card key={fp.id} className="p-3 border-dashed bg-muted/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-blue-400" />
+                              <h4 className="font-medium text-sm">{fp.name}</h4>
+                              <Badge variant="outline" className="text-[10px]">🔵 Futuro</Badge>
+                            </div>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteFocusPeriod(fp.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 ml-4">
+                            {fnsFormat(parseISO(fp.startDate), 'd MMM yyyy', { locale: it })} – {fnsFormat(parseISO(fp.endDate), 'd MMM yyyy', { locale: it })}
+                            {objs.length > 0 && ` · ${objs.length} Objective`}
+                          </p>
+                        </Card>
+                      );
+                    })}
                   </div>
-                  <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteFocusPeriod(fp.id)}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {fnsFormat(parseISO(fp.startDate), 'd MMM yyyy', { locale: it })} – {fnsFormat(parseISO(fp.endDate), 'd MMM yyyy', { locale: it })}
-                </p>
-                {fp.status === 'active' && (
-                  <div className="mt-2">
-                    <Progress value={Math.max(0, Math.min(100, Math.round(
-                      (differenceInDays(new Date(), parseISO(fp.startDate)) / differenceInDays(parseISO(fp.endDate), parseISO(fp.startDate))) * 100
-                    )))} className="h-1.5" />
-                    <p className="text-[10px] text-muted-foreground mt-1">
-                      {differenceInDays(parseISO(fp.endDate), new Date())} giorni rimanenti
-                    </p>
-                  </div>
-                )}
-              </Card>
-            ))
+                );
+              })()}
+
+              {/* Archived Focus */}
+              {(() => {
+                const archived = focusPeriods.filter(fp => fp.status === 'archived');
+                if (archived.length === 0) return null;
+                return (
+                  <Collapsible>
+                    <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">
+                      <ChevronDown className="h-3 w-3" />
+                      Archiviati ({archived.length})
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-2 mt-2">
+                      {archived.map(fp => (
+                        <Card key={fp.id} className="p-3 opacity-60">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-sm">{fp.name}</h4>
+                              <Badge variant="outline" className="text-[10px]">📦 Archiviato</Badge>
+                            </div>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteFocusPeriod(fp.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            {fnsFormat(parseISO(fp.startDate), 'd MMM yyyy', { locale: it })} – {fnsFormat(parseISO(fp.endDate), 'd MMM yyyy', { locale: it })}
+                          </p>
+                        </Card>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
+            </>
           )}
         </TabsContent>
 

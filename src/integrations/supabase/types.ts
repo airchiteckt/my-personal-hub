@@ -142,6 +142,158 @@ export type Database = {
         }
         Relationships: []
       }
+      focus_periods: {
+        Row: {
+          created_at: string
+          end_date: string
+          enterprise_id: string
+          id: string
+          name: string
+          start_date: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          enterprise_id: string
+          id?: string
+          name: string
+          start_date: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          enterprise_id?: string
+          id?: string
+          name?: string
+          start_date?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_periods_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      key_results: {
+        Row: {
+          created_at: string
+          current_value: number
+          deadline: string | null
+          enterprise_id: string
+          id: string
+          metric_type: string
+          objective_id: string
+          status: string
+          target_value: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          deadline?: string | null
+          enterprise_id: string
+          id?: string
+          metric_type?: string
+          objective_id: string
+          status?: string
+          target_value?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          deadline?: string | null
+          enterprise_id?: string
+          id?: string
+          metric_type?: string
+          objective_id?: string
+          status?: string
+          target_value?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_results_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "key_results_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objectives: {
+        Row: {
+          created_at: string
+          description: string | null
+          enterprise_id: string
+          focus_period_id: string
+          id: string
+          status: string
+          title: string
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enterprise_id: string
+          focus_period_id: string
+          id?: string
+          status?: string
+          title: string
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enterprise_id?: string
+          focus_period_id?: string
+          id?: string
+          status?: string
+          title?: string
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objectives_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "objectives_focus_period_id_fkey"
+            columns: ["focus_period_id"]
+            isOneToOne: false
+            referencedRelation: "focus_periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       priority_settings: {
         Row: {
           created_at: string
@@ -234,6 +386,8 @@ export type Database = {
           created_at: string
           enterprise_id: string
           id: string
+          is_strategic_lever: boolean
+          key_result_id: string | null
           name: string
           type: Database["public"]["Enums"]["project_type"]
           user_id: string | null
@@ -242,6 +396,8 @@ export type Database = {
           created_at?: string
           enterprise_id: string
           id?: string
+          is_strategic_lever?: boolean
+          key_result_id?: string | null
           name: string
           type?: Database["public"]["Enums"]["project_type"]
           user_id?: string | null
@@ -250,6 +406,8 @@ export type Database = {
           created_at?: string
           enterprise_id?: string
           id?: string
+          is_strategic_lever?: boolean
+          key_result_id?: string | null
           name?: string
           type?: Database["public"]["Enums"]["project_type"]
           user_id?: string | null
@@ -260,6 +418,13 @@ export type Database = {
             columns: ["enterprise_id"]
             isOneToOne: false
             referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_key_result_id_fkey"
+            columns: ["key_result_id"]
+            isOneToOne: false
+            referencedRelation: "key_results"
             referencedColumns: ["id"]
           },
         ]

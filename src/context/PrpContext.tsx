@@ -68,6 +68,7 @@ function dbToEnterprise(row: any): Enterprise {
     phase: row.phase ?? 'setup',
     businessCategory: row.business_category ?? 'scale_opportunity',
     timeHorizon: row.time_horizon ?? 'medium',
+    enterpriseType: row.enterprise_type ?? 'digital_services',
     priorityUntil: row.priority_until ?? undefined,
     createdAt: row.created_at,
   };
@@ -253,6 +254,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       phase: e.phase,
       business_category: e.businessCategory,
       time_horizon: e.timeHorizon,
+      enterprise_type: e.enterpriseType,
       priority_until: e.priorityUntil ?? null,
     }).select().single();
     if (error) { toast.error('Errore creazione impresa'); return undefined; }
@@ -271,6 +273,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.phase !== undefined) dbUpdates.phase = updates.phase;
     if (updates.businessCategory !== undefined) dbUpdates.business_category = updates.businessCategory;
     if (updates.timeHorizon !== undefined) dbUpdates.time_horizon = updates.timeHorizon;
+    if (updates.enterpriseType !== undefined) dbUpdates.enterprise_type = updates.enterpriseType;
     if (updates.priorityUntil !== undefined) dbUpdates.priority_until = updates.priorityUntil ?? null;
     await supabase.from('enterprises').update(dbUpdates).eq('id', id);
   }, []);

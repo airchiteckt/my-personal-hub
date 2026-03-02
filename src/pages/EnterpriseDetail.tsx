@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, ArrowLeft, Trash2, Check, Clock, ChevronDown, Target, TrendingUp, Layers, BarChart3, Calendar, Edit2 } from 'lucide-react';
 import { useState } from 'react';
+import { EditEnterpriseDialog } from '@/components/EditEnterpriseDialog';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS, FOCUS_STATUS_LABELS, KR_STATUS_LABELS, METRIC_TYPE_LABELS } from '@/types/prp';
@@ -42,6 +43,7 @@ const EnterpriseDetail = () => {
   const [showCreateFocus, setShowCreateFocus] = useState(false);
   const [createObjForFocus, setCreateObjForFocus] = useState<string | null>(null);
   const [createKRForObjective, setCreateKRForObjective] = useState<string | null>(null);
+  const [showEditEnterprise, setShowEditEnterprise] = useState(false);
 
   const enterprise = getEnterprise(id!);
   if (!enterprise) {
@@ -99,6 +101,9 @@ const EnterpriseDetail = () => {
             {enterpriseProjects.length} progetti · {totalTasks} task
           </p>
         </div>
+        <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9 shrink-0" onClick={() => setShowEditEnterprise(true)}>
+          <Edit2 className="h-3.5 w-3.5" />
+        </Button>
         <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9 shrink-0" onClick={() => { deleteEnterprise(id!); navigate('/enterprises'); }}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -578,6 +583,11 @@ const EnterpriseDetail = () => {
         onOpenChange={(open) => !open && setCreateKRForObjective(null)}
         enterpriseId={id!}
         objectiveId={createKRForObjective || ''}
+      />
+      <EditEnterpriseDialog
+        open={showEditEnterprise}
+        onOpenChange={setShowEditEnterprise}
+        enterprise={enterprise}
       />
     </div>
   );

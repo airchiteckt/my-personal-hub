@@ -93,6 +93,7 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
       name: name.trim(), status, color,
       strategicImportance, growthPotential, phase,
       businessCategory, timeHorizon,
+      enterpriseType: templateType,
       priorityUntil: priorityUntil ? format(priorityUntil, 'yyyy-MM-dd') : undefined,
     });
 

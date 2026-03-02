@@ -160,6 +160,7 @@ export interface Enterprise {
   phase: EnterprisePhase;
   businessCategory: BusinessCategory;
   timeHorizon: TimeHorizon;
+  enterpriseType: EnterpriseTemplateType;
   priorityUntil?: string;
   createdAt: string;
 }

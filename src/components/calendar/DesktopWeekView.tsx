@@ -20,7 +20,7 @@ import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted } = usePrp();
+  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -34,8 +34,16 @@ export function DesktopWeekView() {
   const isDraggingCreate = useRef(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
   const weekLabel = `${format(weekStart, 'd MMM', { locale: it })} — ${format(addDays(weekStart, 6), 'd MMM yyyy', { locale: it })}`;
+
+  // Flexible rituals for the week widget
+  const flexibleRituals = rituals.filter(r => r.is_active && r.planning_mode === 'flexible');
+  const getFlexibleCount = (ritualId: string) => {
+    return days.reduce((count, d) => {
+      const dateStr = format(d, 'yyyy-MM-dd');
+      return count + (ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr) ? 1 : 0);
+    }, 0);
+  };
 
   // Auto-scroll to ~8am on mount
   useEffect(() => {
@@ -100,6 +108,32 @@ export function DesktopWeekView() {
           </Button>
         </div>
       </div>
+      {/* Flexible rituals widget */}
+      {flexibleRituals.length > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-1 overflow-x-auto shrink-0">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+            <Repeat className="h-3 w-3 inline mr-1" />Rituali
+          </span>
+          {flexibleRituals.map(r => {
+            const count = getFlexibleCount(r.id);
+            const target = r.weekly_times_per_week || 2;
+            const color = getRitualCalendarColor(r.category);
+            const CatIcon = getRitualIcon(r.category);
+            const done = count >= target;
+            return (
+              <div
+                key={r.id}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap ${done ? 'opacity-50' : ''}`}
+                style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
+              >
+                <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
+                <span className="font-medium">{r.name}</span>
+                <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-1 min-h-0 gap-3">
         {/* Main grid */}
@@ -354,9 +388,9 @@ export function DesktopWeekView() {
                       );
                     })}
 
-                    {/* Ritual blocks */}
+                    {/* Ritual blocks (fixed only) */}
                     {(() => {
-                      const dayRituals = getRitualsForDate(day);
+                      const dayRituals = getRitualsForDate(day).filter(r => r.planning_mode === 'fixed');
                       return dayRituals.map(ritual => {
                         const time = ritual.suggested_time || '07:00';
                         const startSlot = timeToSlot(time);
@@ -371,17 +405,14 @@ export function DesktopWeekView() {
                           <div
                             key={`ritual-${ritual.id}`}
                             onMouseDown={e => e.stopPropagation()}
-                            className={`absolute rounded-lg overflow-hidden z-10 cursor-default ${completed ? 'opacity-40' : ''}`}
+                            className={`absolute rounded-lg overflow-hidden z-10 cursor-default border-2 border-dotted ${completed ? 'opacity-40' : ''}`}
                             style={{
                               top: top + 1,
                               height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
                               right: 2,
                               width: '45%',
-                              backgroundColor: `hsl(${color} / 0.12)`,
-                              borderLeft: `3px solid hsl(${color} / 0.6)`,
-                              borderRight: `1px solid hsl(${color} / 0.2)`,
-                              borderTop: `1px solid hsl(${color} / 0.2)`,
-                              borderBottom: `1px solid hsl(${color} / 0.2)`,
+                              backgroundColor: `hsl(${color} / 0.08)`,
+                              borderColor: `hsl(${color} / 0.4)`,
                             }}
                             title={`${ritual.name} [Rituale – ${getRitualCategoryLabel(ritual.category)}]`}
                           >
@@ -391,7 +422,7 @@ export function DesktopWeekView() {
                                 {completed && '✅ '}
                                 {ritual.name}
                               </p>
-                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
+                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
                                 <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
                                 Rituale · {getRitualCategoryLabel(ritual.category)}
                               </p>

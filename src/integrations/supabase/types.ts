@@ -566,6 +566,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          planning_mode: string
           suggested_day: number | null
           suggested_time: string | null
           updated_at: string
@@ -584,6 +585,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          planning_mode?: string
           suggested_day?: number | null
           suggested_time?: string | null
           updated_at?: string
@@ -602,6 +604,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          planning_mode?: string
           suggested_day?: number | null
           suggested_time?: string | null
           updated_at?: string

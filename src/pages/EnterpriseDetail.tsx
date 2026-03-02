@@ -20,6 +20,7 @@ import { CreateObjectiveDialog } from '@/components/enterprise/CreateObjectiveDi
 import { CreateKeyResultDialog } from '@/components/enterprise/CreateKeyResultDialog';
 import { format as fnsFormat, differenceInDays, parseISO } from 'date-fns';
 import { OkrWizard } from '@/components/enterprise/OkrWizard';
+import { EnterpriseTracking } from '@/components/enterprise/EnterpriseTracking';
 import { it } from 'date-fns/locale';
 
 const typeStyles: Record<string, string> = {
@@ -116,11 +117,12 @@ const EnterpriseDetail = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-4 h-9">
+        <TabsList className="w-full grid grid-cols-5 h-9">
           <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
           <TabsTrigger value="focus" className="text-xs">Focus</TabsTrigger>
           <TabsTrigger value="strategy" className="text-xs">Strategy</TabsTrigger>
           <TabsTrigger value="execution" className="text-xs">Execution</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-xs">Tracking</TabsTrigger>
         </TabsList>
 
         {/* ===== OVERVIEW ===== */}
@@ -560,6 +562,11 @@ const EnterpriseDetail = () => {
               );
             })
           )}
+        </TabsContent>
+
+        {/* ===== TRACKING ===== */}
+        <TabsContent value="tracking">
+          <EnterpriseTracking enterpriseId={id!} />
         </TabsContent>
       </Tabs>
 

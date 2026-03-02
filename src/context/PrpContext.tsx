@@ -289,6 +289,12 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       supabase.channel('time-entries-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }).then(({ data }) => { if (data) setTimeEntries(data.map(dbToTimeEntry)); });
       }).subscribe(),
+      supabase.channel('rituals-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'rituals', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at').then(({ data }) => { if (data) setRituals(data as RitualData[]); });
+      }).subscribe(),
+      supabase.channel('ritual-completions-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'ritual_completions', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('ritual_completions').select('id, ritual_id, completed_date').eq('user_id', userId).then(({ data }) => { if (data) setRitualCompletions(data as RitualCompletion[]); });
+      }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
   }, [userId]);

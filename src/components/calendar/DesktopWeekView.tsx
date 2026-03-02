@@ -312,7 +312,7 @@ export function DesktopWeekView() {
                   <div
                     key={day.toISOString()}
                     className={`relative border-l transition-colors select-none ${isCurrent ? 'bg-accent/20' : ''}`}
-                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.classList.add('bg-accent/30'); }}
+                    onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('bg-accent/30'); }}
                     onDragLeave={e => { e.currentTarget.classList.remove('bg-accent/30'); }}
                     onDrop={e => handleColumnDrop(e, dayDate)}
                     onMouseDown={e => {

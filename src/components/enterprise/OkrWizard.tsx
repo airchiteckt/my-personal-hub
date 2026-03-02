@@ -54,8 +54,19 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
 
+    // Quarter info
+    const now = new Date();
+    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+    const currentYear = now.getFullYear();
+    const qStart = new Date(currentYear, (currentQ - 1) * 3, 1);
+    const qEnd = new Date(currentYear, currentQ * 3, 0);
+
     return {
       enterprise: { name: enterprise.name, status: enterprise.status, businessCategory: enterprise.businessCategory, phase: enterprise.phase, timeHorizon: enterprise.timeHorizon },
+      currentDate: now.toISOString().split('T')[0],
+      currentQuarter: `Q${currentQ} ${currentYear}`,
+      quarterStartDate: qStart.toISOString().split('T')[0],
+      quarterEndDate: qEnd.toISOString().split('T')[0],
       focusPeriods: focusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
       activeFocus: activeFocus ? { name: activeFocus.name, id: activeFocus.id } : null,
       objectives: objectives.map(o => ({ title: o.title, status: o.status })),
@@ -204,6 +215,30 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   };
 
+  // Quarter helpers
+  const now = new Date();
+  const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+  const currentYear = now.getFullYear();
+  const quarterLabel = `Q${currentQ} ${currentYear}`;
+  const hasActiveFocus = !!getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active');
+
+  const getOpeningMessage = (): string => {
+    if (hasActiveFocus) {
+      const focus = getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active')!;
+      const objs = getObjectivesForFocus(focus.id);
+      if (objs.length === 0) {
+        return `🎯 Hai già un Focus attivo: **${focus.name}**.\n\nPassiamo alla parte strategica. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere in questo trimestre?`;
+      }
+      const lastObj = objs[objs.length - 1];
+      const krs = getKeyResultsForObjective(lastObj.id);
+      if (krs.length < 2) {
+        return `📊 Hai l'Objective **"${lastObj.title}"**. Definiamo come misurare il successo.\n\nQual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
+      }
+      return `✅ Hai già ${objs.length} Objective con ${krs.length} KR definiti per **${focus.name}**.\n\nVuoi aggiungere un altro Objective o raffinare quelli esistenti?`;
+    }
+    return `🎯 Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
+  };
+
   if (!isOpen) {
     return (
       <Button
@@ -212,10 +247,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         onClick={() => {
           setIsOpen(true);
           if (messages.length === 0) {
-            setMessages([{
-              role: 'assistant',
-              content: `🎯 Ciao! Sono il tuo consulente OKR per **${enterprise.name}**.\n\nTi guiderò nella definizione della strategia passo-passo. Iniziamo?\n\n📅 Qual è il periodo su cui vuoi concentrarti? (es. "Q2 2026", "Aprile-Giugno", ecc.)`
-            }]);
+            setMessages([{ role: 'assistant', content: getOpeningMessage() }]);
           }
         }}
         className="gap-1.5"

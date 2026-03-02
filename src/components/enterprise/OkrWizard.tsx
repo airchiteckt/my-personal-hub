@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Send, Sparkles, Check, Target, BarChart3, Calendar } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
-import type { Enterprise, FocusPeriod, Objective } from '@/types/prp';
+import type { Enterprise } from '@/types/prp';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type WizardAction = {
@@ -37,14 +35,21 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Track created IDs to link entities
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, pendingActions]);
+
+  // Auto-focus input when opened
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
 
   const buildContext = () => {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
@@ -54,7 +59,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
 
-    // Quarter info
     const now = new Date();
     const currentQ = Math.ceil((now.getMonth() + 1) / 3);
     const currentYear = now.getFullYear();
@@ -89,13 +93,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setInput('');
     setIsLoading(true);
 
+    // Reset textarea height
+    if (inputRef.current) inputRef.current.style.height = 'auto';
+
     try {
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: {
-          type: 'okr_wizard',
-          messages: newMessages,
-          context: buildContext(),
-        },
+        body: { type: 'okr_wizard', messages: newMessages, context: buildContext() },
       });
       if (error) throw error;
 
@@ -108,7 +111,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
       if (actions.length > 0) {
         setPendingActions(prev => [...prev, ...actions]);
-        // Auto-apply actions
         for (const action of actions) {
           await applyAction(action);
         }
@@ -130,16 +132,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           endDate: action.data.end_date,
           status: action.data.status || 'active',
         });
-        // We'll get the ID from context after re-render
-        toast.success(`✅ Focus Period "${action.data.name}" creato!`);
+        toast.success(`Focus Period "${action.data.name}" creato`);
         action.applied = true;
       } else if (action.type === 'create_objective') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
-        if (!targetFocusId) {
-          toast.error('Crea prima un Focus Period attivo');
-          return;
-        }
+        if (!targetFocusId) { toast.error('Crea prima un Focus Period attivo'); return; }
         addObjective({
           focusPeriodId: targetFocusId,
           enterpriseId: enterprise.id,
@@ -148,17 +146,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           weight: 1,
           status: 'active',
         });
-        toast.success(`✅ Objective "${action.data.title}" creato!`);
+        toast.success(`Objective "${action.data.title}" creato`);
         action.applied = true;
       } else if (action.type === 'create_key_result') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const activeFocus = focusPeriods.find(f => f.status === 'active');
         const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
         const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
-        if (!targetObjId) {
-          toast.error('Crea prima un Objective');
-          return;
-        }
+        if (!targetObjId) { toast.error('Crea prima un Objective'); return; }
         addKeyResult({
           objectiveId: targetObjId,
           enterpriseId: enterprise.id,
@@ -169,7 +164,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           deadline: action.data.deadline,
           status: 'active',
         });
-        toast.success(`✅ Key Result "${action.data.title}" creato!`);
+        toast.success(`Key Result "${action.data.title}" creato`);
         action.applied = true;
       }
       setPendingActions(prev => [...prev]);
@@ -180,7 +175,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   };
 
-  // Update created IDs when focus periods/objectives change
   useEffect(() => {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const active = focusPeriods.find(f => f.status === 'active');
@@ -198,6 +192,13 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   };
 
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    // Auto-resize
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
+  };
+
   const getActionIcon = (type: string) => {
     switch (type) {
       case 'create_focus_period': return <Calendar className="h-3 w-3" />;
@@ -209,14 +210,22 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const getActionLabel = (action: WizardAction) => {
     switch (action.type) {
-      case 'create_focus_period': return `Focus: ${action.data.name}`;
-      case 'create_objective': return `Objective: ${action.data.title}`;
-      case 'create_key_result': return `KR: ${action.data.title}`;
+      case 'create_focus_period': return action.data.name;
+      case 'create_objective': return action.data.title;
+      case 'create_key_result': return action.data.title;
       default: return action.type;
     }
   };
 
-  // Quarter helpers
+  const getActionTypeLabel = (type: string) => {
+    switch (type) {
+      case 'create_focus_period': return 'Focus';
+      case 'create_objective': return 'Objective';
+      case 'create_key_result': return 'KR';
+      default: return '';
+    }
+  };
+
   const now = new Date();
   const currentQ = Math.ceil((now.getMonth() + 1) / 3);
   const currentYear = now.getFullYear();
@@ -244,55 +253,74 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return `🎯 Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
 
+  // Closed state: CTA button
   if (!isOpen) {
     return (
-      <Button
-        variant="outline"
-        size="sm"
+      <button
         onClick={() => {
           setIsOpen(true);
           if (messages.length === 0) {
             setMessages([{ role: 'assistant', content: getOpeningMessage() }]);
           }
         }}
-        className="gap-1.5"
+        className="w-full group flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.08] hover:from-primary/[0.08] hover:to-primary/[0.14] transition-all duration-200 px-4 py-3"
       >
-        <Sparkles className="h-3.5 w-3.5" />
-        Wizard AI
-      </Button>
+        <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+        <div className="text-left flex-1 min-w-0">
+          <p className="text-sm font-medium text-foreground">Wizard AI</p>
+          <p className="text-[11px] text-muted-foreground truncate">Pianifica la strategia con l'assistente</p>
+        </div>
+        <Send className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+      </button>
     );
   }
 
+  // Open state: chat panel
   return (
-    <Card className="border-primary/20 overflow-hidden">
+    <div className="rounded-xl border border-primary/20 overflow-hidden bg-card shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-primary/5 border-b">
+      <div className="flex items-center justify-between px-3 md:px-4 py-2.5 bg-gradient-to-r from-primary/[0.06] to-primary/[0.03] border-b border-primary/10">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold">OKR Wizard AI</span>
+          <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div>
+            <span className="text-xs font-semibold text-foreground">Wizard AI</span>
+            <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">· {enterprise.name}</span>
+          </div>
         </div>
-        <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => setIsOpen(false)}>
-          Chiudi
-        </Button>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="h-6 w-6 rounded-md hover:bg-muted flex items-center justify-center transition-colors"
+        >
+          <X className="h-3.5 w-3.5 text-muted-foreground" />
+        </button>
       </div>
 
-      {/* Messages */}
-      <div ref={scrollRef} className="max-h-72 overflow-y-auto p-3 space-y-2.5">
+      {/* Messages area */}
+      <div ref={scrollRef} className="max-h-[50vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {msg.role === 'assistant' && (
+              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+                <Sparkles className="h-3 w-3 text-primary" />
+              </div>
+            )}
             <div
-              className={`max-w-[85%] rounded-xl px-3 py-2 text-xs ${
+              className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${
                 msg.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground'
+                  ? 'bg-primary text-primary-foreground rounded-br-md'
+                  : 'bg-muted/70 text-foreground rounded-bl-md'
               }`}
             >
               {msg.role === 'assistant' ? (
-                <div className="prose prose-xs max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-xs">
+                <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               ) : (
-                <p className="whitespace-pre-wrap">{msg.content}</p>
+                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
               )}
             </div>
           </div>
@@ -300,43 +328,57 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
         {/* Applied actions */}
         {pendingActions.filter(a => a.applied).map((action, i) => (
-          <div key={`action-${i}`} className="flex justify-center">
-            <Badge variant="outline" className="text-[10px] gap-1 bg-primary/5 border-primary/20">
-              {getActionIcon(action.type)}
-              <Check className="h-2.5 w-2.5 text-primary" />
-              {getActionLabel(action)}
-            </Badge>
+          <div key={`action-${i}`} className="flex justify-center py-1">
+            <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/15 px-3 py-1">
+              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">
+                {getActionIcon(action.type)}
+              </div>
+              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+              <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
+              <Check className="h-3 w-3 text-primary shrink-0" />
+            </div>
           </div>
         ))}
 
+        {/* Loading indicator */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-muted rounded-xl px-3 py-2 text-xs text-muted-foreground">
-              <span className="animate-pulse">🤔 Sto pensando...</span>
+            <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2">
+              <Sparkles className="h-3 w-3 text-primary" />
+            </div>
+            <div className="bg-muted/70 rounded-2xl rounded-bl-md px-3.5 py-2.5">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="text-[13px]">Sto pensando...</span>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Input */}
-      <div className="border-t p-2 flex gap-1.5">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Rispondi..."
-          className="text-xs h-8"
-          disabled={isLoading}
-        />
-        <Button
-          size="icon"
-          onClick={handleSend}
-          disabled={!input.trim() || isLoading}
-          className="shrink-0 h-8 w-8"
-        >
-          <Send className="h-3.5 w-3.5" />
-        </Button>
+      {/* Input area */}
+      <div className="border-t border-border/50 p-2.5 md:p-3 bg-muted/20">
+        <div className="flex items-end gap-2 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-shadow">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={handleTextareaInput}
+            onKeyDown={handleKeyDown}
+            placeholder="Scrivi qui..."
+            className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/60 min-h-[32px] max-h-[80px] py-1"
+            rows={1}
+            disabled={isLoading}
+          />
+          <Button
+            size="icon"
+            onClick={handleSend}
+            disabled={!input.trim() || isLoading}
+            className="shrink-0 h-7 w-7 rounded-lg"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
-    </Card>
+    </div>
   );
 }

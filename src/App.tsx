@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Radar from "./pages/Radar";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import PublicBooking from "./pages/PublicBooking";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
@@ -67,6 +68,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/p/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>

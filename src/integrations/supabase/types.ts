@@ -133,6 +133,45 @@ export type Database = {
           },
         ]
       }
+      booking_requests: {
+        Row: {
+          created_at: string
+          guest_email: string
+          guest_name: string
+          host_user_id: string
+          id: string
+          message: string | null
+          requested_date: string
+          requested_end_time: string
+          requested_start_time: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          guest_email: string
+          guest_name: string
+          host_user_id: string
+          id?: string
+          message?: string | null
+          requested_date: string
+          requested_end_time: string
+          requested_start_time: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          guest_email?: string
+          guest_name?: string
+          host_user_id?: string
+          id?: string
+          message?: string | null
+          requested_date?: string
+          requested_end_time?: string
+          requested_start_time?: string
+          status?: string
+        }
+        Relationships: []
+      }
       enterprises: {
         Row: {
           business_category: string
@@ -399,6 +438,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          public_slug: string | null
           updated_at: string
           user_id: string
         }
@@ -407,6 +447,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          public_slug?: string | null
           updated_at?: string
           user_id: string
         }
@@ -415,6 +456,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          public_slug?: string | null
           updated_at?: string
           user_id?: string
         }

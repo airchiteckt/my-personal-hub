@@ -6,8 +6,9 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RotateCcw, Gauge, Clock, Target, FolderKanban, Bot, Settings as SettingsIcon } from 'lucide-react';
+import { RotateCcw, Gauge, Clock, Target, FolderKanban, Bot, Settings as SettingsIcon, Link2 } from 'lucide-react';
 import { AiPromptsSettings } from '@/components/AiPromptsSettings';
+import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();
@@ -38,7 +39,11 @@ const Settings = () => {
           </TabsTrigger>
           <TabsTrigger value="ai" className="flex-1 gap-1.5">
             <Bot className="h-4 w-4" />
-            Configurazione AI
+            AI
+          </TabsTrigger>
+          <TabsTrigger value="public" className="flex-1 gap-1.5">
+            <Link2 className="h-4 w-4" />
+            Link Pubblici
           </TabsTrigger>
         </TabsList>
 
@@ -170,6 +175,10 @@ const Settings = () => {
 
         <TabsContent value="ai">
           <AiPromptsSettings />
+        </TabsContent>
+
+        <TabsContent value="public">
+          <PublicLinkSettings />
         </TabsContent>
       </Tabs>
     </div>

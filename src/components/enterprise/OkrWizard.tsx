@@ -84,15 +84,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
   // --- Per-enterprise persistent memory ---
-  const storageKey = `radar_strategy_${enterprise.id}`;
-  const loadPersistedMessages = (): Msg[] => {
+  const loadMessagesFor = (eid: string): Msg[] => {
     try {
-      const raw = localStorage.getItem(storageKey);
+      const raw = localStorage.getItem(`radar_strategy_${eid}`);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   };
 
-  const [messages, setMessages] = useState<Msg[]>(() => loadPersistedMessages());
+  const [messages, setMessages] = useState<Msg[]>(() => loadMessagesFor(enterprise.id));
   const [pendingActions, setPendingActions] = useState<WizardAction[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -105,18 +104,23 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
 
   // Persist messages to localStorage whenever they change
+  const enterpriseIdRef = useRef(enterprise.id);
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem(storageKey, JSON.stringify(messages));
+      localStorage.setItem(`radar_strategy_${enterpriseIdRef.current}`, JSON.stringify(messages));
     }
-  }, [messages, storageKey]);
+  }, [messages]);
 
   // Reset state when enterprise changes
-  const prevEnterpriseId = useRef(enterprise.id);
   useEffect(() => {
-    if (prevEnterpriseId.current !== enterprise.id) {
-      prevEnterpriseId.current = enterprise.id;
-      setMessages(loadPersistedMessages());
+    if (enterpriseIdRef.current !== enterprise.id) {
+      // Save current messages before switching
+      if (messages.length > 0) {
+        localStorage.setItem(`radar_strategy_${enterpriseIdRef.current}`, JSON.stringify(messages));
+      }
+      enterpriseIdRef.current = enterprise.id;
+      const loaded = loadMessagesFor(enterprise.id);
+      setMessages(loaded);
       setPendingActions([]);
       setInput('');
       setCreatedFocusId(activeFocusId || null);

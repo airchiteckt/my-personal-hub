@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Link2, Copy, Check, ExternalLink, CalendarDays, Building2, Briefcase, Lock } from 'lucide-react';
+import { Link2, Copy, Check, ExternalLink, CalendarDays, Building2, Briefcase, Lock, ClipboardList } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PUBLIC_PAGES = [
@@ -16,6 +16,14 @@ const PUBLIC_PAGES = [
     description: 'Permetti a chiunque di prenotare un appuntamento con te',
     icon: CalendarDays,
     path: '/opencalendar',
+    available: true,
+  },
+  {
+    key: 'openrequest',
+    label: 'Open Request',
+    description: 'Permetti a chiunque di richiederti attività — le approvi o archivi tu',
+    icon: ClipboardList,
+    path: '/openrequest',
     available: true,
   },
   {

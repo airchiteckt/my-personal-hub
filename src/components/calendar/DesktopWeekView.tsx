@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X } from 'lucide-react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
+import { EditRitualDialog } from '@/components/rituals/EditRitualDialog';
 import type { Task, Appointment } from '@/types/prp';
+import { supabase } from '@/integrations/supabase/client';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -31,10 +33,10 @@ interface RitualCalendarCardProps {
   onSkip: () => void;
   onDelete?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
+  onClick?: () => void;
 }
 
-function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart }: RitualCalendarCardProps) {
-  const [expanded, setExpanded] = useState(false);
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick }: RitualCalendarCardProps) {
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';
@@ -42,24 +44,22 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
   return (
     <div
-      draggable={canDrag && !expanded}
+      draggable={canDrag}
       onDragStart={e => { e.stopPropagation(); onDragStart?.(e); }}
       onMouseDown={e => e.stopPropagation()}
-      onClick={e => { e.stopPropagation(); setExpanded(prev => !prev); }}
-      className={`absolute rounded-lg overflow-hidden z-10 border-2 ${canDrag && !expanded ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
+      onClick={e => { e.stopPropagation(); onClick?.(); }}
+      className={`absolute rounded-lg overflow-hidden z-10 border-2 cursor-pointer group ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
       style={{
         top: top + 1,
-        height: expanded ? 'auto' : Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-        minHeight: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        left: 2,
         right: 2,
-        width: '45%',
         backgroundColor: `hsl(${color} / ${isDone ? '0.15' : isSkipped ? '0.05' : '0.08'})`,
         borderColor: `hsl(${color} / ${isDone ? '0.6' : '0.4'})`,
-        zIndex: expanded ? 30 : 10,
       }}
       title={`${ritual.name} [${isDone ? 'Completato' : isSkipped ? 'Saltato' : 'Pianificato'}]`}
     >
-      <div className="p-1.5 flex flex-col">
+      <div className="p-1.5 h-full flex flex-col">
         <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${isDone ? 'line-through' : ''}`}>
           <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
           {isDone && '✅ '}
@@ -72,42 +72,34 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
         </p>
       </div>
 
-      {/* Expanded action buttons */}
-      {expanded && isPlanned && (
-        <div className="flex items-center gap-1 px-1.5 pb-1.5">
+      {/* Quick action buttons on hover */}
+      {isPlanned && (
+        <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
           <button
             onClick={e => { e.stopPropagation(); onComplete(); }}
-            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
+            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600"
+            title="Segna completato"
           >
             <Check className="h-3 w-3" /> Fatto
           </button>
           <button
             onClick={e => { e.stopPropagation(); onSkip(); }}
-            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
+            title="Salta"
           >
             <X className="h-3 w-3" /> Salta
           </button>
-          {onDelete && (
-            <button
-              onClick={e => { e.stopPropagation(); onDelete(); }}
-              className="ml-auto text-[10px] font-medium px-1.5 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-            >
-              ×
-            </button>
-          )}
         </div>
       )}
 
-      {/* Delete/reset for done/skipped */}
-      {expanded && (isDone || isSkipped) && onDelete && (
-        <div className="flex items-center gap-1 px-1.5 pb-1.5">
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(); }}
-            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            × Rimuovi
-          </button>
-        </div>
+      {(isDone || isSkipped) && onDelete && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete(); }}
+          className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-muted-foreground hover:text-destructive"
+          title="Rimuovi"
+        >
+          ×
+        </button>
       )}
     </div>
   );
@@ -115,7 +107,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -123,6 +115,7 @@ export function DesktopWeekView() {
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+  const [editingRitual, setEditingRitual] = useState<RitualData | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -559,6 +552,7 @@ export function DesktopWeekView() {
                               }
                             }}
                             onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
+                            onClick={() => setEditingRitual(ritual)}
                           />
                         );
                       });
@@ -597,6 +591,7 @@ export function DesktopWeekView() {
                               e.dataTransfer.setData('text/plain', `ritual:${ritual.id}`);
                               e.dataTransfer.effectAllowed = 'move';
                             }}
+                            onClick={() => setEditingRitual(ritual)}
                           />
                         );
                       });
@@ -651,6 +646,31 @@ export function DesktopWeekView() {
         onOpenChange={(open) => !open && setEditingAppt(null)}
         appointment={editingAppt}
       />
+
+      {editingRitual && (
+        <EditRitualDialog
+          open={!!editingRitual}
+          onOpenChange={(open) => !open && setEditingRitual(null)}
+          enterprises={enterprises}
+          ritual={editingRitual}
+          onSubmit={async (id, data) => {
+            await supabase.from('rituals').update({
+              name: data.name,
+              category: data.category,
+              frequency: data.frequency,
+              planning_mode: data.planningMode,
+              custom_frequency_days: data.customFrequencyDays,
+              estimated_minutes: data.estimatedMinutes,
+              enterprise_id: data.enterpriseId,
+              suggested_time: data.suggestedTime,
+              description: data.description,
+              weekly_specific_days: data.weeklySpecificDays,
+              weekly_times_per_week: data.weeklyTimesPerWeek,
+            }).eq('id', id);
+            setEditingRitual(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -18,6 +18,8 @@ export function MobileDayView() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [apptDate, setApptDate] = useState<string>();
+  const [apptTime, setApptTime] = useState<string>();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -207,17 +209,9 @@ export function MobileDayView() {
         </div>
       </div>
 
-      {/* FABs */}
-      <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-2">
-        <Button
-          size="lg"
-          variant="outline"
-          className="rounded-full h-12 w-12 shadow-lg bg-card"
-          onClick={() => setShowCreateAppt(true)}
-        >
-          <CalendarClock className="h-5 w-5" />
-        </Button>
-        {backlogTasks.length > 0 && (
+      {/* Backlog FAB */}
+      {backlogTasks.length > 0 && (
+        <div className="absolute bottom-4 right-4 z-30">
           <Button
             size="lg"
             className="rounded-full h-14 w-14 shadow-lg"
@@ -225,44 +219,66 @@ export function MobileDayView() {
           >
             <Plus className="h-6 w-6" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Assign task sheet */}
+      {/* Slot action sheet */}
       <Sheet open={selectedSlot !== null} onOpenChange={() => setSelectedSlot(null)}>
         <SheetContent side="bottom" className="max-h-[70vh]">
           <SheetHeader>
             <SheetTitle>
-              Assegna task alle {selectedSlot !== null ? slotToTime(selectedSlot) : ''}
+              {selectedSlot !== null ? slotToTime(selectedSlot) : ''} — Cosa vuoi aggiungere?
             </SheetTitle>
           </SheetHeader>
-          <div className="space-y-2 mt-4 overflow-auto max-h-[50vh]">
-            {backlogTasks.length === 0 ? (
-              <p className="text-muted-foreground text-sm py-6 text-center">Nessuna task nel backlog</p>
-            ) : (
-              backlogTasks.map(task => {
-                const ent = getEnterprise(task.enterpriseId);
-                const proj = getProject(task.projectId);
-                return (
-                  <button
-                    key={task.id}
-                    className="w-full p-3 rounded-xl border text-left hover:bg-accent active:bg-accent transition-colors"
-                    style={{ borderLeft: `4px solid hsl(${ent?.color || '0 0% 50%'})` }}
-                    onClick={() => {
-                      scheduleTask(task.id, dateStr, slotToTime(selectedSlot!));
-                      setSelectedSlot(null);
-                    }}
-                   >
-                    <p className="font-medium text-sm">
-                      {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
-                      {task.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {ent?.name} · {proj?.name} · {formatMinutes(task.estimatedMinutes)}
-                    </p>
-                  </button>
-                );
-              })
+          <div className="space-y-3 mt-4">
+            {/* Create appointment option */}
+            <button
+              className="w-full p-4 rounded-xl border-2 border-dashed text-left hover:bg-accent active:bg-accent transition-colors flex items-center gap-3"
+              onClick={() => {
+                const time = slotToTime(selectedSlot!);
+                setSelectedSlot(null);
+                setApptDate(dateStr);
+                setApptTime(time);
+                setShowCreateAppt(true);
+              }}
+            >
+              <CalendarClock className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Nuovo appuntamento</p>
+                <p className="text-xs text-muted-foreground">Crea un evento con orario</p>
+              </div>
+            </button>
+
+            {/* Backlog tasks */}
+            {backlogTasks.length > 0 && (
+              <>
+                <p className="text-xs font-medium text-muted-foreground pt-1">Oppure assegna una task dal backlog:</p>
+                <div className="space-y-2 overflow-auto max-h-[40vh]">
+                  {backlogTasks.map(task => {
+                    const ent = getEnterprise(task.enterpriseId);
+                    const proj = getProject(task.projectId);
+                    return (
+                      <button
+                        key={task.id}
+                        className="w-full p-3 rounded-xl border text-left hover:bg-accent active:bg-accent transition-colors"
+                        style={{ borderLeft: `4px solid hsl(${ent?.color || '0 0% 50%'})` }}
+                        onClick={() => {
+                          scheduleTask(task.id, dateStr, slotToTime(selectedSlot!));
+                          setSelectedSlot(null);
+                        }}
+                      >
+                        <p className="font-medium text-sm">
+                          {getPriorityEmoji(getDisplayPriority(task, getProjectType(task.projectId), prioritySettings))}{' '}
+                          {task.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {ent?.name} · {proj?.name} · {formatMinutes(task.estimatedMinutes)}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         </SheetContent>
@@ -334,7 +350,8 @@ export function MobileDayView() {
       <CreateAppointmentDialog
         open={showCreateAppt}
         onOpenChange={setShowCreateAppt}
-        defaultDate={dateStr}
+        defaultDate={apptDate || dateStr}
+        defaultTime={apptTime}
       />
     </div>
   );

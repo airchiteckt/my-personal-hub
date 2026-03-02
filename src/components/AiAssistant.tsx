@@ -177,19 +177,29 @@ function useRadar() {
     if (clean.length < 3) return;
     try {
       setCallState(prev => prev !== 'idle' ? 'speaking' : prev);
+      console.log('[Radar TTS] Fetching audio for:', clean.slice(0, 60));
       const res = await fetch(TTS_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ text: clean }),
       });
-      if (!res.ok) throw new Error('TTS failed');
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => '');
+        console.error('[Radar TTS] Failed:', res.status, errBody);
+        throw new Error('TTS failed');
+      }
       const blob = await res.blob();
+      console.log('[Radar TTS] Got audio blob:', blob.size, 'bytes');
       const url = URL.createObjectURL(blob);
-      if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
-      const audio = new Audio(url);
+      
+      // Reuse existing audio element (unlocked in startCall) or create new
+      const audio = audioRef.current || new Audio();
+      audio.pause();
+      if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
+      audio.src = url;
       audioRef.current = audio;
+      
       audio.onended = () => {
         URL.revokeObjectURL(url);
-        // After speaking, restart listening if call is active
         if (callActiveRef.current) {
           setInput('');
           setTimeout(() => startContinuousListening(), 400);
@@ -197,7 +207,8 @@ function useRadar() {
           setCallState('idle');
         }
       };
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        console.error('[Radar TTS] Audio playback error:', e);
         URL.revokeObjectURL(url);
         if (callActiveRef.current) {
           setInput('');
@@ -207,7 +218,9 @@ function useRadar() {
         }
       };
       await audio.play();
-    } catch {
+      console.log('[Radar TTS] Playing audio');
+    } catch (err) {
+      console.error('[Radar TTS] Error:', err);
       if (callActiveRef.current) {
         setInput('');
         setTimeout(() => startContinuousListening(), 400);
@@ -350,6 +363,17 @@ function useRadar() {
     setCallDuration(0);
     setInput('');
     
+    // Unlock audio element in user gesture context (autoplay policy)
+    try {
+      const unlockAudio = new Audio();
+      unlockAudio.volume = 0;
+      await unlockAudio.play().catch(() => {});
+      unlockAudio.pause();
+      // Create a persistent audio element that's now unlocked
+      audioRef.current = new Audio();
+      audioRef.current.preload = 'auto';
+    } catch {}
+    
     // Start call timer
     callTimerRef.current = setInterval(() => {
       setCallDuration(prev => prev + 1);
@@ -466,13 +490,13 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
         {callActive && (
           <>
             <motion.div
-              className="absolute rounded-full border-2 border-primary/10"
+              className="absolute rounded-full border-2 border-primary/10 pointer-events-none"
               style={{ width: 180, height: 180, left: -50, top: -50 }}
               animate={callState === 'listening' ? { scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] } : callState === 'speaking' ? { scale: [1, 1.15, 1], opacity: [0.3, 0.1, 0.3] } : {}}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
             <motion.div
-              className="absolute rounded-full border-2 border-primary/15"
+              className="absolute rounded-full border-2 border-primary/15 pointer-events-none"
               style={{ width: 140, height: 140, left: -30, top: -30 }}
               animate={callState === 'listening' ? { scale: [1, 1.2, 1], opacity: [0.5, 0.1, 0.5] } : callState === 'speaking' ? { scale: [1, 1.1, 1], opacity: [0.4, 0.15, 0.4] } : {}}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
@@ -567,8 +591,8 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          onClick={endCall}
-          className="mt-8 h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all"
+          onClick={(e) => { e.stopPropagation(); endCall(); }}
+          className="relative z-10 mt-8 h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
           <PhoneOff className="h-5 w-5" />
         </motion.button>

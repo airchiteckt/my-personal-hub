@@ -426,10 +426,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   // --- Action apply ---
   const applyAction = async (action: WizardAction) => {
     try {
+      let appliedLabel = '';
       if (action.type === 'create_focus_period') {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
         action.applied = true;
+        appliedLabel = `Focus Period "${action.data.name}"`;
       } else if (action.type === 'create_objective') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
@@ -437,6 +439,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         addObjective({ focusPeriodId: targetFocusId, enterpriseId: enterprise.id, title: action.data.title, description: action.data.description, weight: 1, status: 'active' });
         toast.success(`Objective "${action.data.title}" creato`);
         action.applied = true;
+        appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const activeFocus = focusPeriods.find(f => f.status === 'active');
@@ -446,13 +449,34 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         addKeyResult({ objectiveId: targetObjId, enterpriseId: enterprise.id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'percentage', deadline: action.data.deadline, status: 'active' });
         toast.success(`Key Result "${action.data.title}" creato`);
         action.applied = true;
+        appliedLabel = `Key Result "${action.data.title}"`;
       }
       setPendingActions(prev => [...prev]);
       onCreated?.();
+
+      // Auto-continue: send a follow-up message to AI so it proceeds to next step
+      if (action.applied && appliedLabel) {
+        // Small delay to let state update
+        setTimeout(() => {
+          const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
+          doSend(continuationMsg, false);
+        }, 600);
+      }
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
     }
+  };
+
+  // --- Action reject ---
+  const rejectAction = (action: WizardAction) => {
+    action.rejected = true;
+    setPendingActions(prev => [...prev]);
+    // Tell AI to try again or move on
+    setTimeout(() => {
+      const label = action.data?.name || action.data?.title || action.type;
+      doSend(`[Rifiutato: ${label}. Proponi un'alternativa o procedi al prossimo passo.]`, false);
+    }, 400);
   };
 
   useEffect(() => {
@@ -643,7 +667,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
                 <button onClick={() => applyAction(action)} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
                   <Check className="h-3 w-3 text-primary" />
                 </button>
-                <button onClick={() => { action.rejected = true; setPendingActions(prev => [...prev]); toast('Azione rifiutata'); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
+                <button onClick={() => rejectAction(action)} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
                   <X className="h-3 w-3 text-destructive" />
                 </button>
               </div>
@@ -720,7 +744,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               <button onClick={() => applyAction(action)} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
                 <Check className="h-3 w-3 text-primary" />
               </button>
-              <button onClick={() => { action.rejected = true; setPendingActions(prev => [...prev]); toast('Azione rifiutata'); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
+              <button onClick={() => rejectAction(action)} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
                 <X className="h-3 w-3 text-destructive" />
               </button>
             </div>

@@ -1,11 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task } from '@/types/prp';
+import { Enterprise, Project, Task, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType } from '@/types/prp';
 import { format } from 'date-fns';
+import { sortByEffectivePriority } from '@/lib/priority-engine';
 
 interface PrpContextType {
   enterprises: Enterprise[];
   projects: Project[];
   tasks: Task[];
+  prioritySettings: PrioritySettings;
+  setPrioritySettings: (s: PrioritySettings) => void;
   addEnterprise: (e: Omit<Enterprise, 'id' | 'createdAt'>) => void;
   updateEnterprise: (id: string, updates: Partial<Enterprise>) => void;
   deleteEnterprise: (id: string) => void;
@@ -20,10 +23,12 @@ interface PrpContextType {
   unscheduleTask: (id: string) => void;
   getEnterprise: (id: string) => Enterprise | undefined;
   getProject: (id: string) => Project | undefined;
+  getProjectType: (projectId: string) => ProjectType;
   getProjectsForEnterprise: (enterpriseId: string) => Project[];
   getTasksForProject: (projectId: string) => Task[];
   getTasksForDate: (date: string) => Task[];
   getBacklogTasks: () => Task[];
+  getSortedBacklogTasks: () => Task[];
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -44,12 +49,12 @@ const DEMO_PROJECTS: Project[] = [
 ];
 
 const DEMO_TASKS: Task[] = [
-  { id: 't1', enterpriseId: 'e1', projectId: 'p1', title: 'Firma contratto affitto', estimatedMinutes: 60, priority: 'high', status: 'backlog', isRecurring: false, createdAt: new Date().toISOString() },
-  { id: 't2', enterpriseId: 'e1', projectId: 'p1', title: 'Ordine attrezzature cucina', estimatedMinutes: 120, priority: 'medium', status: 'backlog', isRecurring: false, createdAt: new Date().toISOString() },
+  { id: 't1', enterpriseId: 'e1', projectId: 'p1', title: 'Firma contratto affitto', estimatedMinutes: 60, priority: 'high', status: 'backlog', isRecurring: false, impact: 3, effort: 1, createdAt: new Date().toISOString() },
+  { id: 't2', enterpriseId: 'e1', projectId: 'p1', title: 'Ordine attrezzature cucina', estimatedMinutes: 120, priority: 'medium', status: 'backlog', isRecurring: false, impact: 2, effort: 2, createdAt: new Date().toISOString() },
   { id: 't3', enterpriseId: 'e1', projectId: 'p2', title: 'Setup social media', estimatedMinutes: 90, priority: 'medium', status: 'scheduled', scheduledDate: today, scheduledTime: '09:00', isRecurring: false, createdAt: new Date().toISOString() },
-  { id: 't4', enterpriseId: 'e2', projectId: 'p3', title: 'Design wireframes', estimatedMinutes: 180, priority: 'high', status: 'scheduled', scheduledDate: today, scheduledTime: '11:00', isRecurring: false, createdAt: new Date().toISOString() },
-  { id: 't5', enterpriseId: 'e2', projectId: 'p3', title: 'Setup database schema', estimatedMinutes: 120, priority: 'medium', status: 'backlog', isRecurring: false, createdAt: new Date().toISOString() },
-  { id: 't6', enterpriseId: 'e2', projectId: 'p4', title: 'Revisione documenti fiscali', estimatedMinutes: 45, priority: 'low', status: 'backlog', isRecurring: false, createdAt: new Date().toISOString() },
+  { id: 't4', enterpriseId: 'e2', projectId: 'p3', title: 'Design wireframes', estimatedMinutes: 180, priority: 'high', status: 'scheduled', scheduledDate: today, scheduledTime: '11:00', isRecurring: false, impact: 3, effort: 2, createdAt: new Date().toISOString() },
+  { id: 't5', enterpriseId: 'e2', projectId: 'p3', title: 'Setup database schema', estimatedMinutes: 120, priority: 'medium', status: 'backlog', isRecurring: false, impact: 3, effort: 3, createdAt: new Date().toISOString() },
+  { id: 't6', enterpriseId: 'e2', projectId: 'p4', title: 'Revisione documenti fiscali', estimatedMinutes: 45, priority: 'low', status: 'backlog', isRecurring: false, impact: 1, effort: 1, createdAt: new Date().toISOString() },
 ];
 
 function safeLoad<T>(key: string, fallback: T): T {
@@ -66,10 +71,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [enterprises, setEnterprises] = useState<Enterprise[]>(() => safeLoad('prp-enterprises', DEMO_ENTERPRISES));
   const [projects, setProjects] = useState<Project[]>(() => safeLoad('prp-projects', DEMO_PROJECTS));
   const [tasks, setTasks] = useState<Task[]>(() => safeLoad('prp-tasks', DEMO_TASKS));
+  const [prioritySettings, setPrioritySettingsState] = useState<PrioritySettings>(() => safeLoad('prp-priority-settings', DEFAULT_PRIORITY_SETTINGS));
 
   useEffect(() => { localStorage.setItem('prp-enterprises', JSON.stringify(enterprises)); }, [enterprises]);
   useEffect(() => { localStorage.setItem('prp-projects', JSON.stringify(projects)); }, [projects]);
   useEffect(() => { localStorage.setItem('prp-tasks', JSON.stringify(tasks)); }, [tasks]);
+  useEffect(() => { localStorage.setItem('prp-priority-settings', JSON.stringify(prioritySettings)); }, [prioritySettings]);
+
+  const setPrioritySettings = useCallback((s: PrioritySettings) => setPrioritySettingsState(s), []);
 
   const addEnterprise = useCallback((e: Omit<Enterprise, 'id' | 'createdAt'>) => {
     setEnterprises(prev => [...prev, { ...e, id: genId(), createdAt: new Date().toISOString() }]);
@@ -113,20 +122,28 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   const getEnterprise = useCallback((id: string) => enterprises.find(e => e.id === id), [enterprises]);
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects]);
+  const getProjectType = useCallback((projectId: string): ProjectType => {
+    const p = projects.find(p => p.id === projectId);
+    return p?.type ?? 'operational';
+  }, [projects]);
   const getProjectsForEnterprise = useCallback((eid: string) => projects.filter(p => p.enterpriseId === eid), [projects]);
   const getTasksForProject = useCallback((pid: string) => tasks.filter(t => t.projectId === pid), [tasks]);
   const getTasksForDate = useCallback((date: string) => tasks.filter(t => t.scheduledDate === date && t.status !== 'done'), [tasks]);
   const getBacklogTasks = useCallback(() => tasks.filter(t => t.status === 'backlog'), [tasks]);
+  const getSortedBacklogTasks = useCallback(() => {
+    const backlog = tasks.filter(t => t.status === 'backlog');
+    return sortByEffectivePriority(backlog, getProjectType, prioritySettings);
+  }, [tasks, getProjectType, prioritySettings]);
 
   return (
     <PrpContext.Provider value={{
-      enterprises, projects, tasks,
+      enterprises, projects, tasks, prioritySettings, setPrioritySettings,
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
       addTask, updateTask, deleteTask,
       scheduleTask, completeTask, unscheduleTask,
-      getEnterprise, getProject, getProjectsForEnterprise, getTasksForProject,
-      getTasksForDate, getBacklogTasks,
+      getEnterprise, getProject, getProjectType, getProjectsForEnterprise, getTasksForProject,
+      getTasksForDate, getBacklogTasks, getSortedBacklogTasks,
     }}>
       {children}
     </PrpContext.Provider>

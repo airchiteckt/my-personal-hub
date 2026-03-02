@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_prompts: {
+        Row: {
+          created_at: string
+          description: string | null
+          function_key: string
+          id: string
+          is_active: boolean
+          label: string
+          system_prompt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          function_key: string
+          id?: string
+          is_active?: boolean
+          label: string
+          system_prompt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          function_key?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          system_prompt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       enterprises: {
         Row: {
           color: string

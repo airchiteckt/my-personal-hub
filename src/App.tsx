@@ -14,6 +14,7 @@ import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import Radar from "./pages/Radar";
 import Requests from "./pages/Requests";
+import Rituals from "./pages/Rituals";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PublicBooking from "./pages/PublicBooking";
@@ -47,6 +48,7 @@ function ProtectedRoutes() {
           <Route path="/radar" element={<Radar />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
+          <Route path="/rituals" element={<Rituals />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -519,6 +519,100 @@ export type Database = {
           },
         ]
       }
+      ritual_completions: {
+        Row: {
+          completed_date: string
+          created_at: string
+          id: string
+          notes: string | null
+          ritual_id: string
+          user_id: string
+        }
+        Insert: {
+          completed_date: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ritual_id: string
+          user_id: string
+        }
+        Update: {
+          completed_date?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ritual_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ritual_completions_ritual_id_fkey"
+            columns: ["ritual_id"]
+            isOneToOne: false
+            referencedRelation: "rituals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rituals: {
+        Row: {
+          category: string
+          created_at: string
+          custom_frequency_days: number[] | null
+          description: string | null
+          enterprise_id: string | null
+          estimated_minutes: number
+          frequency: string
+          id: string
+          is_active: boolean
+          name: string
+          suggested_day: number | null
+          suggested_time: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          custom_frequency_days?: number[] | null
+          description?: string | null
+          enterprise_id?: string | null
+          estimated_minutes?: number
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          suggested_day?: number | null
+          suggested_time?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          custom_frequency_days?: number[] | null
+          description?: string | null
+          enterprise_id?: string | null
+          estimated_minutes?: number
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          suggested_day?: number | null
+          suggested_time?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rituals_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_requests: {
         Row: {
           admin_notes: string | null

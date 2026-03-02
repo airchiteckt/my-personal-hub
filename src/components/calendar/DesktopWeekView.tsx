@@ -136,14 +136,14 @@ export function DesktopWeekView() {
   }, []);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('taskId', taskId);
-    e.dataTransfer.clearData('ritualId');
+    e.dataTransfer.setData('text/taskId', taskId);
+    e.dataTransfer.setData('text/ritualId', '');
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleRitualDragStart = (e: React.DragEvent, ritualId: string) => {
-    e.dataTransfer.setData('ritualId', ritualId);
-    e.dataTransfer.clearData('taskId');
+    e.dataTransfer.setData('text/ritualId', ritualId);
+    e.dataTransfer.setData('text/taskId', '');
     e.dataTransfer.effectAllowed = 'copy';
   };
 
@@ -156,20 +156,20 @@ export function DesktopWeekView() {
     const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
 
-    const ritualId = e.dataTransfer.getData('ritualId');
+    const ritualId = e.dataTransfer.getData('text/ritualId');
     if (ritualId) {
       planRitualOnDate(ritualId, dayDate, time);
       return;
     }
 
-    const taskId = e.dataTransfer.getData('taskId');
+    const taskId = e.dataTransfer.getData('text/taskId');
     if (!taskId) return;
     scheduleTask(taskId, dayDate, time);
   };
 
   const handleBacklogDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    const taskId = e.dataTransfer.getData('taskId');
+    const taskId = e.dataTransfer.getData('text/taskId');
     if (taskId) unscheduleTask(taskId);
   };
 

@@ -28,9 +28,9 @@ export function MobileDayView() {
   const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings } = usePrp();
   const dayAppts = getAppointmentsForDate(dateStr);
 
-  const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && t.status !== 'done');
+  const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && (t.status === 'scheduled' || t.status === 'done'));
   const backlogTasks = getSortedBacklogTasks();
-  const totalMinutes = dayTasks.reduce((s, t) => s + t.estimatedMinutes, 0);
+  const totalMinutes = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
 
   const isViewingToday = isToday(selectedDate);
 
@@ -140,10 +140,11 @@ export function MobileDayView() {
               const widthPercent = 100 / totalCols;
               const leftPercent = col * widthPercent;
 
+              const isDone = task.status === 'done';
               return (
                 <div
                   key={task.id}
-                  className="absolute rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10"
+                  className={`absolute rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10 ${isDone ? 'opacity-40' : ''}`}
                   style={{
                     top,
                     height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
@@ -155,8 +156,8 @@ export function MobileDayView() {
                   onClick={() => setSelectedTask(task)}
                 >
                   <div className="p-2.5 h-full flex flex-col justify-center">
-                    <p className="font-medium text-sm leading-tight truncate">
-                      {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
+                    <p className={`font-medium text-sm leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                      {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
                       {task.title}
                     </p>
                     <div className="flex items-center gap-2 mt-1">

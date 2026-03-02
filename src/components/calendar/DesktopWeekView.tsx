@@ -11,12 +11,16 @@ import {
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 import { SmartBacklog } from './SmartBacklog';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
+import { CalendarCreateChoice } from './CalendarCreateChoice';
+import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showChoice, setShowChoice] = useState(false);
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
 
   // Drag-to-create state
@@ -180,7 +184,7 @@ export function DesktopWeekView() {
                         endTime: slotToTime(Math.max(startSlot + 1, endSlot)),
                       });
                       setDragCreate(null);
-                      setShowCreateAppt(true);
+                      setShowChoice(true);
                     }}
                     onMouseLeave={() => {
                       if (isDraggingCreate.current) {
@@ -349,9 +353,25 @@ export function DesktopWeekView() {
         />
       </div>
 
+      <CalendarCreateChoice
+        open={showChoice}
+        onOpenChange={setShowChoice}
+        timeLabel={`${apptDefaults.date ?? ''} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}`}
+        onChooseAppointment={() => { setShowChoice(false); setShowCreateAppt(true); }}
+        onChooseTask={() => { setShowChoice(false); setShowCreateTask(true); }}
+      />
+
       <CreateAppointmentDialog
         open={showCreateAppt}
         onOpenChange={setShowCreateAppt}
+        defaultDate={apptDefaults.date}
+        defaultTime={apptDefaults.startTime}
+        defaultEndTime={apptDefaults.endTime}
+      />
+
+      <CalendarCreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
         defaultDate={apptDefaults.date}
         defaultTime={apptDefaults.startTime}
         defaultEndTime={apptDefaults.endTime}

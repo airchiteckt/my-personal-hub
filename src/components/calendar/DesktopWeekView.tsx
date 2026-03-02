@@ -20,7 +20,7 @@ import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions } = usePrp();
+  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, completeRitualOnDate } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -36,13 +36,19 @@ export function DesktopWeekView() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekLabel = `${format(weekStart, 'd MMM', { locale: it })} — ${format(addDays(weekStart, 6), 'd MMM yyyy', { locale: it })}`;
 
-  // Flexible rituals for the week widget
-  const flexibleRituals = rituals.filter(r => r.is_active && r.planning_mode === 'flexible');
-  const getFlexibleCount = (ritualId: string) => {
+  // All active rituals for the drag widget
+  const activeRituals = rituals.filter(r => r.is_active);
+  const getWeeklyCount = (ritualId: string) => {
     return days.reduce((count, d) => {
       const dateStr = format(d, 'yyyy-MM-dd');
       return count + (ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr) ? 1 : 0);
     }, 0);
+  };
+  const getWeeklyTarget = (ritual: typeof activeRituals[0]) => {
+    if (ritual.planning_mode === 'flexible') return ritual.weekly_times_per_week || 2;
+    if (ritual.frequency === 'daily') return 7;
+    if (ritual.weekly_specific_days?.length) return ritual.weekly_specific_days.length;
+    return 1;
   };
 
   // Auto-scroll to ~8am on mount
@@ -54,18 +60,32 @@ export function DesktopWeekView() {
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('taskId', taskId);
+    e.dataTransfer.clearData('ritualId');
     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleRitualDragStart = (e: React.DragEvent, ritualId: string) => {
+    e.dataTransfer.setData('ritualId', ritualId);
+    e.dataTransfer.clearData('taskId');
+    e.dataTransfer.effectAllowed = 'copy';
   };
 
   const handleColumnDrop = (e: React.DragEvent, dayDate: string) => {
     e.preventDefault();
     e.currentTarget.classList.remove('bg-accent/30');
+    
+    const ritualId = e.dataTransfer.getData('ritualId');
+    if (ritualId) {
+      // Dropping a ritual on a day → mark as completed for that date
+      completeRitualOnDate(ritualId, dayDate);
+      return;
+    }
+
     const taskId = e.dataTransfer.getData('taskId');
     if (!taskId) return;
 
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
-    // Subtract header height (approx 60px for the sticky header)
     const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
     scheduleTask(taskId, dayDate, time);
@@ -108,23 +128,26 @@ export function DesktopWeekView() {
           </Button>
         </div>
       </div>
-      {/* Flexible rituals widget */}
-      {flexibleRituals.length > 0 && (
-        <div className="flex items-center gap-3 mb-3 px-1 overflow-x-auto shrink-0">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap">
+      {/* Rituals drag widget */}
+      {activeRituals.length > 0 && (
+        <div className="flex items-center gap-2 mb-3 px-1 overflow-x-auto shrink-0">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
             <Repeat className="h-3 w-3 inline mr-1" />Rituali
           </span>
-          {flexibleRituals.map(r => {
-            const count = getFlexibleCount(r.id);
-            const target = r.weekly_times_per_week || 2;
+          {activeRituals.map(r => {
+            const count = getWeeklyCount(r.id);
+            const target = getWeeklyTarget(r);
             const color = getRitualCalendarColor(r.category);
             const CatIcon = getRitualIcon(r.category);
             const done = count >= target;
             return (
               <div
                 key={r.id}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap ${done ? 'opacity-50' : ''}`}
+                draggable={!done}
+                onDragStart={e => handleRitualDragStart(e, r.id)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-all ${done ? 'opacity-40 cursor-default' : 'cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02]'}`}
                 style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
+                title={done ? 'Completato questa settimana' : 'Trascina sul calendario per segnare completato'}
               >
                 <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
                 <span className="font-medium">{r.name}</span>

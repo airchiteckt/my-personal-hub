@@ -104,6 +104,11 @@ const EnterpriseDetail = () => {
         </Button>
       </div>
 
+      {/* OKR Wizard AI - always visible */}
+      <div className="mb-4">
+        <OkrWizard enterprise={enterprise} activeFocusId={activeFocus?.id} />
+      </div>
+
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="w-full grid grid-cols-4 h-9">
@@ -194,8 +199,6 @@ const EnterpriseDetail = () => {
             );
           })()}
 
-          {/* OKR Wizard AI */}
-          <OkrWizard enterprise={enterprise} activeFocusId={activeFocus?.id} />
         </TabsContent>
 
         {/* ===== FOCUS PERIOD ===== */}

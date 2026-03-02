@@ -1,17 +1,20 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { usePrp } from '@/context/PrpContext';
+import { useAuth } from '@/context/AuthContext';
 import { Task } from '@/types/prp';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Clock, GripVertical, Zap, Target, Pin, Sparkles, AlertTriangle } from 'lucide-react';
+import { Clock, GripVertical, Zap, Target, Pin, Sparkles, AlertTriangle, Bot, Loader2 } from 'lucide-react';
 import { formatMinutes, slotToTime, timeToSlot } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji, calculateEffectivePriority } from '@/lib/priority-engine';
 import {
   computeFreeTime, getTaskFitStatus, getFitEmoji, getFitLabel,
   categorizeBacklog, findSlotsForTasks,
 } from '@/lib/scheduling-utils';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Props {
   onDragStart: (e: React.DragEvent, taskId: string) => void;
@@ -19,12 +22,15 @@ interface Props {
 }
 
 export function SmartBacklog({ onDragStart, onDrop }: Props) {
+  const { session } = useAuth();
   const {
-    tasks, getEnterprise, getProject, getProjectType,
+    tasks, enterprises, projects, getEnterprise, getProject, getProjectType,
     getSortedBacklogTasks, prioritySettings, scheduleTask,
   } = usePrp();
   const [autoOrder, setAutoOrder] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const todayTasks = useMemo(
@@ -66,6 +72,73 @@ export function SmartBacklog({ onDragStart, onDrop }: Props) {
   // High impact suggestion count
   const highImpactCount = sections.planToday.length + sections.highStrategic.length;
   const suggestedCount = Math.min(highImpactCount, Math.floor(freeMinutes / 60));
+
+  const fetchAiInsight = async () => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    setAiInsight(null);
+    try {
+      const context = {
+        freeMinutes,
+        todayDate: todayStr,
+        enterprises: enterprises.map(e => ({ name: e.name, status: e.status })),
+        projects: projects.map(p => ({ name: p.name, type: p.type })),
+        backlogTasks: backlogTasks.slice(0, 10).map(t => ({
+          title: t.title, priority: t.priority, estimatedMinutes: t.estimatedMinutes,
+          deadline: t.deadline, scheduledDate: t.scheduledDate,
+        })),
+        scheduledToday: todayTasks.map(t => ({
+          title: t.title, scheduledTime: t.scheduledTime, estimatedMinutes: t.estimatedMinutes,
+        })),
+      };
+
+      const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+      const resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          type: 'reminder',
+          messages: [{ role: 'user', content: 'Analizza il mio backlog e la giornata di oggi. Dammi un feedback operativo breve: cosa dovrei prioritizzare, rischi di scadenza, e un consiglio pratico. Max 3-4 frasi.' }],
+          context,
+        }),
+      });
+
+      if (!resp.ok) throw new Error('Errore AI');
+      if (!resp.body) throw new Error('No stream');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = '';
+      let result = '';
+
+      let streamDone = false;
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = textBuffer.indexOf('\n')) !== -1) {
+          let line = textBuffer.slice(0, idx);
+          textBuffer = textBuffer.slice(idx + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (!line.startsWith('data: ')) continue;
+          const json = line.slice(6).trim();
+          if (json === '[DONE]') { streamDone = true; break; }
+          try {
+            const parsed = JSON.parse(json);
+            const c = parsed.choices?.[0]?.delta?.content;
+            if (c) { result += c; setAiInsight(result); }
+          } catch { textBuffer = line + '\n' + textBuffer; break; }
+        }
+      }
+    } catch (e: any) {
+      toast.error(e?.message || 'Errore AI');
+    }
+    setAiLoading(false);
+  };
 
   return (
     <div
@@ -111,6 +184,27 @@ export function SmartBacklog({ onDragStart, onDrop }: Props) {
               <AlertTriangle className="h-3.5 w-3.5" />
               <span>Giornata piena</span>
             </div>
+          </div>
+        )}
+
+        {/* AI Insight */}
+        {backlogTasks.length > 0 && (
+          <div className="space-y-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full h-7 text-[11px] gap-1.5"
+              onClick={fetchAiInsight}
+              disabled={aiLoading}
+            >
+              {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Bot className="h-3 w-3" />}
+              {aiLoading ? 'Analisi...' : 'Feedback AI'}
+            </Button>
+            {aiInsight && (
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5">
+                <p className="text-[11px] leading-relaxed text-foreground whitespace-pre-wrap">{aiInsight}</p>
+              </div>
+            )}
           </div>
         )}
       </div>

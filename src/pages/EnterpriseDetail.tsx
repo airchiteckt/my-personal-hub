@@ -112,7 +112,7 @@ const EnterpriseDetail = () => {
 
       {/* OKR Wizard AI - always visible */}
       <div className="mb-4">
-        <OkrWizard enterprise={enterprise} activeFocusId={activeFocus?.id} />
+        <OkrWizard key={enterprise.id} enterprise={enterprise} activeFocusId={activeFocus?.id} />
       </div>
 
       {/* Tabs */}

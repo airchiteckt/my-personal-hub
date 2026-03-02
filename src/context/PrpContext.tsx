@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType } from '@/types/prp';
+import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,9 @@ interface PrpContextType {
   projects: Project[];
   tasks: Task[];
   appointments: Appointment[];
+  focusPeriods: FocusPeriod[];
+  objectives: Objective[];
+  keyResults: KeyResult[];
   prioritySettings: PrioritySettings;
   loading: boolean;
   setPrioritySettings: (s: PrioritySettings) => void;
@@ -29,6 +32,15 @@ interface PrpContextType {
   addAppointment: (a: Omit<Appointment, 'id' | 'createdAt'>) => void;
   updateAppointment: (id: string, updates: Partial<Appointment>) => void;
   deleteAppointment: (id: string) => void;
+  addFocusPeriod: (f: Omit<FocusPeriod, 'id' | 'createdAt'>) => void;
+  updateFocusPeriod: (id: string, updates: Partial<FocusPeriod>) => void;
+  deleteFocusPeriod: (id: string) => void;
+  addObjective: (o: Omit<Objective, 'id' | 'createdAt'>) => void;
+  updateObjective: (id: string, updates: Partial<Objective>) => void;
+  deleteObjective: (id: string) => void;
+  addKeyResult: (kr: Omit<KeyResult, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateKeyResult: (id: string, updates: Partial<KeyResult>) => void;
+  deleteKeyResult: (id: string) => void;
   getEnterprise: (id: string) => Enterprise | undefined;
   getProject: (id: string) => Project | undefined;
   getProjectType: (projectId: string) => ProjectType;
@@ -38,6 +50,11 @@ interface PrpContextType {
   getAppointmentsForDate: (date: string) => Appointment[];
   getBacklogTasks: () => Task[];
   getSortedBacklogTasks: () => Task[];
+  getFocusPeriodsForEnterprise: (enterpriseId: string) => FocusPeriod[];
+  getObjectivesForFocus: (focusPeriodId: string) => Objective[];
+  getKeyResultsForObjective: (objectiveId: string) => KeyResult[];
+  getProjectsForKeyResult: (keyResultId: string) => Project[];
+  getTasksForEnterprise: (enterpriseId: string) => Task[];
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -56,7 +73,7 @@ function dbToEnterprise(row: any): Enterprise {
   };
 }
 function dbToProject(row: any): Project {
-  return { id: row.id, enterpriseId: row.enterprise_id, name: row.name, type: row.type, createdAt: row.created_at };
+  return { id: row.id, enterpriseId: row.enterprise_id, name: row.name, type: row.type, createdAt: row.created_at, keyResultId: row.key_result_id ?? undefined, isStrategicLever: row.is_strategic_lever ?? false };
 }
 function dbToTask(row: any): Task {
   return {
@@ -75,6 +92,28 @@ function dbToAppointment(row: any): Appointment {
     title: row.title, description: row.description ?? undefined,
     date: row.date, startTime: row.start_time, endTime: row.end_time,
     color: row.color ?? undefined, createdAt: row.created_at,
+  };
+}
+function dbToFocusPeriod(row: any): FocusPeriod {
+  return {
+    id: row.id, enterpriseId: row.enterprise_id, name: row.name,
+    startDate: row.start_date, endDate: row.end_date, status: row.status,
+    createdAt: row.created_at,
+  };
+}
+function dbToObjective(row: any): Objective {
+  return {
+    id: row.id, focusPeriodId: row.focus_period_id, enterpriseId: row.enterprise_id,
+    title: row.title, description: row.description ?? undefined, weight: row.weight ?? 1,
+    status: row.status, createdAt: row.created_at,
+  };
+}
+function dbToKeyResult(row: any): KeyResult {
+  return {
+    id: row.id, objectiveId: row.objective_id, enterpriseId: row.enterprise_id,
+    title: row.title, targetValue: Number(row.target_value), currentValue: Number(row.current_value),
+    metricType: row.metric_type, deadline: row.deadline ?? undefined,
+    status: row.status, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 function dbToSettings(row: any): PrioritySettings {
@@ -102,6 +141,9 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [focusPeriods, setFocusPeriods] = useState<FocusPeriod[]>([]);
+  const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [keyResults, setKeyResults] = useState<KeyResult[]>([]);
   const [prioritySettings, setPrioritySettingsState] = useState<PrioritySettings>(DEFAULT_PRIORITY_SETTINGS);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,23 +155,28 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('priority_settings').select('*').eq('user_id', userId).limit(1).maybeSingle(),
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('objectives').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('key_results').select('*').eq('user_id', userId).order('created_at'),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
       if (tRes.data) setTasks(tRes.data.map(dbToTask));
       if (aRes.data) setAppointments(aRes.data.map(dbToAppointment));
+      if (fpRes.data) setFocusPeriods(fpRes.data.map(dbToFocusPeriod));
+      if (oRes.data) setObjectives(oRes.data.map(dbToObjective));
+      if (krRes.data) setKeyResults(krRes.data.map(dbToKeyResult));
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
         setSettingsId(sRes.data.id);
       } else {
-        // Create default settings for new user
         const { data: newSettings } = await supabase
           .from('priority_settings')
           .insert({ user_id: userId })
@@ -160,6 +207,15 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
       supabase.channel('appointments-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setAppointments(data.map(dbToAppointment)); });
+      }).subscribe(),
+      supabase.channel('focus-periods-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'focus_periods', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setFocusPeriods(data.map(dbToFocusPeriod)); });
+      }).subscribe(),
+      supabase.channel('objectives-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'objectives', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('objectives').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setObjectives(data.map(dbToObjective)); });
+      }).subscribe(),
+      supabase.channel('key-results-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'key_results', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('key_results').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setKeyResults(data.map(dbToKeyResult)); });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
@@ -229,6 +285,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const { data, error } = await supabase.from('projects').insert({
       enterprise_id: p.enterpriseId, name: p.name, type: p.type, user_id: userId,
+      key_result_id: p.keyResultId ?? null,
+      is_strategic_lever: p.isStrategicLever ?? false,
     }).select().single();
     if (error) { toast.error('Errore creazione progetto'); return; }
     setProjects(prev => [...prev, dbToProject(data)]);
@@ -239,6 +297,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.type !== undefined) dbUpdates.type = updates.type;
+    if (updates.keyResultId !== undefined) dbUpdates.key_result_id = updates.keyResultId ?? null;
+    if (updates.isStrategicLever !== undefined) dbUpdates.is_strategic_lever = updates.isStrategicLever;
     await supabase.from('projects').update(dbUpdates).eq('id', id);
   }, []);
 
@@ -334,6 +394,93 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     await supabase.from('appointments').delete().eq('id', id);
   }, []);
 
+  // --- Focus Periods CRUD ---
+  const addFocusPeriod = useCallback(async (f: Omit<FocusPeriod, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('focus_periods').insert({
+      enterprise_id: f.enterpriseId, name: f.name, start_date: f.startDate,
+      end_date: f.endDate, status: f.status, user_id: userId,
+    }).select().single();
+    if (error) { toast.error('Errore creazione focus period'); return; }
+    setFocusPeriods(prev => [...prev, dbToFocusPeriod(data)]);
+  }, [userId]);
+
+  const updateFocusPeriod = useCallback(async (id: string, updates: Partial<FocusPeriod>) => {
+    setFocusPeriods(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
+    if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    await supabase.from('focus_periods').update(dbUpdates).eq('id', id);
+  }, []);
+
+  const deleteFocusPeriod = useCallback(async (id: string) => {
+    setFocusPeriods(prev => prev.filter(f => f.id !== id));
+    setObjectives(prev => prev.filter(o => o.focusPeriodId !== id));
+    await supabase.from('focus_periods').delete().eq('id', id);
+  }, []);
+
+  // --- Objectives CRUD ---
+  const addObjective = useCallback(async (o: Omit<Objective, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('objectives').insert({
+      focus_period_id: o.focusPeriodId, enterprise_id: o.enterpriseId,
+      title: o.title, description: o.description ?? null, weight: o.weight,
+      status: o.status, user_id: userId,
+    }).select().single();
+    if (error) { toast.error('Errore creazione objective'); return; }
+    setObjectives(prev => [...prev, dbToObjective(data)]);
+  }, [userId]);
+
+  const updateObjective = useCallback(async (id: string, updates: Partial<Objective>) => {
+    setObjectives(prev => prev.map(o => o.id === id ? { ...o, ...updates } : o));
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
+    if (updates.weight !== undefined) dbUpdates.weight = updates.weight;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    await supabase.from('objectives').update(dbUpdates).eq('id', id);
+  }, []);
+
+  const deleteObjective = useCallback(async (id: string) => {
+    setObjectives(prev => prev.filter(o => o.id !== id));
+    setKeyResults(prev => prev.filter(kr => kr.objectiveId !== id));
+    await supabase.from('objectives').delete().eq('id', id);
+  }, []);
+
+  // --- Key Results CRUD ---
+  const addKeyResult = useCallback(async (kr: Omit<KeyResult, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('key_results').insert({
+      objective_id: kr.objectiveId, enterprise_id: kr.enterpriseId,
+      title: kr.title, target_value: kr.targetValue, current_value: kr.currentValue,
+      metric_type: kr.metricType, deadline: kr.deadline ?? null, status: kr.status,
+      user_id: userId,
+    }).select().single();
+    if (error) { toast.error('Errore creazione key result'); return; }
+    setKeyResults(prev => [...prev, dbToKeyResult(data)]);
+  }, [userId]);
+
+  const updateKeyResult = useCallback(async (id: string, updates: Partial<KeyResult>) => {
+    setKeyResults(prev => prev.map(kr => kr.id === id ? { ...kr, ...updates } : kr));
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
+    if (updates.currentValue !== undefined) dbUpdates.current_value = updates.currentValue;
+    if (updates.metricType !== undefined) dbUpdates.metric_type = updates.metricType;
+    if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline ?? null;
+    if (updates.status !== undefined) dbUpdates.status = updates.status;
+    await supabase.from('key_results').update(dbUpdates).eq('id', id);
+  }, []);
+
+  const deleteKeyResult = useCallback(async (id: string) => {
+    setKeyResults(prev => prev.filter(kr => kr.id !== id));
+    // Unlink projects
+    setProjects(prev => prev.map(p => p.keyResultId === id ? { ...p, keyResultId: undefined } : p));
+    await supabase.from('key_results').delete().eq('id', id);
+  }, []);
+
   const getEnterprise = useCallback((id: string) => enterprises.find(e => e.id === id), [enterprises]);
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects]);
   const getProjectType = useCallback((projectId: string): ProjectType => {
@@ -349,17 +496,28 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     const backlog = tasks.filter(t => t.status === 'backlog');
     return sortByEffectivePriority(backlog, getProjectType, prioritySettings);
   }, [tasks, getProjectType, prioritySettings]);
+  const getFocusPeriodsForEnterprise = useCallback((eid: string) => focusPeriods.filter(f => f.enterpriseId === eid), [focusPeriods]);
+  const getObjectivesForFocus = useCallback((fpId: string) => objectives.filter(o => o.focusPeriodId === fpId), [objectives]);
+  const getKeyResultsForObjective = useCallback((oId: string) => keyResults.filter(kr => kr.objectiveId === oId), [keyResults]);
+  const getProjectsForKeyResult = useCallback((krId: string) => projects.filter(p => p.keyResultId === krId), [projects]);
+  const getTasksForEnterprise = useCallback((eid: string) => tasks.filter(t => t.enterpriseId === eid), [tasks]);
 
   return (
     <PrpContext.Provider value={{
-      enterprises, projects, tasks, appointments, prioritySettings, loading, setPrioritySettings,
+      enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
+      prioritySettings, loading, setPrioritySettings,
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
       addTask, updateTask, deleteTask,
       scheduleTask, completeTask, unscheduleTask,
       addAppointment, updateAppointment, deleteAppointment,
+      addFocusPeriod, updateFocusPeriod, deleteFocusPeriod,
+      addObjective, updateObjective, deleteObjective,
+      addKeyResult, updateKeyResult, deleteKeyResult,
       getEnterprise, getProject, getProjectType, getProjectsForEnterprise, getTasksForProject,
       getTasksForDate, getAppointmentsForDate, getBacklogTasks, getSortedBacklogTasks,
+      getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective,
+      getProjectsForKeyResult, getTasksForEnterprise,
     }}>
       {children}
     </PrpContext.Provider>

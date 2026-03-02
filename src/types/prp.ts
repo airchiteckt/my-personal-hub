@@ -90,6 +90,8 @@ export interface Project {
   enterpriseId: string;
   name: string;
   type: ProjectType;
+  keyResultId?: string;
+  isStrategicLever?: boolean;
   createdAt: string;
 }
 
@@ -118,10 +120,67 @@ export interface Appointment {
   title: string;
   description?: string;
   date: string;
-  startTime: string; // HH:MM
-  endTime: string;   // HH:MM
+  startTime: string;
+  endTime: string;
   color?: string;
   createdAt: string;
+}
+
+export type FocusPeriodStatus = 'active' | 'future' | 'archived';
+export type MetricType = 'number' | 'percentage' | 'boolean';
+export type KRStatus = 'active' | 'at_risk' | 'completed';
+
+export const FOCUS_STATUS_LABELS: Record<FocusPeriodStatus, string> = {
+  active: '🟢 Attivo',
+  future: '🔵 Futuro',
+  archived: '📦 Archiviato',
+};
+
+export const KR_STATUS_LABELS: Record<KRStatus, string> = {
+  active: 'Attivo',
+  at_risk: 'A rischio',
+  completed: 'Completato',
+};
+
+export const METRIC_TYPE_LABELS: Record<MetricType, string> = {
+  number: 'Numero',
+  percentage: 'Percentuale',
+  boolean: 'Sì/No',
+};
+
+export interface FocusPeriod {
+  id: string;
+  enterpriseId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: FocusPeriodStatus;
+  createdAt: string;
+}
+
+export interface Objective {
+  id: string;
+  focusPeriodId: string;
+  enterpriseId: string;
+  title: string;
+  description?: string;
+  weight: number;
+  status: 'active' | 'completed';
+  createdAt: string;
+}
+
+export interface KeyResult {
+  id: string;
+  objectiveId: string;
+  enterpriseId: string;
+  title: string;
+  targetValue: number;
+  currentValue: number;
+  metricType: MetricType;
+  deadline?: string;
+  status: KRStatus;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PrioritySettings {

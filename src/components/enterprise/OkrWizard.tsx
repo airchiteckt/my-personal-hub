@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Compass, Rocket } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -18,6 +18,54 @@ type WizardAction = {
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
+type WizardPhase = 'focus' | 'strategy' | 'execution';
+
+const PHASES: { key: WizardPhase; label: string; icon: typeof Crosshair; description: string }[] = [
+  { key: 'focus', label: 'Focus', icon: Crosshair, description: 'Focus Period 90gg' },
+  { key: 'strategy', label: 'Strategy', icon: Compass, description: 'Objective & KR' },
+  { key: 'execution', label: 'Execution', icon: Rocket, description: 'Progetti & Task' },
+];
+
+function PhaseStepper({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
+  const currentIdx = PHASES.findIndex(p => p.key === currentPhase);
+  return (
+    <div className="px-3 md:px-4 py-2.5 border-b border-border/30 bg-muted/10">
+      <div className="flex items-center gap-1">
+        {PHASES.map((phase, i) => {
+          const isCompleted = completedPhases.includes(phase.key);
+          const isCurrent = phase.key === currentPhase;
+          const Icon = phase.icon;
+          return (
+            <div key={phase.key} className="flex items-center flex-1">
+              <div className="flex items-center gap-1.5 flex-1">
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                  isCompleted ? 'bg-primary text-primary-foreground' : isCurrent ? 'bg-primary/20 text-primary ring-2 ring-primary/30' : 'bg-muted text-muted-foreground'
+                }`}>
+                  {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                </div>
+                <div className="min-w-0 hidden sm:block">
+                  <p className={`text-[10px] font-semibold leading-tight ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                    {phase.label}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground leading-tight truncate">{phase.description}</p>
+                </div>
+                {/* Mobile: just label */}
+                <span className={`text-[10px] font-medium sm:hidden ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {phase.label}
+                </span>
+              </div>
+              {i < PHASES.length - 1 && (
+                <div className={`h-[2px] flex-1 mx-1.5 rounded-full transition-colors duration-300 ${
+                  i < currentIdx || completedPhases.includes(PHASES[i + 1].key) ? 'bg-primary' : 'bg-border'
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 interface Props {
   enterprise: Enterprise;
@@ -46,6 +94,36 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
+
+  // Phase detection
+  const { currentPhase, completedPhases } = useMemo(() => {
+    const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+    const activeFocus = focusPeriods.find(f => f.status === 'active');
+    const hasFocus = !!activeFocus;
+    const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+    const hasObjectives = objectives.length > 0;
+    const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
+    const hasKRs = keyResults.length > 0;
+    const projects = getProjectsForEnterprise(enterprise.id);
+    const hasProjects = projects.length > 0;
+
+    const completed: WizardPhase[] = [];
+    let current: WizardPhase = 'focus';
+
+    if (hasFocus) {
+      completed.push('focus');
+      current = 'strategy';
+    }
+    if (hasObjectives && hasKRs) {
+      completed.push('strategy');
+      current = 'execution';
+    }
+    if (hasProjects) {
+      completed.push('execution');
+    }
+
+    return { currentPhase: current, completedPhases: completed };
+  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, pendingActions]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');
@@ -237,6 +315,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       hasFocusPeriodCreated: !!createdFocusId,
       hasObjectiveCreated: !!createdObjectiveId,
       futureFocusPeriods: focusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
+      currentWizardPhase: currentPhase,
+      completedWizardPhases: completedPhases,
     };
   };
 
@@ -422,17 +502,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
 
   const getOpeningMessage = (): string => {
-    if (hasActiveFocus) {
+    const phaseLabel = PHASES.find(p => p.key === currentPhase)?.label || 'Focus';
+    if (currentPhase === 'execution') {
+      return `🚀 **Fase: Execution** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
+    }
+    if (currentPhase === 'strategy') {
       const focus = allFocusPeriods.find(f => f.status === 'active')!;
       const objs = getObjectivesForFocus(focus.id);
-      if (objs.length === 0) return `🎯 Hai già un Focus attivo: **${focus.name}**.\n\nPassiamo alla parte strategica. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere in questo trimestre?`;
+      if (objs.length === 0) return `🧭 **Fase: Strategy** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;
       const lastObj = objs[objs.length - 1];
       const krs = getKeyResultsForObjective(lastObj.id);
-      if (krs.length < 2) return `📊 Hai l'Objective **"${lastObj.title}"**. Definiamo come misurare il successo.\n\nQual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
-      const futureLabel = futureFocusPeriods.length > 0 ? ` Hai anche ${futureFocusPeriods.length} trimestri futuri pianificati.` : '';
-      return `✅ Hai già ${objs.length} Objective con ${krs.length} KR definiti per **${focus.name}**.${futureLabel}\n\nVuoi aggiungere un altro Objective, o pianificare il prossimo trimestre?`;
+      if (krs.length < 2) return `📊 **Fase: Strategy** — Objective: **"${lastObj.title}"**.\n\nDefiniamo i Key Results. Qual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
+      return `📊 **Fase: Strategy** — ${objs.length} Objective con ${krs.length} KR definiti.\n\nVuoi aggiungere altro o passare all'Execution?`;
     }
-    return `🎯 Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
+    return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
 
   // --- Closed state ---
@@ -524,7 +607,21 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             )}
           </AnimatePresence>
 
-          <p className="text-[10px] text-muted-foreground z-10 mb-4">{enterprise.name} · Radar Strategy</p>
+          <p className="text-[10px] text-muted-foreground z-10 mb-2">{enterprise.name} · Radar Strategy</p>
+          {/* Phase indicator in call */}
+          <div className="flex items-center gap-2 z-10 mb-4">
+            {PHASES.map((phase) => {
+              const isCompleted = completedPhases.includes(phase.key);
+              const isCurrent = phase.key === currentPhase;
+              return (
+                <div key={phase.key} className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
+                  isCompleted ? 'bg-primary/20 text-primary' : isCurrent ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'bg-muted/50 text-muted-foreground'
+                }`}>
+                  {isCompleted ? '✓ ' : ''}{phase.label}
+                </div>
+              );
+            })}
+          </div>
 
           {/* End call */}
           <button
@@ -588,6 +685,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Phase Stepper */}
+      <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
 
       {/* Messages area */}
       <div ref={scrollRef} className="max-h-[50vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3">

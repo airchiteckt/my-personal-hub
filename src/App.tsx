@@ -15,6 +15,7 @@ import Cockpit from "./pages/Cockpit";
 import Requests from "./pages/Requests";
 import Rituals from "./pages/Rituals";
 import Auth from "./pages/Auth";
+import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 import PublicBooking from "./pages/PublicBooking";
 import PublicTaskRequest from "./pages/PublicTaskRequest";
@@ -33,7 +34,7 @@ function ProtectedRoutes() {
     );
   }
 
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/home" replace />;
 
   return (
     <PrpProvider>
@@ -64,6 +65,13 @@ function AuthRoute() {
   return <Auth />;
 }
 
+function LandingRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <Landing />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -72,6 +80,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/home" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />

@@ -148,6 +148,13 @@ export function DesktopWeekView() {
                     onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('bg-accent/30'); }}
                     onDragLeave={e => { e.currentTarget.classList.remove('bg-accent/30'); }}
                     onDrop={e => handleColumnDrop(e, dayDate)}
+                    onClick={e => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+                      const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
+                      setApptDefaults({ date: dayDate, time: slotToTime(slotIndex) });
+                      setShowCreateAppt(true);
+                    }}
                   >
                     {/* Grid lines */}
                     {Array.from({ length: TOTAL_SLOTS }, (_, i) => (
@@ -193,6 +200,7 @@ export function DesktopWeekView() {
                             key={task.id}
                             draggable
                             onDragStart={e => handleDragStart(e, task.id)}
+                            onClick={e => e.stopPropagation()}
                             className="absolute rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group z-10"
                             style={{
                               top: top + 1,
@@ -248,6 +256,7 @@ export function DesktopWeekView() {
                       return (
                         <div
                           key={appt.id}
+                          onClick={e => e.stopPropagation()}
                           className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
                           style={{
                             top: top + 1,

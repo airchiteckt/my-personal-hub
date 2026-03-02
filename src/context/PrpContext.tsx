@@ -3,6 +3,7 @@ import { Enterprise, Project, Task, PrioritySettings, DEFAULT_PRIORITY_SETTINGS,
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
 interface PrpContextType {
@@ -37,7 +38,6 @@ interface PrpContextType {
 const PrpContext = createContext<PrpContextType | null>(null);
 
 // --- DB row <-> Frontend type mappers ---
-
 function dbToEnterprise(row: any): Enterprise {
   return { id: row.id, name: row.name, status: row.status, color: row.color, createdAt: row.created_at };
 }
@@ -75,6 +75,7 @@ function dbToSettings(row: any): PrioritySettings {
 }
 
 export function PrpProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -82,49 +83,66 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userId = user?.id;
+
   // --- Initial fetch ---
   useEffect(() => {
+    if (!userId) return;
+
     async function load() {
       const [eRes, pRes, tRes, sRes] = await Promise.all([
-        supabase.from('enterprises').select('*').order('created_at'),
-        supabase.from('projects').select('*').order('created_at'),
-        supabase.from('tasks').select('*').order('created_at'),
-        supabase.from('priority_settings').select('*').limit(1).single(),
+        supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('priority_settings').select('*').eq('user_id', userId).limit(1).maybeSingle(),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
       if (tRes.data) setTasks(tRes.data.map(dbToTask));
+
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
         setSettingsId(sRes.data.id);
+      } else {
+        // Create default settings for new user
+        const { data: newSettings } = await supabase
+          .from('priority_settings')
+          .insert({ user_id: userId })
+          .select()
+          .single();
+        if (newSettings) {
+          setPrioritySettingsState(dbToSettings(newSettings));
+          setSettingsId(newSettings.id);
+        }
       }
       setLoading(false);
     }
     load();
-  }, []);
+  }, [userId]);
 
   // --- Realtime subscriptions ---
   useEffect(() => {
+    if (!userId) return;
     const channels = [
-      supabase.channel('enterprises-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'enterprises' }, () => {
-        supabase.from('enterprises').select('*').order('created_at').then(({ data }) => { if (data) setEnterprises(data.map(dbToEnterprise)); });
+      supabase.channel('enterprises-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'enterprises', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setEnterprises(data.map(dbToEnterprise)); });
       }).subscribe(),
-      supabase.channel('projects-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => {
-        supabase.from('projects').select('*').order('created_at').then(({ data }) => { if (data) setProjects(data.map(dbToProject)); });
+      supabase.channel('projects-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'projects', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('projects').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setProjects(data.map(dbToProject)); });
       }).subscribe(),
-      supabase.channel('tasks-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        supabase.from('tasks').select('*').order('created_at').then(({ data }) => { if (data) setTasks(data.map(dbToTask)); });
+      supabase.channel('tasks-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('tasks').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setTasks(data.map(dbToTask)); });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
-  }, []);
+  }, [userId]);
 
-  // --- Mutations ---
+  // --- Mutations (all include user_id) ---
 
   const setPrioritySettings = useCallback(async (s: PrioritySettings) => {
     setPrioritySettingsState(s);
     if (!settingsId) return;
-    const { error } = await supabase.from('priority_settings').update({
+    await supabase.from('priority_settings').update({
       deadline_boost_enabled: s.deadlineBoostEnabled,
       strategic_weight_enabled: s.strategicWeightEnabled,
       impact_effort_enabled: s.impactEffortEnabled,
@@ -140,14 +158,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       impact_multiplier: s.impactMultiplier,
       effort_penalty: s.effortPenalty,
     }).eq('id', settingsId);
-    if (error) toast.error('Errore salvataggio impostazioni');
   }, [settingsId]);
 
   const addEnterprise = useCallback(async (e: Omit<Enterprise, 'id' | 'createdAt'>) => {
-    const { data, error } = await supabase.from('enterprises').insert({ name: e.name, status: e.status, color: e.color }).select().single();
+    if (!userId) return;
+    const { data, error } = await supabase.from('enterprises').insert({ name: e.name, status: e.status, color: e.color, user_id: userId }).select().single();
     if (error) { toast.error('Errore creazione impresa'); return; }
     setEnterprises(prev => [...prev, dbToEnterprise(data)]);
-  }, []);
+  }, [userId]);
 
   const updateEnterprise = useCallback(async (id: string, updates: Partial<Enterprise>) => {
     setEnterprises(prev => prev.map(e => e.id === id ? { ...e, ...updates } : e));
@@ -162,17 +180,17 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setEnterprises(prev => prev.filter(e => e.id !== id));
     setProjects(prev => prev.filter(p => p.enterpriseId !== id));
     setTasks(prev => prev.filter(t => t.enterpriseId !== id));
-    const { error } = await supabase.from('enterprises').delete().eq('id', id);
-    if (error) toast.error('Errore eliminazione impresa');
+    await supabase.from('enterprises').delete().eq('id', id);
   }, []);
 
   const addProject = useCallback(async (p: Omit<Project, 'id' | 'createdAt'>) => {
+    if (!userId) return;
     const { data, error } = await supabase.from('projects').insert({
-      enterprise_id: p.enterpriseId, name: p.name, type: p.type,
+      enterprise_id: p.enterpriseId, name: p.name, type: p.type, user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione progetto'); return; }
     setProjects(prev => [...prev, dbToProject(data)]);
-  }, []);
+  }, [userId]);
 
   const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
     setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
@@ -189,15 +207,16 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addTask = useCallback(async (t: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
+    if (!userId) return;
     const { data, error } = await supabase.from('tasks').insert({
       enterprise_id: t.enterpriseId, project_id: t.projectId, title: t.title,
       estimated_minutes: t.estimatedMinutes, priority: t.priority,
       is_recurring: t.isRecurring, impact: t.impact ?? null, effort: t.effort ?? null,
-      deadline: t.deadline ?? null,
+      deadline: t.deadline ?? null, user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione task'); return; }
     setTasks(prev => [...prev, dbToTask(data)]);
-  }, []);
+  }, [userId]);
 
   const updateTask = useCallback(async (id: string, updates: Partial<Task>) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
@@ -239,7 +258,6 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     await supabase.from('tasks').update({ status: 'backlog', scheduled_date: null, scheduled_time: null }).eq('id', id);
   }, []);
 
-  // --- Getters (same as before) ---
   const getEnterprise = useCallback((id: string) => enterprises.find(e => e.id === id), [enterprises]);
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects]);
   const getProjectType = useCallback((projectId: string): ProjectType => {

@@ -494,6 +494,7 @@ const EnterpriseDetail = () => {
           <ProjectsTasksSection
             enterpriseId={id!}
             enterpriseType={enterprise.enterpriseType}
+            hasActiveFocus={!!activeFocus}
             onCreateProject={() => setShowCreateProject(true)}
             onCreateTask={(projectId) => setCreateTaskForProject(projectId)}
             onEditProject={(project) => setEditingProject(project)}

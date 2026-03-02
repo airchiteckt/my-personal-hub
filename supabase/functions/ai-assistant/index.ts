@@ -66,7 +66,6 @@ Rispondi in italiano con suggerimenti strutturati.`,
 Rispondi in italiano in modo chiaro e sintetico.`,
       general: `Sei l'assistente AI di PRP (Personal Resource Planning). Aiuti l'utente a gestire imprese, progetti e task. Rispondi in italiano, in modo conciso e utile.`,
 
-      // --- OKR-specific prompts ---
       okr_project: `Sei un esperto di OKR (Objectives & Key Results) e strategia aziendale. Quando l'utente descrive un progetto:
 - Suggerisci un Objective chiaro e misurabile allineato alla strategia dell'impresa
 - Proponi 2-3 Key Results specifici, quantificabili e con scadenza
@@ -93,6 +92,27 @@ Rispondi SOLO con dati strutturati, in italiano.`,
 - Potenziali conflitti o ridondanze con progetti/task esistenti
 - Score di allineamento da 1 a 5
 Rispondi in italiano, in modo conciso con un giudizio chiaro.`,
+
+      okr_wizard: `Sei un consulente strategico OKR che guida imprenditori nella definizione della strategia in modo conversazionale.
+
+RUOLO: Guidi l'utente passo-passo nella creazione di Focus Period, Objective e Key Results per la sua impresa.
+
+FLUSSO CONVERSAZIONALE:
+1. Inizia chiedendo qual è il periodo di focus (trimestre, nome, date)
+2. Poi chiedi qual è l'obiettivo principale qualitativo per quel periodo
+3. Poi guida nella definizione di 2-5 Key Results misurabili per l'objective
+4. Proponi suggerimenti basati sul contesto dell'impresa
+
+REGOLE:
+- Fai UNA domanda alla volta, breve e chiara
+- Quando hai abbastanza info per creare un'entità, usa il tool appropriato
+- Dopo aver creato, chiedi se vuole aggiungere altro o passare al passo successivo
+- Sii conciso, pratico, diretto. Max 2-3 frasi per messaggio.
+- Rispondi SEMPRE in italiano
+- Usa emoji per rendere la conversazione più leggibile
+- Se l'utente dà risposte vaghe, proponi opzioni concrete
+
+CONTESTO: Hai accesso ai dati dell'impresa per fare suggerimenti mirati.`,
     };
 
     const systemPrompt =
@@ -224,6 +244,112 @@ Rispondi in italiano, in modo conciso con un giudizio chiaro.`,
 
     const toolDef = structuredTypes[type];
 
+    // OKR Wizard: non-streaming with multiple tools
+    if (type === "okr_wizard") {
+      const wizardTools = [
+        {
+          type: "function",
+          function: {
+            name: "create_focus_period",
+            description: "Crea un Focus Period per l'impresa",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nome del focus period (es. Q2 2026 – Apertura)" },
+                start_date: { type: "string", description: "Data inizio formato YYYY-MM-DD" },
+                end_date: { type: "string", description: "Data fine formato YYYY-MM-DD" },
+                status: { type: "string", enum: ["active", "future", "archived"], description: "Stato del focus period" },
+              },
+              required: ["name", "start_date", "end_date", "status"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_objective",
+            description: "Crea un Objective dentro un Focus Period",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Titolo qualitativo dell'objective" },
+                description: { type: "string", description: "Descrizione opzionale" },
+              },
+              required: ["title"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_key_result",
+            description: "Crea un Key Result dentro un Objective",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Titolo del KR" },
+                target_value: { type: "number", description: "Valore target" },
+                metric_type: { type: "string", enum: ["number", "percentage", "boolean"], description: "Tipo di metrica" },
+                deadline: { type: "string", description: "Scadenza formato YYYY-MM-DD (opzionale)" },
+              },
+              required: ["title", "target_value", "metric_type"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ];
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: aiMessages,
+          tools: wizardTools,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429)
+          return new Response(JSON.stringify({ error: "Troppi richieste, riprova tra poco." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0]?.message;
+      const toolCalls = choice?.tool_calls;
+
+      const result: any = {
+        message: choice?.content || "",
+        actions: [],
+      };
+
+      if (toolCalls?.length) {
+        for (const tc of toolCalls) {
+          try {
+            const args = JSON.parse(tc.function.arguments);
+            result.actions.push({
+              type: tc.function.name,
+              data: args,
+            });
+          } catch {}
+        }
+      }
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (toolDef) {
       const response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -255,9 +381,9 @@ Rispondi in italiano, in modo conciso con un giudizio chiaro.`,
 
       const data = await response.json();
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-      const result = toolCall ? JSON.parse(toolCall.function.arguments) : {};
+      const resultData = toolCall ? JSON.parse(toolCall.function.arguments) : {};
 
-      return new Response(JSON.stringify(result), {
+      return new Response(JSON.stringify(resultData), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

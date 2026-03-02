@@ -18,6 +18,7 @@ import { CreateFocusPeriodDialog } from '@/components/enterprise/CreateFocusPeri
 import { CreateObjectiveDialog } from '@/components/enterprise/CreateObjectiveDialog';
 import { CreateKeyResultDialog } from '@/components/enterprise/CreateKeyResultDialog';
 import { format as fnsFormat, differenceInDays, parseISO } from 'date-fns';
+import { OkrWizard } from '@/components/enterprise/OkrWizard';
 import { it } from 'date-fns/locale';
 
 const typeStyles: Record<string, string> = {
@@ -192,6 +193,9 @@ const EnterpriseDetail = () => {
               </Card>
             );
           })()}
+
+          {/* OKR Wizard AI */}
+          <OkrWizard enterprise={enterprise} activeFocusId={activeFocus?.id} />
         </TabsContent>
 
         {/* ===== FOCUS PERIOD ===== */}

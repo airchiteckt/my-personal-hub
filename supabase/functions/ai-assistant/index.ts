@@ -348,6 +348,287 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
 
     const toolDef = structuredTypes[type];
 
+    // Global Assistant: streaming with full CRUD tool calls
+    if (type === "global_assistant") {
+      const globalTools = [
+        {
+          type: "function",
+          function: {
+            name: "create_enterprise",
+            description: "Crea una nuova impresa",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                status: { type: "string", enum: ["active", "development", "paused"] },
+                business_category: { type: "string" },
+                phase: { type: "string" },
+              },
+              required: ["name"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_project",
+            description: "Crea un nuovo progetto in un'impresa",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                enterprise_id: { type: "string" },
+                type: { type: "string", enum: ["strategic", "operational", "maintenance"] },
+              },
+              required: ["name", "enterprise_id"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_task",
+            description: "Crea una nuova task in un progetto",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                project_id: { type: "string" },
+                enterprise_id: { type: "string" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                estimated_minutes: { type: "number" },
+                deadline: { type: "string", description: "YYYY-MM-DD" },
+              },
+              required: ["title", "project_id", "enterprise_id"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_focus_period",
+            description: "Crea un Focus Period per un'impresa",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string" },
+                enterprise_id: { type: "string" },
+                start_date: { type: "string" },
+                end_date: { type: "string" },
+                status: { type: "string", enum: ["active", "future", "archived"] },
+              },
+              required: ["name", "enterprise_id", "start_date", "end_date", "status"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_objective",
+            description: "Crea un Objective in un Focus Period",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                description: { type: "string" },
+                focus_period_id: { type: "string" },
+                enterprise_id: { type: "string" },
+              },
+              required: ["title", "focus_period_id", "enterprise_id"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_key_result",
+            description: "Crea un Key Result in un Objective",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                objective_id: { type: "string" },
+                enterprise_id: { type: "string" },
+                target_value: { type: "number" },
+                metric_type: { type: "string", enum: ["number", "percentage", "boolean"] },
+                deadline: { type: "string" },
+              },
+              required: ["title", "objective_id", "enterprise_id", "target_value", "metric_type"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "schedule_task",
+            description: "Pianifica una task in una data specifica",
+            parameters: {
+              type: "object",
+              properties: {
+                task_id: { type: "string" },
+                date: { type: "string", description: "YYYY-MM-DD" },
+                time: { type: "string", description: "HH:MM (opzionale)" },
+              },
+              required: ["task_id", "date"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "complete_task",
+            description: "Segna una task come completata",
+            parameters: {
+              type: "object",
+              properties: {
+                task_id: { type: "string" },
+              },
+              required: ["task_id"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_appointment",
+            description: "Crea un appuntamento nel calendario",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string" },
+                date: { type: "string", description: "YYYY-MM-DD" },
+                start_time: { type: "string", description: "HH:MM" },
+                end_time: { type: "string", description: "HH:MM" },
+                description: { type: "string" },
+                enterprise_id: { type: "string" },
+              },
+              required: ["title", "date", "start_time", "end_time"],
+              additionalProperties: false,
+            },
+          },
+        },
+      ];
+
+      const globalSystemPrompt = promptRow?.system_prompt ?? `Sei l'assistente AI globale di PRP (Personal Resource Planning). Hai accesso completo a tutte le sezioni dell'app e puoi:
+
+1. **Leggere** tutto il contesto: imprese, progetti, task, OKR, focus period, appuntamenti
+2. **Scrivere**: creare imprese, progetti, task, focus period, objective, key result, appuntamenti
+3. **Pianificare**: schedulare e completare task
+
+REGOLE:
+- Rispondi SEMPRE in italiano
+- Sii conciso e pratico (max 3-4 frasi per risposta)
+- Quando l'utente chiede di creare qualcosa, usa i tool disponibili
+- Quando l'utente chiede informazioni, consulta il contesto fornito e rispondi
+- Se mancano informazioni per un'azione, chiedi chiarimenti
+- Usa il contesto per suggerimenti intelligenti (task in scadenza, KR in ritardo, etc.)
+- Puoi leggere qualsiasi dato dal contesto fornito e riportarlo all'utente
+- Se l'utente chiede "cosa devo fare oggi", guarda le task schedulate per oggi e le scadenze
+- Emoji con parsimonia
+
+CONTESTO: Hai tutti i dati dell'utente nel messaggio di contesto. Usa enterprise_id e project_id dal contesto quando servono per le azioni.`;
+
+      // Override system prompt
+      aiMessages[0] = { role: "system", content: globalSystemPrompt };
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: aiMessages,
+          tools: globalTools,
+          stream: true,
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429)
+          return new Response(JSON.stringify({ error: "Troppi richieste, riprova tra poco." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        const t = await response.text();
+        console.error("AI gateway error:", response.status, t);
+        throw new Error("AI gateway error");
+      }
+
+      // Reuse same SSE streaming logic as okr_wizard
+      const gReader = response.body!.getReader();
+      const gDecoder = new TextDecoder();
+      
+      const gStream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          let buffer = "";
+          let toolCallBuffers: Record<number, { name: string; args: string }> = {};
+          let streamDone = false;
+
+          while (!streamDone) {
+            const { done, value } = await gReader.read();
+            if (done) break;
+            buffer += gDecoder.decode(value, { stream: true });
+
+            let newlineIdx: number;
+            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, newlineIdx);
+              buffer = buffer.slice(newlineIdx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ")) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") { streamDone = true; break; }
+
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                if (delta.content) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", content: delta.content })}\n\n`));
+                }
+
+                if (delta.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index ?? 0;
+                    if (!toolCallBuffers[idx]) toolCallBuffers[idx] = { name: "", args: "" };
+                    if (tc.function?.name) toolCallBuffers[idx].name = tc.function.name;
+                    if (tc.function?.arguments) toolCallBuffers[idx].args += tc.function.arguments;
+                  }
+                }
+              } catch { /* partial JSON, skip */ }
+            }
+          }
+
+          const actions: any[] = [];
+          for (const idx of Object.keys(toolCallBuffers).sort()) {
+            const tc = toolCallBuffers[Number(idx)];
+            try {
+              actions.push({ type: tc.name, data: JSON.parse(tc.args) });
+            } catch {}
+          }
+          if (actions.length > 0) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "actions", actions })}\n\n`));
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+
+      return new Response(gStream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    }
+
     // OKR Wizard: streaming with tool call support
     if (type === "okr_wizard") {
       const wizardTools = [

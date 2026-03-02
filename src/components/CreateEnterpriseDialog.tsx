@@ -6,38 +6,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Slider } from '@/components/ui/slider';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   ENTERPRISE_COLORS, ENTERPRISE_PHASE_LABELS, BUSINESS_CATEGORY_CONFIG, TIME_HORIZON_LABELS,
-  EnterpriseStatus, EnterprisePhase, BusinessCategory, TimeHorizon,
+  ENTERPRISE_TEMPLATES,
+  EnterpriseStatus, EnterprisePhase, BusinessCategory, TimeHorizon, EnterpriseTemplateType,
 } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { CalendarIcon, ChevronRight, ChevronLeft } from 'lucide-react';
+import { CalendarIcon, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 4;
 
 export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
-  const { addEnterprise } = usePrp();
+  const { addEnterprise, addProject } = usePrp();
   const [step, setStep] = useState(0);
+  const [creating, setCreating] = useState(false);
 
   // Step 0 - Identity
   const [name, setName] = useState('');
   const [status, setStatus] = useState<EnterpriseStatus>('development');
   const [color, setColor] = useState<string>(ENTERPRISE_COLORS[0].value);
 
-  // Step 1 - Business Classification
+  // Step 1 - Enterprise Type (Template)
+  const [templateType, setTemplateType] = useState<EnterpriseTemplateType>('digital_services');
+  const [selectedProjects, setSelectedProjects] = useState<Record<string, boolean>>({});
+
+  // Step 2 - Business Classification
   const [businessCategory, setBusinessCategory] = useState<BusinessCategory>('scale_opportunity');
   const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>('medium');
 
-  // Step 2 - Strategic Analysis
+  // Step 3 - Strategic Analysis
   const [strategicImportance, setStrategicImportance] = useState(3);
   const [growthPotential, setGrowthPotential] = useState(3);
   const [phase, setPhase] = useState<EnterprisePhase>('setup');
@@ -46,37 +54,77 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
   const resetForm = () => {
     setStep(0); setName(''); setStatus('development');
     setColor(ENTERPRISE_COLORS[0].value);
+    setTemplateType('digital_services'); setSelectedProjects({});
     setBusinessCategory('scale_opportunity'); setTimeHorizon('medium');
     setStrategicImportance(3); setGrowthPotential(3);
     setPhase('setup'); setPriorityUntil(undefined);
+    setCreating(false);
   };
 
-  // When category changes, auto-set strategic importance default
+  const handleTemplateChange = (type: EnterpriseTemplateType) => {
+    setTemplateType(type);
+    // Auto-select all non-optional projects, optional ones unchecked by default
+    const template = ENTERPRISE_TEMPLATES[type];
+    const sel: Record<string, boolean> = {};
+    template.projects.forEach(p => {
+      sel[p.name] = !p.optional;
+    });
+    setSelectedProjects(sel);
+  };
+
+  // Initialize selection when entering step 1
+  const goToStep1 = () => {
+    if (Object.keys(selectedProjects).length === 0) {
+      handleTemplateChange(templateType);
+    }
+    setStep(1);
+  };
+
   const handleCategoryChange = (cat: BusinessCategory) => {
     setBusinessCategory(cat);
     setStrategicImportance(BUSINESS_CATEGORY_CONFIG[cat].defaultWeight);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name.trim()) return;
-    addEnterprise({
+    setCreating(true);
+    
+    const enterpriseId = await addEnterprise({
       name: name.trim(), status, color,
       strategicImportance, growthPotential, phase,
       businessCategory, timeHorizon,
       priorityUntil: priorityUntil ? format(priorityUntil, 'yyyy-MM-dd') : undefined,
     });
+
+    if (enterpriseId) {
+      // Create selected template projects
+      const template = ENTERPRISE_TEMPLATES[templateType];
+      const projectsToCreate = template.projects.filter(p => selectedProjects[p.name]);
+      
+      for (const proj of projectsToCreate) {
+        await addProject({
+          enterpriseId,
+          name: proj.name,
+          type: proj.type,
+        });
+      }
+      
+      toast.success(`Impresa creata con ${projectsToCreate.length} progetti`);
+    }
+
     resetForm();
     onOpenChange(false);
   };
 
   const importanceLabels = ['', 'Marginale', 'Bassa', 'Media', 'Alta', 'Priorità assoluta'];
   const growthLabels = ['', 'Stabile', 'Bassa crescita', 'Moderata', 'Buona', 'Forte espansione'];
+  const stepTitles = ['Identità', 'Tipo Impresa', 'Classificazione Business', 'Analisi Strategica'];
 
-  const stepTitles = ['Identità', 'Classificazione Business', 'Analisi Strategica'];
+  const currentTemplate = ENTERPRISE_TEMPLATES[templateType];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{stepTitles[step]}</DialogTitle>
           <div className="flex gap-1.5 pt-2">
@@ -94,7 +142,7 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
               <Input
                 value={name} onChange={e => setName(e.target.value)}
                 placeholder="Nome impresa"
-                onKeyDown={e => e.key === 'Enter' && name.trim() && setStep(1)}
+                onKeyDown={e => e.key === 'Enter' && name.trim() && goToStep1()}
               />
             </div>
             <div className="space-y-2">
@@ -122,14 +170,88 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
                 ))}
               </div>
             </div>
-            <Button onClick={() => setStep(1)} className="w-full" disabled={!name.trim()}>
+            <Button onClick={goToStep1} className="w-full" disabled={!name.trim()}>
               Avanti <ChevronRight className="h-4 w-4 ml-1" />
             </Button>
           </div>
         )}
 
-        {/* STEP 1: Business Classification */}
+        {/* STEP 1: Enterprise Type / Template */}
         {step === 1 && (
+          <div className="space-y-4 pt-2">
+            <div className="space-y-3">
+              <Label className="text-sm">🧩 Tipo di Impresa</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Seleziona il tipo per pre-compilare i progetti operativi
+              </p>
+              <div className="grid gap-2">
+                {(Object.entries(ENTERPRISE_TEMPLATES) as [EnterpriseTemplateType, typeof ENTERPRISE_TEMPLATES[EnterpriseTemplateType]][]).map(([key, tmpl]) => (
+                  <button
+                    key={key}
+                    onClick={() => handleTemplateChange(key)}
+                    className={cn(
+                      "flex items-start gap-3 p-3 rounded-lg border text-left transition-all",
+                      templateType === key
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:border-muted-foreground/30"
+                    )}
+                  >
+                    <span className="text-lg mt-0.5">{tmpl.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{tmpl.label}</div>
+                      <div className="text-[11px] text-muted-foreground">{tmpl.description}</div>
+                      <div className="text-[10px] text-muted-foreground/70 italic mt-0.5">{tmpl.examples}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Projects preview */}
+            <div className="space-y-2">
+              <Label className="text-sm">📋 Progetti che verranno creati</Label>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {currentTemplate.projects.map(proj => (
+                  <label
+                    key={proj.name}
+                    className={cn(
+                      "flex items-center gap-2.5 p-2 rounded-md border cursor-pointer transition-all text-sm",
+                      selectedProjects[proj.name]
+                        ? "border-primary/30 bg-primary/5"
+                        : "border-border opacity-60"
+                    )}
+                  >
+                    <Checkbox
+                      checked={!!selectedProjects[proj.name]}
+                      onCheckedChange={(checked) => {
+                        setSelectedProjects(prev => ({ ...prev, [proj.name]: !!checked }));
+                      }}
+                    />
+                    <span className="text-xs">
+                      {proj.type === 'operational' ? '🟡' : '⚪'}
+                    </span>
+                    <span className="flex-1">{proj.name}</span>
+                    {proj.optional && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">opzionale</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setStep(0)} className="flex-1">
+                <ChevronLeft className="h-4 w-4 mr-1" /> Indietro
+              </Button>
+              <Button onClick={() => setStep(2)} className="flex-1">
+                Avanti <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Business Classification */}
+        {step === 2 && (
           <div className="space-y-5 pt-2">
             <div className="space-y-3">
               <Label className="text-sm">🔮 Categoria Strategica</Label>
@@ -185,18 +307,18 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(0)} className="flex-1">
+              <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
                 <ChevronLeft className="h-4 w-4 mr-1" /> Indietro
               </Button>
-              <Button onClick={() => setStep(2)} className="flex-1">
+              <Button onClick={() => setStep(3)} className="flex-1">
                 Avanti <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* STEP 2: Strategic Analysis */}
-        {step === 2 && (
+        {/* STEP 3: Strategic Analysis */}
+        {step === 3 && (
           <div className="space-y-5 pt-2">
             <div className="space-y-2">
               <Label className="text-sm">🎯 Importanza Strategica</Label>
@@ -269,11 +391,11 @@ export function CreateEnterpriseDialog({ open, onOpenChange }: Props) {
             </div>
 
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+              <Button variant="outline" onClick={() => setStep(2)} className="flex-1" disabled={creating}>
                 <ChevronLeft className="h-4 w-4 mr-1" /> Indietro
               </Button>
-              <Button onClick={handleSubmit} className="flex-1">
-                Crea Impresa
+              <Button onClick={handleSubmit} className="flex-1" disabled={creating}>
+                {creating ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Creazione...</> : 'Crea Impresa'}
               </Button>
             </div>
           </div>

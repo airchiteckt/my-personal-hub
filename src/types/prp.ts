@@ -3,6 +3,85 @@ export type EnterprisePhase = 'idea' | 'setup' | 'launch' | 'scaling' | 'stable'
 export type BusinessCategory = 'core_growth' | 'scale_opportunity' | 'cash_generator' | 'experimental' | 'support';
 export type TimeHorizon = 'short' | 'medium' | 'long';
 export type ProjectType = 'strategic' | 'operational' | 'maintenance';
+export type EnterpriseTemplateType = 'digital_services' | 'local_physical' | 'production_industry' | 'startup_experimental';
+
+export interface EnterpriseTemplateProject {
+  name: string;
+  type: ProjectType;
+  optional?: boolean;
+}
+
+export interface EnterpriseTemplate {
+  label: string;
+  emoji: string;
+  description: string;
+  examples: string;
+  projects: EnterpriseTemplateProject[];
+}
+
+export const ENTERPRISE_TEMPLATES: Record<EnterpriseTemplateType, EnterpriseTemplate> = {
+  digital_services: {
+    label: 'Digitale / Servizi',
+    emoji: '💻',
+    description: 'SaaS, consulenza, sviluppo, servizi digitali',
+    examples: 'Es: Agenzia, Software House, Consulenza',
+    projects: [
+      { name: 'Amministrazione & Contabilità', type: 'operational' },
+      { name: 'Client Delivery', type: 'operational' },
+      { name: 'Supporto Clienti', type: 'operational' },
+      { name: 'Marketing Continuativo', type: 'operational' },
+      { name: 'Gestione Team', type: 'operational' },
+      { name: 'Infrastruttura & IT', type: 'operational' },
+      { name: 'Compliance & Legale', type: 'maintenance', optional: true },
+      { name: 'Reporting & KPI', type: 'maintenance', optional: true },
+    ],
+  },
+  local_physical: {
+    label: 'Locale Fisico / Ristorazione',
+    emoji: '🏪',
+    description: 'Ristoranti, negozi, locali, attività fisiche',
+    examples: 'Es: Ristorante, Bar, Negozio',
+    projects: [
+      { name: 'Amministrazione & Contabilità', type: 'operational' },
+      { name: 'Gestione Fornitori', type: 'operational' },
+      { name: 'Gestione Personale', type: 'operational' },
+      { name: 'Marketing Continuativo', type: 'operational' },
+      { name: 'Operatività Locale', type: 'operational' },
+      { name: 'Manutenzione Struttura', type: 'operational' },
+      { name: 'Compliance & Sicurezza', type: 'maintenance', optional: true },
+      { name: 'Controllo di Gestione', type: 'maintenance', optional: true },
+    ],
+  },
+  production_industry: {
+    label: 'Produzione / Industria',
+    emoji: '🏭',
+    description: 'Manifattura, produzione, industria',
+    examples: 'Es: Fabbrica, Artigianato, Produzione alimentare',
+    projects: [
+      { name: 'Amministrazione & Contabilità', type: 'operational' },
+      { name: 'Produzione & Ordini', type: 'operational' },
+      { name: 'Logistica & Fornitori', type: 'operational' },
+      { name: 'Supporto Clienti', type: 'operational' },
+      { name: 'Marketing Continuativo', type: 'operational' },
+      { name: 'Gestione Team', type: 'operational' },
+      { name: 'Infrastruttura Tecnica', type: 'operational' },
+      { name: 'Certificazioni & Normative', type: 'maintenance', optional: true },
+      { name: 'Controllo Qualità', type: 'maintenance', optional: true },
+    ],
+  },
+  startup_experimental: {
+    label: 'Startup / Experimental',
+    emoji: '🧪',
+    description: 'MVP, test, validazione idea, early stage',
+    examples: 'Es: Side project, MVP, Prototipo',
+    projects: [
+      { name: 'Amministrazione Light', type: 'operational' },
+      { name: 'Sviluppo Prodotto', type: 'operational' },
+      { name: 'Marketing Test', type: 'operational' },
+      { name: 'Infrastruttura Tecnica', type: 'operational' },
+    ],
+  },
+};
 export type TaskStatus = 'backlog' | 'scheduled' | 'done';
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type UrgencyLevel = 'normal' | 'attention' | 'high' | 'critical';

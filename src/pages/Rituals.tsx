@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import {
   Brain, Shield, Cog, Plus, Repeat, Clock, Building2, Check,
-  MoreHorizontal, Trash2, Pencil, CalendarDays,
+  MoreHorizontal, Trash2, Pencil, CalendarDays, Pin, Shuffle,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -36,6 +36,7 @@ interface Ritual {
   created_at: string;
   weekly_specific_days: number[] | null;
   weekly_times_per_week: number | null;
+  planning_mode: string;
 }
 
 interface RitualCompletion {
@@ -118,6 +119,7 @@ export default function Rituals() {
       name: data.name,
       category: data.category,
       frequency: data.frequency,
+      planning_mode: data.planningMode || 'fixed',
       custom_frequency_days: data.customFrequencyDays,
       estimated_minutes: data.estimatedMinutes,
       enterprise_id: data.enterpriseId === 'none' ? null : data.enterpriseId,
@@ -136,6 +138,7 @@ export default function Rituals() {
       name: data.name,
       category: data.category,
       frequency: data.frequency,
+      planning_mode: data.planningMode || 'fixed',
       custom_frequency_days: data.customFrequencyDays,
       estimated_minutes: data.estimatedMinutes,
       enterprise_id: data.enterpriseId === 'none' ? null : data.enterpriseId,
@@ -198,17 +201,21 @@ export default function Rituals() {
   };
 
   const getFrequencyLabel = (ritual: Ritual) => {
+    if (ritual.planning_mode === 'flexible') {
+      return `${ritual.weekly_times_per_week || 2}× / settimana`;
+    }
     if (ritual.frequency === 'weekly') {
       if (ritual.weekly_specific_days && ritual.weekly_specific_days.length > 0) {
         const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
         const sorted = [...ritual.weekly_specific_days].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
         return sorted.map(d => dayNames[d]).join(', ');
       }
-      if (ritual.weekly_times_per_week) {
-        return `${ritual.weekly_times_per_week}× / settimana`;
-      }
     }
     return FREQ_LABELS[ritual.frequency] || ritual.frequency;
+  };
+
+  const getWeeklyCompletedCount = (ritual: Ritual) => {
+    return weekDays.filter(d => isCompleted(ritual.id, d)).length;
   };
 
   if (loading) {
@@ -318,7 +325,18 @@ export default function Rituals() {
                   <div className="flex items-center gap-2 min-w-0">
                     <CatIcon className={`h-4 w-4 shrink-0 ${catMeta?.color || 'text-muted-foreground'}`} />
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{ritual.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium truncate">{ritual.name}</p>
+                        {ritual.planning_mode === 'flexible' ? (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 gap-0.5 border-dashed">
+                            <Shuffle className="h-2.5 w-2.5" /> Flessibile
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 shrink-0 gap-0.5">
+                            <Pin className="h-2.5 w-2.5" /> Fisso
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                         <span>{getFrequencyLabel(ritual)}</span>
                         {ritual.estimated_minutes && (
@@ -360,31 +378,47 @@ export default function Rituals() {
                     </DropdownMenu>
                   </div>
 
-                  {/* Day checkboxes */}
-                  {weekDays.map(d => {
-                    const expected = shouldCompleteOnDate(ritual, d);
-                    const completed = isCompleted(ritual.id, d);
-                    const isFuture = d > today;
+                  {/* Day checkboxes (fixed) or weekly counter (flexible) */}
+                  {ritual.planning_mode === 'flexible' ? (
+                    <>
+                      {/* Show counter spanning the 7-day area */}
+                      <div className="col-span-7 flex items-center justify-center gap-2">
+                        <span className="text-sm font-bold" style={{ color: `hsl(${catMeta?.color === 'text-violet-500' ? '270 60% 55%' : catMeta?.color === 'text-amber-500' ? '40 80% 50%' : '210 70% 55%'})` }}>
+                          {getWeeklyCompletedCount(ritual)}/{ritual.weekly_times_per_week || 2}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">completati</span>
+                        <Progress
+                          value={Math.min(100, (getWeeklyCompletedCount(ritual) / (ritual.weekly_times_per_week || 2)) * 100)}
+                          className="h-1.5 w-20"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    weekDays.map(d => {
+                      const expected = shouldCompleteOnDate(ritual, d);
+                      const completed = isCompleted(ritual.id, d);
+                      const isFuture = d > today;
 
-                    if (!expected) return <div key={d.toISOString()} />;
+                      if (!expected) return <div key={d.toISOString()} />;
 
-                    return (
-                      <button
-                        key={d.toISOString()}
-                        onClick={() => !isFuture && toggleCompletion(ritual.id, d)}
-                        disabled={isFuture}
-                        className={`h-8 w-8 mx-auto rounded-lg flex items-center justify-center transition-all ${
-                          completed
-                            ? 'bg-primary text-primary-foreground shadow-sm'
-                            : isFuture
-                              ? 'bg-muted/30 border border-dashed border-border/50'
-                              : 'bg-muted/40 hover:bg-accent border border-border/50'
-                        }`}
-                      >
-                        {completed && <Check className="h-4 w-4" />}
-                      </button>
-                    );
-                  })}
+                      return (
+                        <button
+                          key={d.toISOString()}
+                          onClick={() => !isFuture && toggleCompletion(ritual.id, d)}
+                          disabled={isFuture}
+                          className={`h-8 w-8 mx-auto rounded-lg flex items-center justify-center transition-all ${
+                            completed
+                              ? 'bg-primary text-primary-foreground shadow-sm'
+                              : isFuture
+                                ? 'bg-muted/30 border border-dashed border-border/50'
+                                : 'bg-muted/40 hover:bg-accent border border-border/50'
+                          }`}
+                        >
+                          {completed && <Check className="h-4 w-4" />}
+                        </button>
+                      );
+                    })
+                  )}
 
                   {/* Rate */}
                   <div className="text-center">

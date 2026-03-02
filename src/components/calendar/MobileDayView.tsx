@@ -214,7 +214,7 @@ export function MobileDayView() {
 
           {/* Ritual blocks */}
           {(() => {
-            const dayRituals = getRitualsForDate(selectedDate);
+            const dayRituals = getRitualsForDate(selectedDate).filter(r => r.planning_mode === 'fixed');
             return dayRituals.map(ritual => {
               const time = ritual.suggested_time || '07:00';
               const startSlot = timeToSlot(time);

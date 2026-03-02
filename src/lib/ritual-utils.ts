@@ -16,6 +16,7 @@ export interface RitualData {
   created_at: string;
   weekly_specific_days: number[] | null;
   weekly_times_per_week: number | null;
+  planning_mode: 'fixed' | 'flexible';
 }
 
 export interface RitualCompletion {
@@ -30,6 +31,7 @@ export const CATEGORY_META: Record<string, { label: string; icon: typeof Brain; 
   operational: { label: 'Operativo', icon: Cog, color: 'text-blue-500', calendarColor: '210 70% 55%' },
 };
 
+/** For fixed rituals: determines if this ritual should appear on a given date */
 export function shouldCompleteOnDate(ritual: RitualData, date: Date): boolean {
   const dow = date.getDay();
   switch (ritual.frequency) {
@@ -48,6 +50,22 @@ export function shouldCompleteOnDate(ritual: RitualData, date: Date): boolean {
     case 'custom': return ritual.custom_frequency_days?.includes(dow) ?? false;
     default: return false;
   }
+}
+
+/** Get the weekly target count for a ritual */
+export function getWeeklyTarget(ritual: RitualData): number {
+  if (ritual.planning_mode === 'flexible' && ritual.weekly_times_per_week) {
+    return ritual.weekly_times_per_week;
+  }
+  if (ritual.frequency === 'daily') return 7;
+  if (ritual.frequency === 'weekly') {
+    if (ritual.weekly_specific_days?.length) return ritual.weekly_specific_days.length;
+    if (ritual.weekly_times_per_week) return ritual.weekly_times_per_week;
+    return 5; // default weekdays
+  }
+  if (ritual.frequency === 'custom') return ritual.custom_frequency_days?.length || 0;
+  if (ritual.frequency === 'monthly') return 1;
+  return 0;
 }
 
 export function getRitualCategoryLabel(category: string): string {

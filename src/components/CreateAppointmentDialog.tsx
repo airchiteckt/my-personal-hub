@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,16 +14,26 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   defaultDate?: string;
   defaultTime?: string;
+  defaultEndTime?: string;
 }
 
-export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defaultTime }: Props) {
+export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defaultTime, defaultEndTime }: Props) {
   const { enterprises, addAppointment } = usePrp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(defaultDate || new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState(defaultTime || '09:00');
-  const [endTime, setEndTime] = useState(defaultTime ? addMinutes(defaultTime, 60) : '10:00');
+  const [endTime, setEndTime] = useState(defaultEndTime || (defaultTime ? addMinutes(defaultTime, 60) : '10:00'));
   const [enterpriseId, setEnterpriseId] = useState<string>('none');
+
+  // Sync defaults when dialog opens with new values
+  useEffect(() => {
+    if (open) {
+      if (defaultDate) setDate(defaultDate);
+      if (defaultTime) setStartTime(defaultTime);
+      setEndTime(defaultEndTime || (defaultTime ? addMinutes(defaultTime, 60) : '10:00'));
+    }
+  }, [open, defaultDate, defaultTime, defaultEndTime]);
 
   function addMinutes(time: string, mins: number): string {
     const [h, m] = time.split(':').map(Number);

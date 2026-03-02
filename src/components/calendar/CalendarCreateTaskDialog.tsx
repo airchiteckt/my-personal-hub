@@ -26,15 +26,18 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
   const activeEnterprises = enterprises.filter(e => e.status !== 'paused');
   const availableProjects = projects.filter(p => p.enterpriseId === enterpriseId);
 
-  // Auto-calculate duration from time range
+  // Auto-calculate duration from time range on open
   useEffect(() => {
-    if (defaultTime && defaultEndTime) {
+    if (open && defaultTime && defaultEndTime) {
       const [sh, sm] = defaultTime.split(':').map(Number);
       const [eh, em] = defaultEndTime.split(':').map(Number);
-      const mins = (eh * 60 + em) - (sh * 60 + sm);
+      let mins = (eh * 60 + em) - (sh * 60 + sm);
+      if (mins <= 0) mins += 24 * 60; // handle overnight
       if (mins > 0) setEstimatedMinutes(mins);
+    } else if (open && !defaultTime) {
+      setEstimatedMinutes(30);
     }
-  }, [defaultTime, defaultEndTime]);
+  }, [open, defaultTime, defaultEndTime]);
 
   // Auto-select first enterprise/project
   useEffect(() => {

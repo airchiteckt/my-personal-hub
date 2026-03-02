@@ -1,20 +1,22 @@
 export const SLOT_MINUTES = 30;
 export const START_HOUR = 7;
-export const END_HOUR = 22;
+export const END_HOUR = 27; // 3:00 AM next day
 export const TOTAL_SLOTS = (END_HOUR - START_HOUR) * (60 / SLOT_MINUTES);
 export const MOBILE_SLOT_HEIGHT = 52;
 export const DESKTOP_SLOT_HEIGHT = 44;
 
 export const slotToTime = (slotIndex: number): string => {
   const totalMinutes = START_HOUR * 60 + slotIndex * SLOT_MINUTES;
-  const h = Math.floor(totalMinutes / 60);
+  const h = Math.floor(totalMinutes / 60) % 24;
   const m = totalMinutes % 60;
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 };
 
 export const timeToSlot = (time: string): number => {
-  const [h, m] = time.split(':').map(Number);
-  return Math.max(0, ((h - START_HOUR) * 60 + m) / SLOT_MINUTES);
+  let [h, m] = time.split(':').map(Number);
+  // Treat 00:00-03:00 as 24:00-27:00 (next day continuation)
+  if (h < START_HOUR) h += 24;
+  return Math.max(0, Math.min(((h - START_HOUR) * 60 + m) / SLOT_MINUTES, TOTAL_SLOTS - 1));
 };
 
 export const getTaskPosition = (time: string, estimatedMinutes: number, slotHeight: number) => {

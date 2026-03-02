@@ -4,6 +4,8 @@ import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
+import type { Task } from '@/types/prp';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -22,6 +24,7 @@ export function DesktopWeekView() {
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showChoice, setShowChoice] = useState(false);
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -256,8 +259,8 @@ export function DesktopWeekView() {
                             draggable
                             onDragStart={e => handleDragStart(e, task.id)}
                             onMouseDown={e => e.stopPropagation()}
-                            onClick={e => e.stopPropagation()}
-                            className="absolute rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group z-10"
+                            onClick={e => { e.stopPropagation(); setEditingTask(task); }}
+                            className="absolute rounded-lg overflow-hidden cursor-pointer group z-10"
                             style={{
                               top: top + 1,
                               height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
@@ -380,6 +383,14 @@ export function DesktopWeekView() {
         defaultTime={apptDefaults.startTime}
         defaultEndTime={apptDefaults.endTime}
       />
+
+      {editingTask && (
+        <EditTaskDialog
+          open={!!editingTask}
+          onOpenChange={(open) => !open && setEditingTask(null)}
+          task={editingTask}
+        />
+      )}
     </div>
   );
 }

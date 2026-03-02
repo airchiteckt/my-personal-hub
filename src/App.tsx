@@ -10,6 +10,7 @@ import Enterprises from "./pages/Enterprises";
 import EnterpriseDetail from "./pages/EnterpriseDetail";
 import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
               <Route path="/enterprises" element={<Enterprises />} />
               <Route path="/enterprise/:id" element={<EnterpriseDetail />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<NotFound />} />

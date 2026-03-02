@@ -287,7 +287,7 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR già esistenti. Usa quest
 
     const toolDef = structuredTypes[type];
 
-    // OKR Wizard: non-streaming with multiple tools
+    // OKR Wizard: streaming with tool call support
     if (type === "okr_wizard") {
       const wizardTools = [
         {
@@ -354,6 +354,7 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR già esistenti. Usa quest
           model: "gpt-4o-mini",
           messages: aiMessages,
           tools: wizardTools,
+          stream: true,
         }),
       });
 
@@ -367,29 +368,72 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR già esistenti. Usa quest
         throw new Error("AI gateway error");
       }
 
-      const data = await response.json();
-      const choice = data.choices?.[0]?.message;
-      const toolCalls = choice?.tool_calls;
+      // Parse the stream to separate content from tool calls, then re-emit as custom SSE
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      
+      const stream = new ReadableStream({
+        async start(controller) {
+          const encoder = new TextEncoder();
+          let buffer = "";
+          let toolCallBuffers: Record<number, { name: string; args: string }> = {};
+          let streamDone = false;
 
-      const result: any = {
-        message: choice?.content || "",
-        actions: [],
-      };
+          while (!streamDone) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
 
-      if (toolCalls?.length) {
-        for (const tc of toolCalls) {
-          try {
-            const args = JSON.parse(tc.function.arguments);
-            result.actions.push({
-              type: tc.function.name,
-              data: args,
-            });
-          } catch {}
-        }
-      }
+            let newlineIdx: number;
+            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
+              let line = buffer.slice(0, newlineIdx);
+              buffer = buffer.slice(newlineIdx + 1);
+              if (line.endsWith("\r")) line = line.slice(0, -1);
+              if (!line.startsWith("data: ")) continue;
+              const jsonStr = line.slice(6).trim();
+              if (jsonStr === "[DONE]") { streamDone = true; break; }
 
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+              try {
+                const parsed = JSON.parse(jsonStr);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                // Content delta → forward as SSE
+                if (delta.content) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", content: delta.content })}\n\n`));
+                }
+
+                // Tool call deltas → accumulate
+                if (delta.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    const idx = tc.index ?? 0;
+                    if (!toolCallBuffers[idx]) toolCallBuffers[idx] = { name: "", args: "" };
+                    if (tc.function?.name) toolCallBuffers[idx].name = tc.function.name;
+                    if (tc.function?.arguments) toolCallBuffers[idx].args += tc.function.arguments;
+                  }
+                }
+              } catch { /* partial JSON, skip */ }
+            }
+          }
+
+          // Emit accumulated tool calls as actions
+          const actions: any[] = [];
+          for (const idx of Object.keys(toolCallBuffers).sort()) {
+            const tc = toolCallBuffers[Number(idx)];
+            try {
+              actions.push({ type: tc.name, data: JSON.parse(tc.args) });
+            } catch {}
+          }
+          if (actions.length > 0) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "actions", actions })}\n\n`));
+          }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        },
+      });
+
+      return new Response(stream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
       });
     }
 

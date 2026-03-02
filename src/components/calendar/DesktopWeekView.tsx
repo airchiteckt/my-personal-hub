@@ -111,8 +111,8 @@ export function DesktopWeekView() {
             <div className="p-2" />
             {days.map(day => {
               const dayDate = format(day, 'yyyy-MM-dd');
-              const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && t.status !== 'done');
-              const totalMins = dayTasks.reduce((s, t) => s + t.estimatedMinutes, 0);
+              const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
+              const totalMins = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
               return (
                 <div key={day.toISOString()} className="p-2 text-center border-l">
                   <p className="text-xs text-muted-foreground uppercase font-medium">
@@ -154,7 +154,7 @@ export function DesktopWeekView() {
               {/* Day columns */}
               {days.map(day => {
                 const dayDate = format(day, 'yyyy-MM-dd');
-                const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && t.status !== 'done');
+                const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
                 const dayAppts = getAppointmentsForDate(dayDate);
                 const isCurrent = isToday(day);
 
@@ -255,14 +255,15 @@ export function DesktopWeekView() {
                         const widthPercent = 100 / totalCols;
                         const leftPercent = col * widthPercent;
 
-                        return (
+                          const isDone = task.status === 'done';
+                          return (
                           <div
                             key={task.id}
-                            draggable
-                            onDragStart={e => handleDragStart(e, task.id)}
+                            draggable={!isDone}
+                            onDragStart={e => !isDone && handleDragStart(e, task.id)}
                             onMouseDown={e => e.stopPropagation()}
                             onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                            className="absolute rounded-lg overflow-hidden cursor-pointer group z-10"
+                            className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
                             style={{
                               top: top + 1,
                               height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
@@ -273,8 +274,8 @@ export function DesktopWeekView() {
                             }}
                           >
                             <div className="p-1.5 h-full flex flex-col">
-                              <p className="font-medium text-xs leading-tight truncate">
-                                {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
+                              <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                                {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
                                 {task.title}
                               </p>
                               <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
@@ -282,7 +283,8 @@ export function DesktopWeekView() {
                               </p>
                             </div>
 
-                            {/* Resize controls on hover */}
+                            {/* Resize controls on hover (not for done tasks) */}
+                            {!isDone && (
                             <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
                               {task.estimatedMinutes > 30 && (
                                 <button
@@ -299,6 +301,7 @@ export function DesktopWeekView() {
                                 +30
                               </button>
                             </div>
+                            )}
                           </div>
                         );
                       });

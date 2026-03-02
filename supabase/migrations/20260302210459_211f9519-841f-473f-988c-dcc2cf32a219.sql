@@ -1,0 +1,1 @@
+ALTER TABLE public.enterprises ADD COLUMN enterprise_type text NOT NULL DEFAULT 'digital_services';

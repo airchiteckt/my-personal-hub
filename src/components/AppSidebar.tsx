@@ -1,11 +1,13 @@
-import { Building2, CalendarDays, CalendarRange, Settings, BarChart3 } from 'lucide-react';
+import { Building2, CalendarDays, CalendarRange, Settings, BarChart3, LogOut } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  useSidebar,
+  SidebarFooter, useSidebar,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 
 const navItems = [
   { title: 'Oggi', url: '/', icon: CalendarDays },
@@ -19,6 +21,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { enterprises } = usePrp();
+  const { user, signOut } = useAuth();
 
   return (
     <Sidebar collapsible="icon">
@@ -68,6 +71,16 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
+
+      <SidebarFooter className="p-3 border-t">
+        {!collapsed && user && (
+          <p className="text-[11px] text-muted-foreground truncate mb-2 px-1">{user.email}</p>
+        )}
+        <Button variant="ghost" size={collapsed ? 'icon' : 'sm'} className="w-full justify-start" onClick={signOut}>
+          <LogOut className="h-4 w-4 mr-2" />
+          {!collapsed && <span>Esci</span>}
+        </Button>
+      </SidebarFooter>
     </Sidebar>
   );
 }

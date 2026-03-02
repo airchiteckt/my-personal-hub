@@ -21,6 +21,7 @@ export type Database = {
           id: string
           name: string
           status: Database["public"]["Enums"]["enterprise_status"]
+          user_id: string | null
         }
         Insert: {
           color?: string
@@ -28,6 +29,7 @@ export type Database = {
           id?: string
           name: string
           status?: Database["public"]["Enums"]["enterprise_status"]
+          user_id?: string | null
         }
         Update: {
           color?: string
@@ -35,6 +37,7 @@ export type Database = {
           id?: string
           name?: string
           status?: Database["public"]["Enums"]["enterprise_status"]
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -56,6 +59,7 @@ export type Database = {
           operational_weight: number
           strategic_weight: number
           strategic_weight_enabled: boolean
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -74,6 +78,7 @@ export type Database = {
           operational_weight?: number
           strategic_weight?: number
           strategic_weight_enabled?: boolean
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -92,6 +97,34 @@ export type Database = {
           operational_weight?: number
           strategic_weight?: number
           strategic_weight_enabled?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -102,6 +135,7 @@ export type Database = {
           id: string
           name: string
           type: Database["public"]["Enums"]["project_type"]
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -109,6 +143,7 @@ export type Database = {
           id?: string
           name: string
           type?: Database["public"]["Enums"]["project_type"]
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -116,6 +151,7 @@ export type Database = {
           id?: string
           name?: string
           type?: Database["public"]["Enums"]["project_type"]
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -145,6 +181,7 @@ export type Database = {
           scheduled_time: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
+          user_id: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -163,6 +200,7 @@ export type Database = {
           scheduled_time?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
+          user_id?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -181,6 +219,7 @@ export type Database = {
           scheduled_time?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
+          user_id?: string | null
         }
         Relationships: [
           {

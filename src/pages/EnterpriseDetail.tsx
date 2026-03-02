@@ -11,8 +11,10 @@ import { useState } from 'react';
 import { EditEnterpriseDialog } from '@/components/EditEnterpriseDialog';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
+import { EditProjectDialog } from '@/components/EditProjectDialog';
+import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS, FOCUS_STATUS_LABELS, KR_STATUS_LABELS, METRIC_TYPE_LABELS } from '@/types/prp';
-import type { FocusPeriod, Objective, KeyResult } from '@/types/prp';
+import type { FocusPeriod, Objective, KeyResult, Project, Task } from '@/types/prp';
 import { formatMinutes } from '@/lib/calendar-utils';
 import { getDisplayPriority, getPriorityEmoji, getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 import { CreateFocusPeriodDialog } from '@/components/enterprise/CreateFocusPeriodDialog';
@@ -34,7 +36,7 @@ const EnterpriseDetail = () => {
   const navigate = useNavigate();
   const {
     getEnterprise, getProjectsForEnterprise, getTasksForProject, deleteEnterprise,
-    completeTask, deleteTask, getProjectType, prioritySettings,
+    completeTask, deleteTask, deleteProject, getProjectType, prioritySettings,
     getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective,
     getProjectsForKeyResult, getTasksForEnterprise,
     deleteFocusPeriod, deleteObjective, deleteKeyResult, updateKeyResult,
@@ -45,6 +47,8 @@ const EnterpriseDetail = () => {
   const [createObjForFocus, setCreateObjForFocus] = useState<string | null>(null);
   const [createKRForObjective, setCreateKRForObjective] = useState<string | null>(null);
   const [showEditEnterprise, setShowEditEnterprise] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const enterprise = getEnterprise(id!);
   if (!enterprise) {
@@ -502,23 +506,34 @@ const EnterpriseDetail = () => {
           ) : (
             enterpriseProjects.map(project => {
               const projectTasks = getTasksForProject(project.id);
+              const activeTasks = projectTasks.filter(t => t.status !== 'done');
               const donePT = projectTasks.filter(t => t.status === 'done').length;
               const pctPT = projectTasks.length > 0 ? Math.round((donePT / projectTasks.length) * 100) : 0;
               return (
                 <Card key={project.id} className="p-4">
                   <div className="flex items-center justify-between mb-2 gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                       <h3 className="font-semibold text-sm truncate">{project.name}</h3>
                       <Badge className={`${typeStyles[project.type]} shrink-0 text-[10px]`}>
                         {PROJECT_TYPE_LABELS[project.type]}
                       </Badge>
+                      {project.keyResultId && (
+                        <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
+                          <Target className="h-2.5 w-2.5" /> KR
+                        </Badge>
+                      )}
                       {pctPT > 0 && (
                         <span className="text-[10px] text-muted-foreground">{pctPT}%</span>
                       )}
                     </div>
-                    <Button size="sm" variant="outline" className="shrink-0 h-7 text-xs" onClick={() => setCreateTaskForProject(project.id)}>
-                      <Plus className="h-3 w-3 mr-1" /> Task
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingProject(project)}>
+                        <Edit2 className="h-3 w-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setCreateTaskForProject(project.id)}>
+                        <Plus className="h-3 w-3 mr-1" /> Task
+                      </Button>
+                    </div>
                   </div>
                   {projectTasks.length > 0 && <Progress value={pctPT} className="h-1 mb-2" />}
 
@@ -529,10 +544,11 @@ const EnterpriseDetail = () => {
                       {projectTasks.map(task => (
                         <div
                           key={task.id}
-                          className="flex items-center gap-2 p-2 rounded-lg bg-muted/50"
+                          className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group cursor-pointer hover:bg-muted/80 transition-colors"
+                          onClick={() => setEditingTask(task)}
                         >
                           {task.status !== 'done' ? (
-                            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 rounded-full border border-border" onClick={() => completeTask(task.id)}>
+                            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 rounded-full border border-border" onClick={(e) => { e.stopPropagation(); completeTask(task.id); }}>
                               <Check className="h-2.5 w-2.5" />
                             </Button>
                           ) : (
@@ -551,7 +567,7 @@ const EnterpriseDetail = () => {
                           <Badge variant="outline" className="text-[10px] hidden md:inline-flex">
                             {TASK_STATUS_LABELS[task.status]}
                           </Badge>
-                          <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTask(task.id)}>
+                          <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}>
                             <Trash2 className="h-2.5 w-2.5" />
                           </Button>
                         </div>
@@ -596,6 +612,20 @@ const EnterpriseDetail = () => {
         onOpenChange={setShowEditEnterprise}
         enterprise={enterprise}
       />
+      {editingProject && (
+        <EditProjectDialog
+          open={!!editingProject}
+          onOpenChange={(open) => !open && setEditingProject(null)}
+          project={editingProject}
+        />
+      )}
+      {editingTask && (
+        <EditTaskDialog
+          open={!!editingTask}
+          onOpenChange={(open) => !open && setEditingTask(null)}
+          task={editingTask}
+        />
+      )}
     </div>
   );
 };

@@ -6,9 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ProjectType } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAiInline } from '@/hooks/use-ai-inline';
-import { Sparkles, Loader2, Target, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, Target, CheckCircle2, AlertTriangle, Link2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -25,19 +25,30 @@ interface OkrSuggestion {
 }
 
 export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props) {
-  const { addProject, getEnterprise, getProjectsForEnterprise } = usePrp();
+  const { addProject, getEnterprise, getProjectsForEnterprise, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective } = usePrp();
   const [name, setName] = useState('');
   const [type, setType] = useState<ProjectType>('strategic');
+  const [keyResultId, setKeyResultId] = useState<string | undefined>(undefined);
 
   const enterprise = getEnterprise(enterpriseId);
   const existingProjects = getProjectsForEnterprise(enterpriseId);
+
+  // Available KRs from active focus
+  const availableKRs = useMemo(() => {
+    const focusPeriods = getFocusPeriodsForEnterprise(enterpriseId);
+    const activeFocus = focusPeriods.find(f => f.status === 'active');
+    if (!activeFocus) return [];
+    const objectives = getObjectivesForFocus(activeFocus.id);
+    return objectives.flatMap(o =>
+      getKeyResultsForObjective(o.id).map(kr => ({ ...kr, objectiveTitle: o.title }))
+    );
+  }, [enterpriseId, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective]);
 
   const { data: okrData, loading: okrLoading, debouncedFetch: fetchOkr, clear: clearOkr } = useAiInline<OkrSuggestion>({
     type: 'okr_project',
     debounceMs: 1000,
   });
 
-  // Trigger AI when name changes (min 3 chars)
   useEffect(() => {
     if (name.trim().length >= 3 && enterprise) {
       fetchOkr(
@@ -52,17 +63,36 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
     }
   }, [name]);
 
-  // Auto-apply suggested type
   useEffect(() => {
-    if (okrData?.suggested_type) {
-      setType(okrData.suggested_type);
-    }
+    if (okrData?.suggested_type) setType(okrData.suggested_type);
   }, [okrData]);
 
+  // Auto-clear KR when switching to non-strategic
+  useEffect(() => {
+    if (type !== 'strategic') setKeyResultId(undefined);
+  }, [type]);
+
+  // Validation
+  const isStrategic = type === 'strategic';
+  const hasKR = !!keyResultId;
+  const isValid = isStrategic ? hasKR : true; // strategic must have KR
+  const validationError = isStrategic && !hasKR && availableKRs.length > 0
+    ? 'I progetti Strategic devono essere collegati a un Key Result'
+    : isStrategic && availableKRs.length === 0
+    ? 'Crea prima un Focus Period attivo con Objective e KR per i progetti Strategic'
+    : null;
+
   const handleSubmit = () => {
-    if (!name.trim()) return;
-    addProject({ name: name.trim(), type, enterpriseId });
+    if (!name.trim() || !isValid) return;
+    addProject({
+      name: name.trim(),
+      type,
+      enterpriseId,
+      keyResultId: isStrategic ? keyResultId : undefined,
+      isStrategicLever: isStrategic && hasKR,
+    });
     setName('');
+    setKeyResultId(undefined);
     clearOkr();
     onOpenChange(false);
   };
@@ -75,7 +105,6 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
 
   const alignmentIcon = (score: number) => {
     if (score >= 4) return <CheckCircle2 className="h-3.5 w-3.5" />;
-    if (score >= 3) return <AlertTriangle className="h-3.5 w-3.5" />;
     return <AlertTriangle className="h-3.5 w-3.5" />;
   };
 
@@ -114,7 +143,6 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
 
               {okrData && !okrLoading && (
                 <>
-                  {/* Objective */}
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                       <Target className="h-3 w-3" /> Objective suggerito
@@ -122,7 +150,6 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
                     <p className="text-sm">{okrData.objective}</p>
                   </div>
 
-                  {/* Key Results */}
                   <div className="space-y-1">
                     <p className="text-[11px] font-medium text-muted-foreground">Key Results</p>
                     <ul className="space-y-1">
@@ -135,7 +162,6 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
                     </ul>
                   </div>
 
-                  {/* Alignment */}
                   <div className="flex items-center justify-between pt-1 border-t border-primary/10">
                     <div className={`flex items-center gap-1.5 text-xs font-medium ${alignmentColor(okrData.alignment_score)}`}>
                       {alignmentIcon(okrData.alignment_score)}
@@ -163,7 +189,42 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
             </Select>
           </div>
 
-          <Button onClick={handleSubmit} className="w-full">Crea Progetto</Button>
+          {/* KR Linking — only for strategic */}
+          {isStrategic && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5" /> Key Result collegato <span className="text-destructive">*</span>
+              </Label>
+              {availableKRs.length === 0 ? (
+                <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
+                  ⚠️ Nessun Key Result disponibile. Crea prima un Focus Period attivo con Objective e KR.
+                </p>
+              ) : (
+                <Select value={keyResultId || ''} onValueChange={v => setKeyResultId(v || undefined)}>
+                  <SelectTrigger><SelectValue placeholder="Seleziona KR..." /></SelectTrigger>
+                  <SelectContent>
+                    {availableKRs.map(kr => (
+                      <SelectItem key={kr.id} value={kr.id}>
+                        <span className="text-xs">{kr.objectiveTitle} → {kr.title}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
+          {/* Validation */}
+          {validationError && (
+            <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2.5">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {validationError}
+            </div>
+          )}
+
+          <Button onClick={handleSubmit} className="w-full" disabled={!name.trim() || !isValid}>
+            Crea Progetto
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

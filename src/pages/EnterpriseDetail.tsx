@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { CreateProjectDialog } from '@/components/CreateProjectDialog';
 import { CreateTaskDialog } from '@/components/CreateTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS } from '@/types/prp';
+import { formatMinutes } from '@/lib/calendar-utils';
 
 const typeStyles: Record<string, string> = {
   strategic: 'bg-strategic-light text-strategic',
@@ -38,49 +39,53 @@ const EnterpriseDetail = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <Button variant="ghost" size="sm" onClick={() => navigate('/enterprises')} className="mb-4">
-        <ArrowLeft className="h-4 w-4 mr-2" />
+      <Button variant="ghost" size="sm" onClick={() => navigate('/enterprises')} className="mb-3 md:mb-4 -ml-2">
+        <ArrowLeft className="h-4 w-4 mr-1" />
         Indietro
       </Button>
 
-      <div className="flex items-center gap-4 mb-8">
+      {/* Header */}
+      <div className="flex items-start gap-3 md:gap-4 mb-6 md:mb-8">
         <div
-          className="h-12 w-12 rounded-xl flex items-center justify-center text-xl font-bold"
+          className="h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center text-lg md:text-xl font-bold shrink-0"
           style={{ backgroundColor: `hsl(${enterprise.color} / 0.12)`, color: `hsl(${enterprise.color})` }}
         >
           {enterprise.name[0]}
         </div>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">{enterprise.name}</h1>
-          <p className="text-muted-foreground text-sm">{enterpriseProjects.length} progetti</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl md:text-3xl font-bold truncate">{enterprise.name}</h1>
+          <p className="text-muted-foreground text-xs md:text-sm">{enterpriseProjects.length} progetti</p>
         </div>
-        <Button onClick={() => setShowCreateProject(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Progetto
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => { deleteEnterprise(id!); navigate('/enterprises'); }}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex gap-1.5 md:gap-2 shrink-0">
+          <Button size="sm" onClick={() => setShowCreateProject(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            <span className="hidden md:inline">Progetto</span>
+            <span className="md:hidden">+</span>
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9" onClick={() => { deleteEnterprise(id!); navigate('/enterprises'); }}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       {enterpriseProjects.length === 0 ? (
-        <Card className="p-12 text-center border-dashed">
-          <p className="text-muted-foreground">Nessun progetto ancora. Creane uno per iniziare!</p>
+        <Card className="p-8 md:p-12 text-center border-dashed">
+          <p className="text-muted-foreground">Nessun progetto. Creane uno per iniziare!</p>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {enterpriseProjects.map(project => {
             const projectTasks = getTasksForProject(project.id);
             return (
-              <Card key={project.id} className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg">{project.name}</h3>
-                    <Badge className={typeStyles[project.type]}>
+              <Card key={project.id} className="p-4 md:p-5">
+                <div className="flex items-center justify-between mb-3 md:mb-4 gap-2">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0">
+                    <h3 className="font-semibold text-base md:text-lg truncate">{project.name}</h3>
+                    <Badge className={`${typeStyles[project.type]} shrink-0 text-[10px] md:text-xs`}>
                       {PROJECT_TYPE_LABELS[project.type]}
                     </Badge>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setCreateTaskForProject(project.id)}>
+                  <Button size="sm" variant="outline" className="shrink-0 h-7 md:h-8 text-xs" onClick={() => setCreateTaskForProject(project.id)}>
                     <Plus className="h-3 w-3 mr-1" />
                     Task
                   </Button>
@@ -89,35 +94,35 @@ const EnterpriseDetail = () => {
                 {projectTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">Nessuna task</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5 md:space-y-2">
                     {projectTasks.map(task => (
                       <div
                         key={task.id}
-                        className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                        className="flex items-center gap-2 md:gap-3 p-2.5 md:p-3 rounded-lg bg-muted/50"
                       >
                         {task.status !== 'done' ? (
-                          <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 rounded-full border border-border" onClick={() => completeTask(task.id)}>
+                          <Button size="icon" variant="ghost" className="h-6 w-6 md:h-7 md:w-7 shrink-0 rounded-full border border-border" onClick={() => completeTask(task.id)}>
                             <Check className="h-3 w-3" />
                           </Button>
                         ) : (
-                          <div className="h-7 w-7 shrink-0 rounded-full bg-primary flex items-center justify-center">
+                          <div className="h-6 w-6 md:h-7 md:w-7 shrink-0 rounded-full bg-primary flex items-center justify-center">
                             <Check className="h-3 w-3 text-primary-foreground" />
                           </div>
                         )}
-                        <span className={`flex-1 text-sm ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
+                        <span className={`flex-1 text-xs md:text-sm min-w-0 truncate ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
                           {task.title}
                         </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {task.estimatedMinutes}m
+                        <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
+                          <Clock className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                          {formatMinutes(task.estimatedMinutes)}
                         </span>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] hidden md:inline-flex">
                           {TASK_STATUS_LABELS[task.status]}
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-[10px] hidden md:inline-flex">
                           {PRIORITY_LABELS[task.priority]}
                         </Badge>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTask(task.id)}>
+                        <Button size="icon" variant="ghost" className="h-6 w-6 md:h-7 md:w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTask(task.id)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>

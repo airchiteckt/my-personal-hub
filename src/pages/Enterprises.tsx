@@ -14,37 +14,38 @@ const Enterprises = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Imprese</h1>
-          <p className="text-muted-foreground text-sm mt-1">{enterprises.length} imprese totali</p>
+          <h1 className="text-2xl md:text-3xl font-bold">Imprese</h1>
+          <p className="text-muted-foreground text-xs md:text-sm mt-1">{enterprises.length} imprese totali</p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nuova Impresa
+        <Button onClick={() => setShowCreate(true)} size="sm" className="md:size-default">
+          <Plus className="h-4 w-4 mr-1 md:mr-2" />
+          <span className="hidden md:inline">Nuova Impresa</span>
+          <span className="md:hidden">Nuova</span>
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 md:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {enterprises.map(e => {
           const projCount = projects.filter(p => p.enterpriseId === e.id).length;
           const taskCount = tasks.filter(t => t.enterpriseId === e.id && t.status !== 'done').length;
           return (
             <Link key={e.id} to={`/enterprise/${e.id}`}>
-              <Card className="p-5 hover:shadow-md transition-all cursor-pointer group" style={{ borderTop: `4px solid hsl(${e.color})` }}>
+              <Card className="p-4 md:p-5 hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]" style={{ borderTop: `4px solid hsl(${e.color})` }}>
                 <div className="flex items-start justify-between mb-3">
                   <div
-                    className="h-10 w-10 rounded-lg flex items-center justify-center"
+                    className="h-9 w-9 md:h-10 md:w-10 rounded-lg flex items-center justify-center"
                     style={{ backgroundColor: `hsl(${e.color} / 0.12)` }}
                   >
-                    <Building2 className="h-5 w-5" style={{ color: `hsl(${e.color})` }} />
+                    <Building2 className="h-4 w-4 md:h-5 md:w-5" style={{ color: `hsl(${e.color})` }} />
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="secondary" className="text-[10px] md:text-xs">
                     {ENTERPRISE_STATUS_LABELS[e.status]}
                   </Badge>
                 </div>
-                <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{e.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h3 className="font-semibold text-base md:text-lg group-hover:text-primary transition-colors">{e.name}</h3>
+                <p className="text-xs md:text-sm text-muted-foreground mt-1">
                   {projCount} progetti · {taskCount} task attive
                 </p>
               </Card>

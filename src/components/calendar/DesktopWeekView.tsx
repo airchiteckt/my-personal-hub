@@ -34,6 +34,7 @@ interface RitualCalendarCardProps {
 }
 
 function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart }: RitualCalendarCardProps) {
+  const [expanded, setExpanded] = useState(false);
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';
@@ -41,21 +42,24 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
   return (
     <div
-      draggable={canDrag}
+      draggable={canDrag && !expanded}
       onDragStart={e => { e.stopPropagation(); onDragStart?.(e); }}
       onMouseDown={e => e.stopPropagation()}
-      className={`absolute rounded-lg overflow-hidden z-10 border-2 group ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
+      onClick={e => { e.stopPropagation(); setExpanded(prev => !prev); }}
+      className={`absolute rounded-lg overflow-hidden z-10 border-2 ${canDrag && !expanded ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
       style={{
         top: top + 1,
-        height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        height: expanded ? 'auto' : Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        minHeight: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
         right: 2,
         width: '45%',
         backgroundColor: `hsl(${color} / ${isDone ? '0.15' : isSkipped ? '0.05' : '0.08'})`,
         borderColor: `hsl(${color} / ${isDone ? '0.6' : '0.4'})`,
+        zIndex: expanded ? 30 : 10,
       }}
       title={`${ritual.name} [${isDone ? 'Completato' : isSkipped ? 'Saltato' : 'Pianificato'}]`}
     >
-      <div className="p-1.5 h-full flex flex-col">
+      <div className="p-1.5 flex flex-col">
         <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${isDone ? 'line-through' : ''}`}>
           <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
           {isDone && '✅ '}
@@ -68,35 +72,42 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
         </p>
       </div>
 
-      {/* Action buttons */}
-      {isPlanned && (
-        <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
+      {/* Expanded action buttons */}
+      {expanded && isPlanned && (
+        <div className="flex items-center gap-1 px-1.5 pb-1.5">
           <button
             onClick={e => { e.stopPropagation(); onComplete(); }}
-            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 text-green-600"
-            title="Segna completato"
+            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50"
           >
             <Check className="h-3 w-3" /> Fatto
           </button>
           <button
             onClick={e => { e.stopPropagation(); onSkip(); }}
-            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
-            title="Salta"
+            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
           >
             <X className="h-3 w-3" /> Salta
           </button>
+          {onDelete && (
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(); }}
+              className="ml-auto text-[10px] font-medium px-1.5 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+            >
+              ×
+            </button>
+          )}
         </div>
       )}
 
       {/* Delete/reset for done/skipped */}
-      {(isDone || isSkipped) && onDelete && (
-        <button
-          onClick={e => { e.stopPropagation(); onDelete(); }}
-          className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-muted-foreground hover:text-destructive"
-          title="Rimuovi"
-        >
-          ×
-        </button>
+      {expanded && (isDone || isSkipped) && onDelete && (
+        <div className="flex items-center gap-1 px-1.5 pb-1.5">
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(); }}
+            className="flex items-center gap-0.5 text-[10px] font-medium px-2 py-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          >
+            × Rimuovi
+          </button>
+        </div>
       )}
     </div>
   );

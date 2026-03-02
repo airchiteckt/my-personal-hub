@@ -401,13 +401,23 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   // --- Focus Periods CRUD ---
   const addFocusPeriod = useCallback(async (f: Omit<FocusPeriod, 'id' | 'createdAt'>) => {
     if (!userId) return;
+    // If the new focus period is active, archive any existing active ones for the same enterprise
+    if (f.status === 'active') {
+      const existingActive = focusPeriods.filter(fp => fp.enterpriseId === f.enterpriseId && fp.status === 'active');
+      for (const fp of existingActive) {
+        await supabase.from('focus_periods').update({ status: 'archived' }).eq('id', fp.id);
+      }
+      setFocusPeriods(prev => prev.map(fp => 
+        fp.enterpriseId === f.enterpriseId && fp.status === 'active' ? { ...fp, status: 'archived' } : fp
+      ));
+    }
     const { data, error } = await supabase.from('focus_periods').insert({
       enterprise_id: f.enterpriseId, name: f.name, start_date: f.startDate,
       end_date: f.endDate, status: f.status, user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione focus period'); return; }
     setFocusPeriods(prev => [...prev, dbToFocusPeriod(data)]);
-  }, [userId]);
+  }, [userId, focusPeriods]);
 
   const updateFocusPeriod = useCallback(async (id: string, updates: Partial<FocusPeriod>) => {
     setFocusPeriods(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));

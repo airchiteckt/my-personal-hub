@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
-import { Bot, Send, Sparkles, Trash2, Mic, MicOff, Volume2, VolumeX, Loader2, Check, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3 } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Bot, Send, Sparkles, Trash2, Mic, MicOff, Volume2, VolumeX, Loader2, Check, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, Zap, CircleDot, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -10,14 +9,17 @@ import ReactMarkdown from 'react-markdown';
 import { useLocation } from 'react-router-dom';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
-type GlobalAction = {
-  type: string;
-  data: any;
-  applied?: boolean;
-};
+type GlobalAction = { type: string; data: any; applied?: boolean };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+const QUICK_PROMPTS = [
+  { label: '📋 Agenda di oggi', prompt: 'Cosa devo fare oggi? Mostrami task e appuntamenti.' },
+  { label: '⚡ Task urgenti', prompt: 'Quali sono le task più urgenti in scadenza questa settimana?' },
+  { label: '🎯 OKR status', prompt: 'Dammi un report sullo stato dei miei OKR e Focus attivi.' },
+  { label: '➕ Nuova task', prompt: 'Aiutami a creare una nuova task.' },
+];
 
 export function AiAssistant() {
   const { session } = useAuth();
@@ -25,8 +27,6 @@ export function AiAssistant() {
     enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
     addEnterprise, addProject, addTask, addFocusPeriod, addObjective, addKeyResult,
     addAppointment, scheduleTask, completeTask,
-    getProjectsForEnterprise, getTasksForEnterprise, getFocusPeriodsForEnterprise,
-    getObjectivesForFocus, getKeyResultsForObjective,
   } = usePrp();
   const location = useLocation();
 
@@ -39,7 +39,6 @@ export function AiAssistant() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Voice
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -53,14 +52,10 @@ export function AiAssistant() {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) recognitionRef.current.abort();
-      if (audioRef.current) {
-        audioRef.current.pause();
-        URL.revokeObjectURL(audioRef.current.src);
-      }
+      if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
     };
   }, []);
 
@@ -69,29 +64,29 @@ export function AiAssistant() {
 
   const speakText = useCallback(async (text: string) => {
     if (!voiceEnabled || !text) return;
-    const cleanText = stripMarkdown(text);
-    if (cleanText.length < 3) return;
+    const clean = stripMarkdown(text);
+    if (clean.length < 3) return;
     try {
       setIsSpeaking(true);
-      const response = await fetch(TTS_URL, {
+      const res = await fetch(TTS_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ text: cleanText }),
+        body: JSON.stringify({ text: clean }),
       });
-      if (!response.ok) throw new Error('TTS failed');
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
       if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
-      const audio = new Audio(audioUrl);
+      const audio = new Audio(url);
       audioRef.current = audio;
-      audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); };
-      audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(audioUrl); };
+      audio.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(url); };
+      audio.onerror = () => { setIsSpeaking(false); URL.revokeObjectURL(url); };
       await audio.play();
-    } catch (e) { console.error('TTS error:', e); setIsSpeaking(false); }
+    } catch { setIsSpeaking(false); }
   }, [voiceEnabled, session]);
 
   const stopSpeaking = useCallback(() => {
@@ -100,20 +95,18 @@ export function AiAssistant() {
 
   const startListening = useCallback(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast.error('Browser non supporta riconoscimento vocale'); return; }
-    const recognition = new SR();
-    recognition.lang = 'it-IT';
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.onresult = (event: any) => {
-      let transcript = '';
-      for (let i = 0; i < event.results.length; i++) transcript += event.results[i][0].transcript;
-      setInput(transcript);
+    if (!SR) { toast.error('Browser non supporta il riconoscimento vocale'); return; }
+    const r = new SR();
+    r.lang = 'it-IT'; r.continuous = false; r.interimResults = true;
+    r.onresult = (e: any) => {
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      setInput(t);
     };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = (event: any) => { console.error('STT error:', event.error); setIsListening(false); };
-    recognitionRef.current = recognition;
-    recognition.start();
+    r.onend = () => setIsListening(false);
+    r.onerror = () => setIsListening(false);
+    recognitionRef.current = r;
+    r.start();
     setIsListening(true);
     if (!voiceEnabled) setVoiceEnabled(true);
   }, [voiceEnabled]);
@@ -122,175 +115,69 @@ export function AiAssistant() {
     if (recognitionRef.current) { recognitionRef.current.stop(); setIsListening(false); }
   }, []);
 
-  // Build full context for AI
   const buildContext = () => {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const currentQ = Math.ceil((now.getMonth() + 1) / 3);
-
-    // Detect current section from route
     const path = location.pathname;
     let currentSection = 'dashboard';
     let currentEnterpriseId: string | null = null;
-    if (path.startsWith('/enterprise/')) {
-      currentSection = 'enterprise_detail';
-      currentEnterpriseId = path.split('/enterprise/')[1];
-    } else if (path === '/enterprises') currentSection = 'enterprises';
+    if (path.startsWith('/enterprise/')) { currentSection = 'enterprise_detail'; currentEnterpriseId = path.split('/enterprise/')[1]; }
+    else if (path === '/enterprises') currentSection = 'enterprises';
     else if (path === '/calendar') currentSection = 'calendar';
     else if (path === '/settings') currentSection = 'settings';
 
     return {
-      currentSection,
-      currentEnterpriseId,
-      currentDate: today,
+      currentSection, currentEnterpriseId, currentDate: today,
       currentQuarter: `Q${currentQ} ${now.getFullYear()}`,
-      enterprises: enterprises.map(e => ({
-        id: e.id, name: e.name, status: e.status, phase: e.phase,
-        businessCategory: e.businessCategory, color: e.color,
-      })),
-      projects: projects.map(p => ({
-        id: p.id, name: p.name, type: p.type, enterpriseId: p.enterpriseId,
-        isStrategicLever: p.isStrategicLever, keyResultId: p.keyResultId,
-      })),
-      tasks: tasks.filter(t => t.status !== 'done').map(t => ({
-        id: t.id, title: t.title, priority: t.priority, status: t.status,
-        estimatedMinutes: t.estimatedMinutes, deadline: t.deadline,
-        scheduledDate: t.scheduledDate, scheduledTime: t.scheduledTime,
-        projectId: t.projectId, enterpriseId: t.enterpriseId,
-      })),
-      todayTasks: tasks.filter(t => t.scheduledDate === today && t.status !== 'done').map(t => ({
-        id: t.id, title: t.title, priority: t.priority, scheduledTime: t.scheduledTime,
-      })),
-      upcomingDeadlines: tasks.filter(t => t.deadline && t.status !== 'done' && t.deadline <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).map(t => ({
-        id: t.id, title: t.title, deadline: t.deadline, priority: t.priority,
-      })),
-      focusPeriods: focusPeriods.map(f => ({
-        id: f.id, name: f.name, status: f.status, startDate: f.startDate,
-        endDate: f.endDate, enterpriseId: f.enterpriseId,
-      })),
-      objectives: objectives.map(o => ({
-        id: o.id, title: o.title, status: o.status,
-        focusPeriodId: o.focusPeriodId, enterpriseId: o.enterpriseId,
-      })),
-      keyResults: keyResults.map(kr => ({
-        id: kr.id, title: kr.title, targetValue: kr.targetValue,
-        currentValue: kr.currentValue, metricType: kr.metricType,
-        objectiveId: kr.objectiveId, enterpriseId: kr.enterpriseId,
-      })),
-      appointmentsToday: appointments.filter(a => a.date === today).map(a => ({
-        title: a.title, startTime: a.startTime, endTime: a.endTime,
-      })),
+      enterprises: enterprises.map(e => ({ id: e.id, name: e.name, status: e.status, phase: e.phase, businessCategory: e.businessCategory, color: e.color })),
+      projects: projects.map(p => ({ id: p.id, name: p.name, type: p.type, enterpriseId: p.enterpriseId, isStrategicLever: p.isStrategicLever, keyResultId: p.keyResultId })),
+      tasks: tasks.filter(t => t.status !== 'done').map(t => ({ id: t.id, title: t.title, priority: t.priority, status: t.status, estimatedMinutes: t.estimatedMinutes, deadline: t.deadline, scheduledDate: t.scheduledDate, scheduledTime: t.scheduledTime, projectId: t.projectId, enterpriseId: t.enterpriseId })),
+      todayTasks: tasks.filter(t => t.scheduledDate === today && t.status !== 'done').map(t => ({ id: t.id, title: t.title, priority: t.priority, scheduledTime: t.scheduledTime })),
+      upcomingDeadlines: tasks.filter(t => t.deadline && t.status !== 'done' && t.deadline <= new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]).map(t => ({ id: t.id, title: t.title, deadline: t.deadline, priority: t.priority })),
+      focusPeriods: focusPeriods.map(f => ({ id: f.id, name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate, enterpriseId: f.enterpriseId })),
+      objectives: objectives.map(o => ({ id: o.id, title: o.title, status: o.status, focusPeriodId: o.focusPeriodId, enterpriseId: o.enterpriseId })),
+      keyResults: keyResults.map(kr => ({ id: kr.id, title: kr.title, targetValue: kr.targetValue, currentValue: kr.currentValue, metricType: kr.metricType, objectiveId: kr.objectiveId, enterpriseId: kr.enterpriseId })),
+      appointmentsToday: appointments.filter(a => a.date === today).map(a => ({ title: a.title, startTime: a.startTime, endTime: a.endTime })),
       backlogCount: tasks.filter(t => t.status === 'backlog').length,
       doneTodayCount: tasks.filter(t => t.status === 'done' && t.completedAt?.startsWith(today)).length,
     };
   };
 
-  // Apply actions from AI
   const applyAction = async (action: GlobalAction) => {
     try {
       switch (action.type) {
         case 'create_enterprise':
-          addEnterprise({
-            name: action.data.name,
-            status: action.data.status || 'active',
-            color: '#6366f1',
-            strategicImportance: 3, growthPotential: 3,
-            phase: action.data.phase || 'setup',
-            businessCategory: action.data.business_category || 'scale_opportunity',
-            timeHorizon: 'medium', priorityUntil: null,
-          });
-          toast.success(`Impresa "${action.data.name}" creata`);
-          break;
+          addEnterprise({ name: action.data.name, status: action.data.status || 'active', color: '#6366f1', strategicImportance: 3, growthPotential: 3, phase: action.data.phase || 'setup', businessCategory: action.data.business_category || 'scale_opportunity', timeHorizon: 'medium', priorityUntil: null });
+          toast.success(`Impresa "${action.data.name}" creata`); break;
         case 'create_project':
-          addProject({
-            name: action.data.name,
-            enterpriseId: action.data.enterprise_id,
-            type: action.data.type || 'operational',
-            isStrategicLever: action.data.type === 'strategic',
-            keyResultId: null,
-          });
-          toast.success(`Progetto "${action.data.name}" creato`);
-          break;
+          addProject({ name: action.data.name, enterpriseId: action.data.enterprise_id, type: action.data.type || 'operational', isStrategicLever: action.data.type === 'strategic', keyResultId: null });
+          toast.success(`Progetto "${action.data.name}" creato`); break;
         case 'create_task':
-          addTask({
-            title: action.data.title,
-            projectId: action.data.project_id,
-            enterpriseId: action.data.enterprise_id,
-            priority: action.data.priority || 'medium',
-            estimatedMinutes: action.data.estimated_minutes || 30,
-            deadline: action.data.deadline || null,
-            scheduledDate: null, scheduledTime: null,
-            isRecurring: false, recurringFrequency: null,
-            impact: null, effort: null, completedAt: null,
-          });
-          toast.success(`Task "${action.data.title}" creata`);
-          break;
+          addTask({ title: action.data.title, projectId: action.data.project_id, enterpriseId: action.data.enterprise_id, priority: action.data.priority || 'medium', estimatedMinutes: action.data.estimated_minutes || 30, deadline: action.data.deadline || null, scheduledDate: null, scheduledTime: null, isRecurring: false, recurringFrequency: null, impact: null, effort: null, completedAt: null });
+          toast.success(`Task "${action.data.title}" creata`); break;
         case 'create_focus_period':
-          addFocusPeriod({
-            enterpriseId: action.data.enterprise_id,
-            name: action.data.name,
-            startDate: action.data.start_date,
-            endDate: action.data.end_date,
-            status: action.data.status || 'active',
-          });
-          toast.success(`Focus Period "${action.data.name}" creato`);
-          break;
+          addFocusPeriod({ enterpriseId: action.data.enterprise_id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
+          toast.success(`Focus "${action.data.name}" creato`); break;
         case 'create_objective':
-          addObjective({
-            focusPeriodId: action.data.focus_period_id,
-            enterpriseId: action.data.enterprise_id,
-            title: action.data.title,
-            description: action.data.description || '',
-            weight: 1, status: 'active',
-          });
-          toast.success(`Objective "${action.data.title}" creato`);
-          break;
+          addObjective({ focusPeriodId: action.data.focus_period_id, enterpriseId: action.data.enterprise_id, title: action.data.title, description: action.data.description || '', weight: 1, status: 'active' });
+          toast.success(`Objective "${action.data.title}" creato`); break;
         case 'create_key_result':
-          addKeyResult({
-            objectiveId: action.data.objective_id,
-            enterpriseId: action.data.enterprise_id,
-            title: action.data.title,
-            targetValue: action.data.target_value,
-            currentValue: 0,
-            metricType: action.data.metric_type || 'number',
-            deadline: action.data.deadline || null,
-            status: 'active',
-          });
-          toast.success(`Key Result "${action.data.title}" creato`);
-          break;
-        case 'schedule_task':
-          scheduleTask(action.data.task_id, action.data.date, action.data.time);
-          toast.success('Task pianificata');
-          break;
-        case 'complete_task':
-          completeTask(action.data.task_id);
-          toast.success('Task completata');
-          break;
+          addKeyResult({ objectiveId: action.data.objective_id, enterpriseId: action.data.enterprise_id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'number', deadline: action.data.deadline || null, status: 'active' });
+          toast.success(`KR "${action.data.title}" creato`); break;
+        case 'schedule_task': scheduleTask(action.data.task_id, action.data.date, action.data.time); toast.success('Task pianificata'); break;
+        case 'complete_task': completeTask(action.data.task_id); toast.success('Task completata'); break;
         case 'create_appointment':
-          addAppointment({
-            title: action.data.title,
-            date: action.data.date,
-            startTime: action.data.start_time,
-            endTime: action.data.end_time,
-            description: action.data.description || null,
-            color: null,
-            enterpriseId: action.data.enterprise_id || null,
-          });
-          toast.success(`Appuntamento "${action.data.title}" creato`);
-          break;
-        default:
-          console.warn('Unknown action type:', action.type);
+          addAppointment({ title: action.data.title, date: action.data.date, startTime: action.data.start_time, endTime: action.data.end_time, description: action.data.description || null, color: null, enterpriseId: action.data.enterprise_id || null });
+          toast.success(`Appuntamento "${action.data.title}" creato`); break;
       }
       action.applied = true;
       setPendingActions(prev => [...prev]);
-    } catch (e) {
-      console.error('Error applying action:', e);
-      toast.error("Errore nell'applicare l'azione");
-    }
+    } catch (e) { console.error(e); toast.error("Errore nell'azione"); }
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const text = (overrideText || input).trim();
     if (!text || isLoading) return;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
@@ -300,32 +187,18 @@ export function AiAssistant() {
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
     let assistantContent = '';
-
     try {
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({
-          type: 'global_assistant',
-          messages: newMessages,
-          context: buildContext(),
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ type: 'global_assistant', messages: newMessages, context: buildContext() }),
       });
+      if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }
+      if (!resp.body) throw new Error('No body');
 
-      if (!resp.ok) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || `Errore ${resp.status}`);
-      }
-
-      if (!resp.body) throw new Error('No response body');
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       let streamDone = false;
@@ -333,151 +206,154 @@ export function AiAssistant() {
         const { done, value } = await reader.read();
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
-
-        let newlineIdx: number;
-        while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, newlineIdx);
-          buffer = buffer.slice(newlineIdx + 1);
+        let idx: number;
+        while ((idx = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
           if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (line.startsWith(':') || line.trim() === '') continue;
           if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === '[DONE]') { streamDone = true; break; }
+          const json = line.slice(6).trim();
+          if (json === '[DONE]') { streamDone = true; break; }
           try {
-            const parsed = JSON.parse(jsonStr);
-            if (parsed.type === 'delta' && parsed.content) {
-              assistantContent += parsed.content;
-              const snapshot = assistantContent;
-              setMessages(prev =>
-                prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snapshot } : m)
-              );
+            const p = JSON.parse(json);
+            if (p.type === 'delta' && p.content) {
+              assistantContent += p.content;
+              const snap = assistantContent;
+              setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
-            if (parsed.type === 'actions' && parsed.actions?.length) {
-              const actions: GlobalAction[] = parsed.actions.map((a: any) => ({ ...a, applied: false }));
-              setPendingActions(prev => [...prev, ...actions]);
-              for (const action of actions) await applyAction(action);
+            if (p.type === 'actions' && p.actions?.length) {
+              const acts: GlobalAction[] = p.actions.map((a: any) => ({ ...a, applied: false }));
+              setPendingActions(prev => [...prev, ...acts]);
+              for (const a of acts) await applyAction(a);
             }
-          } catch {
-            buffer = line + '\n' + buffer;
-            break;
-          }
+          } catch { buffer = line + '\n' + buffer; break; }
         }
       }
 
       if (!assistantContent) {
-        setMessages(prev => {
-          const last = prev[prev.length - 1];
-          if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
-          return prev;
-        });
-      } else {
-        speakText(assistantContent);
-      }
+        setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+      } else { speakText(assistantContent); }
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'Errore AI');
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
-        return prev;
-      });
+      console.error(e); toast.error(e?.message || 'Errore AI');
+      setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
     }
     setIsLoading(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
-  };
-
-  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    e.target.style.height = 'auto';
-    e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
-  };
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px'; };
 
   const getActionIcon = (type: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      create_enterprise: <Building2 className="h-3 w-3" />,
-      create_project: <FolderKanban className="h-3 w-3" />,
-      create_task: <ListTodo className="h-3 w-3" />,
-      create_focus_period: <Calendar className="h-3 w-3" />,
-      create_objective: <Target className="h-3 w-3" />,
-      create_key_result: <BarChart3 className="h-3 w-3" />,
-      schedule_task: <Calendar className="h-3 w-3" />,
-      complete_task: <Check className="h-3 w-3" />,
+    const map: Record<string, React.ReactNode> = {
+      create_enterprise: <Building2 className="h-3 w-3" />, create_project: <FolderKanban className="h-3 w-3" />,
+      create_task: <ListTodo className="h-3 w-3" />, create_focus_period: <Calendar className="h-3 w-3" />,
+      create_objective: <Target className="h-3 w-3" />, create_key_result: <BarChart3 className="h-3 w-3" />,
+      schedule_task: <Calendar className="h-3 w-3" />, complete_task: <Check className="h-3 w-3" />,
       create_appointment: <Calendar className="h-3 w-3" />,
     };
-    return icons[type] || <Sparkles className="h-3 w-3" />;
+    return map[type] || <Zap className="h-3 w-3" />;
   };
 
-  const getActionLabel = (action: GlobalAction) =>
-    action.data?.name || action.data?.title || action.type.replace(/_/g, ' ');
+  const getActionLabel = (a: GlobalAction) => a.data?.name || a.data?.title || a.type.replace(/_/g, ' ');
+
+  // Stats for empty state
+  const tasksDueToday = tasks.filter(t => t.scheduledDate === new Date().toISOString().split('T')[0] && t.status !== 'done').length;
+  const activeEnterprises = enterprises.filter(e => e.status === 'active').length;
+  const backlogCount = tasks.filter(t => t.status === 'backlog').length;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button
-          size="icon"
-          className="fixed bottom-5 right-5 h-12 w-12 rounded-full shadow-lg z-50"
-        >
-          <Bot className="h-5 w-5" />
-        </Button>
+        <button className="fixed bottom-5 right-5 h-12 w-12 rounded-2xl shadow-xl z-50 bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all duration-200 group">
+          <div className="absolute inset-0 rounded-2xl bg-primary/80 blur-md opacity-40 group-hover:opacity-60 transition-opacity" />
+          <Zap className="h-5 w-5 relative z-10" />
+        </button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:w-[420px] p-0 flex flex-col">
-        <SheetHeader className="p-4 pb-2 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <SheetTitle className="text-base flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
-              Assistente AI
-            </SheetTitle>
-            <button
-              onClick={() => {
-                if (voiceEnabled) { stopSpeaking(); setVoiceEnabled(false); }
-                else setVoiceEnabled(true);
-              }}
-              className={`h-7 w-7 rounded-md flex items-center justify-center transition-colors ${
-                voiceEnabled ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'
-              }`}
-              title={voiceEnabled ? 'Disattiva voce' : 'Attiva voce'}
-            >
-              {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-            </button>
+      <SheetContent side="right" className="w-full sm:w-[420px] p-0 flex flex-col bg-background border-l border-border/50">
+        {/* Header */}
+        <div className="relative px-4 pt-4 pb-3 border-b border-border/50">
+          <div className="absolute inset-0 bg-gradient-to-b from-primary/[0.04] to-transparent pointer-events-none" />
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center border border-primary/10">
+                <Zap className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground tracking-tight">PRP Assistant</h2>
+                <div className="flex items-center gap-1.5">
+                  <CircleDot className="h-2 w-2 text-emerald-500 fill-emerald-500" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Online · Full access</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { if (voiceEnabled) { stopSpeaking(); setVoiceEnabled(false); } else setVoiceEnabled(true); }}
+                className={`h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                  voiceEnabled ? 'bg-primary/10 text-primary ring-1 ring-primary/20' : 'hover:bg-muted text-muted-foreground'
+                }`}
+                title={voiceEnabled ? 'Disattiva voce' : 'Attiva voce'}
+              >
+                {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-muted-foreground">Chiedi qualsiasi cosa · Legge e scrive ovunque</p>
-        </SheetHeader>
+        </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3">
+        {/* Messages */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
-            <div className="text-center text-muted-foreground text-xs py-10 space-y-2">
-              <Bot className="h-8 w-8 mx-auto opacity-30 mb-2" />
-              <p className="font-medium">Ciao! Sono il tuo assistente PRP.</p>
-              <p>Posso leggere e scrivere in tutte le sezioni.</p>
-              <div className="flex flex-wrap gap-1.5 justify-center pt-3">
-                {['Cosa devo fare oggi?', 'Crea una task', 'Stato dei miei OKR'].map(q => (
-                  <Badge
-                    key={q}
-                    variant="secondary"
-                    className="cursor-pointer text-[10px] hover:bg-primary/10 transition-colors"
-                    onClick={() => { setInput(q); setTimeout(() => handleSend(), 50); }}
+            <div className="pt-4 space-y-5">
+              {/* Status bar */}
+              <div className="flex items-center gap-2 px-1">
+                <div className="flex-1 flex items-center gap-3">
+                  {[
+                    { n: tasksDueToday, label: 'oggi', color: 'text-primary' },
+                    { n: backlogCount, label: 'backlog', color: 'text-muted-foreground' },
+                    { n: activeEnterprises, label: 'imprese', color: 'text-muted-foreground' },
+                  ].map(s => (
+                    <div key={s.label} className="flex items-baseline gap-1">
+                      <span className={`text-base font-bold tabular-nums ${s.color}`}>{s.n}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{s.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Greeting */}
+              <div className="space-y-1 px-1">
+                <p className="text-sm text-foreground font-medium">Come posso aiutarti?</p>
+                <p className="text-[12px] text-muted-foreground leading-relaxed">Leggo e scrivo in tutte le sezioni. Chiedimi qualsiasi cosa.</p>
+              </div>
+
+              {/* Quick actions */}
+              <div className="space-y-1.5">
+                {QUICK_PROMPTS.map(q => (
+                  <button
+                    key={q.label}
+                    onClick={() => handleSend(q.prompt)}
+                    className="w-full flex items-center gap-3 rounded-xl border border-border/60 bg-card hover:bg-muted/50 hover:border-primary/20 transition-all duration-200 px-3.5 py-2.5 group text-left"
                   >
-                    {q}
-                  </Badge>
+                    <span className="text-sm">{q.label}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 ml-auto group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  </button>
                 ))}
               </div>
             </div>
           )}
+
           {messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in-0 slide-in-from-bottom-2 duration-200`}>
               {msg.role === 'assistant' && (
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                  <Sparkles className="h-3 w-3 text-primary" />
+                <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 mr-2 mt-0.5 border border-primary/10">
+                  <Zap className="h-3 w-3 text-primary" />
                 </div>
               )}
               <div
-                className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
+                className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${
                   msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-br-md'
-                    : 'bg-muted/70 text-foreground rounded-bl-md'
+                    ? 'bg-primary text-primary-foreground rounded-br-lg'
+                    : 'bg-muted/60 text-foreground rounded-bl-lg border border-border/40'
                 }`}
               >
                 {msg.role === 'assistant' ? (
@@ -493,26 +369,25 @@ export function AiAssistant() {
 
           {/* Applied actions */}
           {pendingActions.filter(a => a.applied).map((action, i) => (
-            <div key={`action-${i}`} className="flex justify-center py-1">
-              <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/15 px-3 py-1">
-                <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">
-                  {getActionIcon(action.type)}
-                </div>
+            <div key={`a-${i}`} className="flex justify-center py-0.5 animate-in fade-in-0 zoom-in-95 duration-300">
+              <div className="flex items-center gap-2 rounded-lg bg-primary/[0.06] border border-primary/15 px-3 py-1.5">
+                <div className="h-4 w-4 rounded bg-primary/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[200px]">{getActionLabel(action)}</span>
-                <Check className="h-3 w-3 text-primary shrink-0" />
+                <Check className="h-3 w-3 text-emerald-500 shrink-0" />
               </div>
             </div>
           ))}
 
+          {/* Loading */}
           {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
-            <div className="flex justify-start">
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2">
-                <Sparkles className="h-3 w-3 text-primary" />
+            <div className="flex justify-start animate-in fade-in-0">
+              <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 mr-2 border border-primary/10">
+                <Zap className="h-3 w-3 text-primary" />
               </div>
-              <div className="bg-muted/70 rounded-2xl rounded-bl-md px-3.5 py-2.5">
+              <div className="bg-muted/60 rounded-2xl rounded-bl-lg px-3.5 py-2.5 border border-border/40">
                 <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-[13px]">Sto pensando...</span>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span className="text-[13px]">Elaboro...</span>
                 </div>
               </div>
             </div>
@@ -520,65 +395,68 @@ export function AiAssistant() {
         </div>
 
         {/* Input area */}
-        <div className="border-t border-border/50 p-2.5 md:p-3 shrink-0 bg-muted/20">
-          {isSpeaking && (
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                <div className="h-2 w-2 rounded-full bg-primary animate-pulse [animation-delay:150ms]" />
-                <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse [animation-delay:300ms]" />
-              </div>
-              <span className="text-[11px] text-muted-foreground">Sta parlando...</span>
-              <button onClick={stopSpeaking} className="text-[11px] text-primary hover:underline ml-auto">Stop</button>
+        <div className="border-t border-border/50 p-3 shrink-0">
+          {/* Voice indicators */}
+          {(isSpeaking || isListening) && (
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              {isSpeaking ? (
+                <>
+                  <div className="flex items-center gap-[3px]">
+                    {[0, 1, 2, 3, 4].map(i => (
+                      <div key={i} className="w-[3px] rounded-full bg-primary animate-pulse" style={{ height: `${8 + Math.random() * 8}px`, animationDelay: `${i * 100}ms` }} />
+                    ))}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground font-medium">Risposta vocale...</span>
+                  <button onClick={stopSpeaking} className="text-[11px] text-primary hover:underline ml-auto font-medium">Stop</button>
+                </>
+              ) : (
+                <>
+                  <div className="h-2.5 w-2.5 rounded-full bg-destructive animate-pulse shadow-[0_0_6px_rgba(239,68,68,0.4)]" />
+                  <span className="text-[11px] text-muted-foreground font-medium">Ascolto in corso...</span>
+                  <button onClick={stopListening} className="text-[11px] text-primary hover:underline ml-auto font-medium">Stop</button>
+                </>
+              )}
             </div>
           )}
-          {isListening && (
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-              <span className="text-[11px] text-muted-foreground">Ti sto ascoltando...</span>
-              <button onClick={stopListening} className="text-[11px] text-primary hover:underline ml-auto">Stop</button>
-            </div>
-          )}
+
           {messages.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground w-full mb-2"
+            <button
               onClick={() => { setMessages([]); setPendingActions([]); }}
+              className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1"
             >
-              <Trash2 className="h-3 w-3 mr-1" /> Pulisci chat
-            </Button>
+              <Trash2 className="h-3 w-3" /> Nuova conversazione
+            </button>
           )}
-          <div className="flex items-end gap-2 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-1 focus-within:ring-ring transition-shadow">
+
+          <div className="flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
             <textarea
               ref={inputRef}
               value={input}
               onChange={handleTextareaInput}
               onKeyDown={handleKeyDown}
-              placeholder={isListening ? 'Parla ora...' : 'Scrivi o usa il microfono...'}
-              className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/60 min-h-[32px] max-h-[80px] py-1"
+              placeholder={isListening ? 'Parla ora...' : 'Chiedi qualcosa...'}
+              className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/50 min-h-[32px] max-h-[80px] py-1"
               rows={1}
               disabled={isLoading}
             />
             <button
               onClick={isListening ? stopListening : startListening}
               disabled={isLoading}
-              className={`shrink-0 h-7 w-7 rounded-lg flex items-center justify-center transition-all ${
+              className={`shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
                 isListening
-                  ? 'bg-destructive text-destructive-foreground animate-pulse'
+                  ? 'bg-destructive text-destructive-foreground shadow-[0_0_8px_rgba(239,68,68,0.3)]'
                   : 'hover:bg-muted text-muted-foreground hover:text-foreground'
               }`}
-              title={isListening ? 'Smetti di ascoltare' : 'Parla'}
             >
-              {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </button>
             <Button
               size="icon"
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!input.trim() || isLoading}
-              className="shrink-0 h-7 w-7 rounded-lg"
+              className="shrink-0 h-8 w-8 rounded-lg"
             >
-              <Send className="h-3.5 w-3.5" />
+              <Send className="h-4 w-4" />
             </Button>
           </div>
         </div>

@@ -84,36 +84,41 @@ function useRadar() {
 
   const stripMarkdown = (t: string) => t.replace(/[*_~`#>[\]()!|]/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').trim();
 
-  // Start continuous listening (for call mode)
+  // Start continuous listening (for call mode — also runs during TTS for interruption)
+  const isSpeakingRef = useRef(false);
+
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { toast.error('Browser non supporta il riconoscimento vocale'); return; }
-    
     try { if (recognitionRef.current) recognitionRef.current.abort(); } catch {}
-    
+
     const r = new SR();
     r.lang = 'it-IT';
     r.continuous = true;
     r.interimResults = true;
-    
+
     let finalTranscript = '';
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
-    
+
     r.onresult = (e: any) => {
       let interim = '';
       finalTranscript = '';
       for (let i = 0; i < e.results.length; i++) {
-        const result = e.results[i];
-        if (result.isFinal) {
-          finalTranscript += result[0].transcript;
-        } else {
-          interim += result[0].transcript;
-        }
+        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+        else interim += e.results[i][0].transcript;
       }
-      setInput(finalTranscript + interim);
-      
-      // When we get a final result, auto-send after a brief pause
+      const currentText = finalTranscript + interim;
+      setInput(currentText);
+
+      // Interrupt TTS if user speaks
+      if (isSpeakingRef.current && currentText.trim().length > 2) {
+        console.log('[Radar] User interruption detected, stopping TTS');
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        isSpeakingRef.current = false;
+        setCallState('listening');
+      }
+
       if (finalTranscript.trim()) {
         if (silenceTimer) clearTimeout(silenceTimer);
         silenceTimer = setTimeout(() => {
@@ -121,53 +126,35 @@ function useRadar() {
             pendingSendRef.current = finalTranscript.trim();
             try { r.stop(); } catch {}
           }
-        }, 1200); // 1.2s of silence after final result → send
+        }, 700);
       }
     };
-    
+
     r.onend = () => {
       if (silenceTimer) clearTimeout(silenceTimer);
-      // If there's pending text to send
       if (pendingSendRef.current) {
         const text = pendingSendRef.current;
         pendingSendRef.current = null;
         setCallState('processing');
-        // Trigger send (we'll handle this via an effect)
         handleSendVoice(text);
         return;
       }
-      // If call is still active and not processing, restart listening
-      if (callActiveRef.current) {
-        setTimeout(() => {
-          if (callActiveRef.current) startContinuousListening();
-        }, 300);
-      }
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 200);
     };
-    
+
     r.onerror = (e: any) => {
       if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') {
-        // Restart if call still active
-        if (callActiveRef.current) {
-          setTimeout(() => {
-            if (callActiveRef.current) startContinuousListening();
-          }, 500);
-        }
+        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 300);
         return;
       }
-      console.error('Speech recognition error:', e.error);
+      console.error('Speech error:', e.error);
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     };
-    
+
     recognitionRef.current = r;
-    try {
-      r.start();
-      setCallState('listening');
-    } catch (e) {
-      console.error('Failed to start recognition:', e);
-      // Retry
-      setTimeout(() => {
-        if (callActiveRef.current) startContinuousListening();
-      }, 1000);
+    try { r.start(); if (!isSpeakingRef.current) setCallState('listening'); } catch {
+      setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     }
   }, []);
 
@@ -176,71 +163,55 @@ function useRadar() {
     const clean = stripMarkdown(text);
     if (clean.length < 3) return;
     try {
-      setCallState(prev => prev !== 'idle' ? 'speaking' : prev);
-      console.log('[Radar TTS] Fetching audio for:', clean.slice(0, 60));
+      isSpeakingRef.current = true;
+      setCallState('speaking');
+
+      // Start listening during TTS for interruption support
+      startContinuousListening();
+
       const res = await fetch(TTS_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ text: clean }),
       });
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => '');
-        console.error('[Radar TTS] Failed:', res.status, errBody);
-        throw new Error('TTS failed');
-      }
+      if (!res.ok) throw new Error('TTS failed');
+
+      // If user interrupted while fetching, skip playback
+      if (!isSpeakingRef.current) return;
+
       const blob = await res.blob();
-      console.log('[Radar TTS] Got audio blob:', blob.size, 'bytes');
       const url = URL.createObjectURL(blob);
-      
-      // Reuse existing audio element (unlocked in startCall) or create new
       const audio = audioRef.current || new Audio();
       audio.pause();
       if (audio.src && audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src);
       audio.src = url;
       audioRef.current = audio;
-      
+
       audio.onended = () => {
         URL.revokeObjectURL(url);
-        if (callActiveRef.current) {
-          setInput('');
-          setTimeout(() => startContinuousListening(), 400);
-        } else {
-          setCallState('idle');
-        }
+        isSpeakingRef.current = false;
+        if (callActiveRef.current) { setInput(''); setCallState('listening'); }
+        else setCallState('idle');
       };
-      audio.onerror = (e) => {
-        console.error('[Radar TTS] Audio playback error:', e);
+      audio.onerror = () => {
         URL.revokeObjectURL(url);
-        if (callActiveRef.current) {
-          setInput('');
-          setTimeout(() => startContinuousListening(), 400);
-        } else {
-          setCallState('idle');
-        }
+        isSpeakingRef.current = false;
+        if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
+        else setCallState('idle');
       };
       await audio.play();
-      console.log('[Radar TTS] Playing audio');
     } catch (err) {
       console.error('[Radar TTS] Error:', err);
-      if (callActiveRef.current) {
-        setInput('');
-        setTimeout(() => startContinuousListening(), 400);
-      } else {
-        setCallState('idle');
-      }
+      isSpeakingRef.current = false;
+      if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
+      else setCallState('idle');
     }
   }, [session, startContinuousListening]);
 
   const stopSpeaking = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    if (callActiveRef.current) {
-      setInput('');
-      setTimeout(() => startContinuousListening(), 300);
-    } else {
-      setCallState('idle');
-    }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    isSpeakingRef.current = false;
+    if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
+    else setCallState('idle');
   }, [startContinuousListening]);
 
   const buildContext = () => {
@@ -358,31 +329,27 @@ function useRadar() {
     setCallState('connecting');
     setCallActive(true);
     callActiveRef.current = true;
+    isSpeakingRef.current = false;
     setVoiceEnabled(true);
     setView('voice');
     setCallDuration(0);
     setInput('');
-    
-    // Unlock audio element in user gesture context (autoplay policy)
+
+    // Unlock audio element in user gesture context
     try {
       const unlockAudio = new Audio();
       unlockAudio.volume = 0;
       await unlockAudio.play().catch(() => {});
       unlockAudio.pause();
-      // Create a persistent audio element that's now unlocked
       audioRef.current = new Audio();
       audioRef.current.preload = 'auto';
     } catch {}
-    
-    // Start call timer
-    callTimerRef.current = setInterval(() => {
-      setCallDuration(prev => prev + 1);
-    }, 1000);
-    
-    // Request mic permission and start listening
+
+    callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      setTimeout(() => startContinuousListening(), 800);
+      setTimeout(() => startContinuousListening(), 500);
     } catch {
       toast.error('Permesso microfono necessario per la chiamata');
       endCall();
@@ -392,16 +359,16 @@ function useRadar() {
   // End a call
   const endCall = useCallback(() => {
     callActiveRef.current = false;
+    isSpeakingRef.current = false;
     setCallActive(false);
     setCallState('idle');
     setInput('');
     pendingSendRef.current = null;
-    
+
     if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
     try { if (recognitionRef.current) recognitionRef.current.abort(); } catch {}
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-    
-    // Go back
+
     setView(messages.length > 0 ? 'chat' : 'home');
   }, [messages.length]);
 

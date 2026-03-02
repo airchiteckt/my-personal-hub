@@ -189,7 +189,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     };
   }, []);
 
-  // --- Continuous listening for call mode ---
+  // --- Continuous listening for call mode (runs even during TTS for interruption) ---
+  const isSpeakingRef = useRef(false);
+
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -211,15 +213,26 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
         else interim += e.results[i][0].transcript;
       }
-      setInput(finalTranscript + interim);
+      const currentText = finalTranscript + interim;
+      setInput(currentText);
+
+      // If user starts speaking while AI is talking, interrupt TTS immediately
+      if (isSpeakingRef.current && currentText.trim().length > 2) {
+        console.log('[Voice] User interruption detected, stopping TTS');
+        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+        isSpeakingRef.current = false;
+        setCallState('listening');
+      }
+
       if (finalTranscript.trim()) {
         if (silenceTimer) clearTimeout(silenceTimer);
+        // Shorter silence timeout (700ms) for faster response
         silenceTimer = setTimeout(() => {
           if (callActiveRef.current && finalTranscript.trim()) {
             pendingSendRef.current = finalTranscript.trim();
             try { r.stop(); } catch {}
           }
-        }, 1200);
+        }, 700);
       }
     };
 
@@ -232,59 +245,89 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         handleSendVoice(text);
         return;
       }
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 300);
+      // Restart listening immediately if call is active
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 200);
     };
 
     r.onerror = (e: any) => {
       if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') {
-        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
+        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 300);
         return;
       }
       console.error('Speech error:', e.error);
+      // Recover from any error
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     };
 
     recognitionRef.current = r;
-    try { r.start(); setCallState('listening'); } catch {
-      setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 1000);
+    try { r.start(); if (!isSpeakingRef.current) setCallState('listening'); } catch {
+      setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     }
   }, []);
 
-  // --- TTS ---
+  // --- TTS with concurrent listening ---
   const speakText = useCallback(async (text: string) => {
     if (!text) return;
     const clean = stripMarkdown(text);
     if (clean.length < 3) return;
     try {
-      setCallState(prev => prev !== 'idle' ? 'speaking' : prev);
+      isSpeakingRef.current = true;
+      setCallState('speaking');
+
+      // Start listening WHILE we fetch and play TTS (for interruption support)
+      startContinuousListening();
+
       const res = await fetch(TTS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
         body: JSON.stringify({ text: clean }),
       });
       if (!res.ok) throw new Error('TTS failed');
+
+      // If user already interrupted while we were fetching, don't play
+      if (!isSpeakingRef.current) {
+        console.log('[Voice] User interrupted during TTS fetch, skipping playback');
+        return;
+      }
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
       const audio = new Audio(url);
       audioRef.current = audio;
+
       const onFinish = () => {
         URL.revokeObjectURL(url);
-        if (callActiveRef.current) { setInput(''); setTimeout(() => startContinuousListening(), 400); }
-        else setCallState('idle');
+        isSpeakingRef.current = false;
+        if (callActiveRef.current) {
+          setInput('');
+          setCallState('listening');
+          // Listening is already active (started before TTS), just update state
+        } else {
+          setCallState('idle');
+        }
       };
       audio.onended = onFinish;
       audio.onerror = onFinish;
       await audio.play();
-    } catch {
-      if (callActiveRef.current) { setInput(''); setTimeout(() => startContinuousListening(), 400); }
-      else setCallState('idle');
+    } catch (err) {
+      console.error('[Voice TTS] Error:', err);
+      isSpeakingRef.current = false;
+      if (callActiveRef.current) {
+        setInput('');
+        setCallState('listening');
+        startContinuousListening();
+      } else {
+        setCallState('idle');
+      }
     }
   }, [session, startContinuousListening]);
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-    if (callActiveRef.current) { setInput(''); setTimeout(() => startContinuousListening(), 300); }
+    isSpeakingRef.current = false;
+    if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
     else setCallState('idle');
   }, [startContinuousListening]);
 
@@ -293,13 +336,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setCallState('connecting');
     setCallActive(true);
     callActiveRef.current = true;
+    isSpeakingRef.current = false;
     setView('call');
     setCallDuration(0);
     setInput('');
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      setTimeout(() => startContinuousListening(), 800);
+      setTimeout(() => startContinuousListening(), 500);
     } catch {
       toast.error('Permesso microfono necessario per la chiamata');
       endCall();
@@ -308,6 +352,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const endCall = useCallback(() => {
     callActiveRef.current = false;
+    isSpeakingRef.current = false;
     setCallActive(false);
     setCallState('idle');
     setInput('');

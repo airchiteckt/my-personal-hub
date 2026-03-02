@@ -12,6 +12,7 @@ import EnterpriseDetail from "./pages/EnterpriseDetail";
 import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
+import Radar from "./pages/Radar";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { AiAssistant } from "./components/AiAssistant";
@@ -40,6 +41,7 @@ function ProtectedRoutes() {
           <Route path="/enterprise/:id" element={<EnterpriseDetail />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/radar" element={<Radar />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<NotFound />} />

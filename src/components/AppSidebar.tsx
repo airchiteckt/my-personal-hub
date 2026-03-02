@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, CalendarRange, Settings, BarChart3, LogOut } from 'lucide-react';
+import { Building2, CalendarDays, CalendarRange, Settings, BarChart3, LogOut, Radio } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
 import { useAuth } from '@/context/AuthContext';
@@ -13,6 +13,7 @@ const navItems = [
   { title: 'Oggi', url: '/', icon: CalendarDays },
   { title: 'Calendario', url: '/calendar', icon: CalendarRange },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
+  { title: 'Radar', url: '/radar', icon: Radio },
   { title: 'Imprese', url: '/enterprises', icon: Building2 },
   { title: 'Impostazioni', url: '/settings', icon: Settings },
 ];

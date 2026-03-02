@@ -534,7 +534,7 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
         },
       ];
 
-      const globalSystemPrompt = promptRow?.system_prompt ?? `Sei il Copilot di FlyDeck — la cabina di pilotaggio strategica dell'utente. Parli come un co-pilota: diretto, preciso, operativo.
+      const globalSystemPrompt = promptRow?.system_prompt ?? `Sei Radar, l'AI di FlyDeck — la cabina di pilotaggio strategica dell'utente. Sei il sistema di rilevamento intelligente: vedi tutto, anticipi i problemi, guidi l'azione.
 
 HAI ACCESSO COMPLETO al sistema:
 - **Leggere**: imprese, progetti, task, OKR, focus period, appuntamenti

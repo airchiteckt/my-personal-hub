@@ -52,19 +52,20 @@ const DEMO_TASKS: Task[] = [
   { id: 't6', enterpriseId: 'e2', projectId: 'p4', title: 'Revisione documenti fiscali', estimatedMinutes: 45, priority: 'low', status: 'backlog', isRecurring: false, createdAt: new Date().toISOString() },
 ];
 
+function safeLoad<T>(key: string, fallback: T): T {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    localStorage.removeItem(key);
+    return fallback;
+  }
+}
+
 export function PrpProvider({ children }: { children: ReactNode }) {
-  const [enterprises, setEnterprises] = useState<Enterprise[]>(() => {
-    const saved = localStorage.getItem('prp-enterprises');
-    return saved ? JSON.parse(saved) : DEMO_ENTERPRISES;
-  });
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem('prp-projects');
-    return saved ? JSON.parse(saved) : DEMO_PROJECTS;
-  });
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const saved = localStorage.getItem('prp-tasks');
-    return saved ? JSON.parse(saved) : DEMO_TASKS;
-  });
+  const [enterprises, setEnterprises] = useState<Enterprise[]>(() => safeLoad('prp-enterprises', DEMO_ENTERPRISES));
+  const [projects, setProjects] = useState<Project[]>(() => safeLoad('prp-projects', DEMO_PROJECTS));
+  const [tasks, setTasks] = useState<Task[]>(() => safeLoad('prp-tasks', DEMO_TASKS));
 
   useEffect(() => { localStorage.setItem('prp-enterprises', JSON.stringify(enterprises)); }, [enterprises]);
   useEffect(() => { localStorage.setItem('prp-projects', JSON.stringify(projects)); }, [projects]);

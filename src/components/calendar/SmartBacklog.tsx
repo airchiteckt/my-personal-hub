@@ -341,54 +341,57 @@ function BacklogSection({ icon, label, tasks, onDragStart, freeMinutes, maxConse
               key={task.id}
               draggable
               onDragStart={e => onDragStart(e, task.id)}
-              className="p-2 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-muted/50 transition-colors group"
+              className="p-2.5 rounded-xl border bg-card cursor-grab active:cursor-grabbing hover:shadow-sm hover:border-primary/20 transition-all group"
               style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})` }}
             >
-              {/* Title row */}
-              <div className="flex items-start gap-1">
-                <GripVertical className="h-3 w-3 text-muted-foreground shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <p className="text-xs font-medium leading-tight truncate flex-1">
+              {/* Title + duration */}
+              <div className="flex items-start gap-1.5">
+                <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <p className="text-[12px] font-medium leading-snug flex-1 line-clamp-2">
                   {task.title}
                 </p>
               </div>
 
-              {/* Micro KPIs row */}
-              <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                {/* Priority */}
-                <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium gap-0.5">
-                  {getPriorityEmoji(displayPriority)}
-                </Badge>
-
-                {/* Urgency */}
-                {urgencyDot && (
-                  <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium">
-                    {urgencyDot}
-                  </Badge>
+              {/* Meta row */}
+              <div className="flex items-center gap-1.5 mt-2 ml-5">
+                {/* Enterprise name */}
+                {ent && (
+                  <span
+                    className="text-[10px] font-medium truncate max-w-[80px]"
+                    style={{ color: `hsl(${ent.color})` }}
+                  >
+                    {ent.name}
+                  </span>
                 )}
 
+                <span className="text-border">·</span>
+
+                {/* Project type badge */}
+                <span className="text-[10px]">
+                  {projectType === 'strategic' ? '🔵' : projectType === 'operational' ? '🟡' : '⚪'}
+                </span>
+
+                {/* Urgency dot */}
+                {urgencyDot && <span className="text-[10px]">{urgencyDot}</span>}
+
                 {/* Impact dots */}
-                <span className="flex items-center gap-px">
+                <span className="flex items-center gap-[2px]">
                   {[1, 2, 3].map(i => (
                     <span
                       key={i}
-                      className={`inline-block h-1.5 w-1.5 rounded-full ${i <= impact ? 'bg-primary' : 'bg-border'}`}
+                      className={`inline-block h-[5px] w-[5px] rounded-full ${i <= impact ? 'bg-primary' : 'bg-border'}`}
                     />
                   ))}
                 </span>
 
-                {/* Project type */}
-                <span className="text-[9px] text-muted-foreground">
-                  {projectType === 'strategic' ? '🔵' : projectType === 'operational' ? '🟡' : '⚪'}
+                {/* Spacer + Duration + Fit */}
+                <span className="ml-auto flex items-center gap-1 shrink-0">
+                  <Clock className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-[11px] font-medium text-muted-foreground">
+                    {formatMinutes(task.estimatedMinutes)}
+                  </span>
+                  <span className="text-[11px]">{getFitEmoji(fit)}</span>
                 </span>
-
-                {/* Duration */}
-                <span className="text-[9px] text-muted-foreground flex items-center gap-0.5 ml-auto">
-                  <Clock className="h-2.5 w-2.5" />
-                  {formatMinutes(task.estimatedMinutes)}
-                </span>
-
-                {/* Fit indicator */}
-                <span className="text-[9px]">{getFitEmoji(fit)}</span>
               </div>
             </div>
           );

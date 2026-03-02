@@ -11,8 +11,7 @@ import Enterprises from "./pages/Enterprises";
 import EnterpriseDetail from "./pages/EnterpriseDetail";
 import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
-import Dashboard from "./pages/Dashboard";
-import Radar from "./pages/Radar";
+import Cockpit from "./pages/Cockpit";
 import Requests from "./pages/Requests";
 import Rituals from "./pages/Rituals";
 import Auth from "./pages/Auth";
@@ -44,8 +43,9 @@ function ProtectedRoutes() {
           <Route path="/enterprises" element={<Enterprises />} />
           <Route path="/enterprise/:id" element={<EnterpriseDetail />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/radar" element={<Radar />} />
+          <Route path="/cockpit" element={<Cockpit />} />
+          <Route path="/dashboard" element={<Navigate to="/cockpit" replace />} />
+          <Route path="/radar" element={<Navigate to="/cockpit" replace />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/rituals" element={<Rituals />} />

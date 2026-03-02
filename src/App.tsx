@@ -13,7 +13,9 @@ import Calendar from "./pages/Calendar";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
+import AiPrompts from "./pages/AiPrompts";
 import NotFound from "./pages/NotFound";
+import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
 
@@ -40,9 +42,11 @@ function ProtectedRoutes() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/ai-prompts" element={<AiPrompts />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <AiAssistant />
     </PrpProvider>
   );
 }

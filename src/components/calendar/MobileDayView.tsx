@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
+  computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 
 export function MobileDayView() {
@@ -112,36 +113,53 @@ export function MobileDayView() {
           )}
 
           {/* Task blocks */}
-          {dayTasks.map(task => {
-            const time = task.scheduledTime || '09:00';
-            const { top, height } = getTaskPosition(time, task.estimatedMinutes, MOBILE_SLOT_HEIGHT);
-            const enterprise = getEnterprise(task.enterpriseId);
-            const project = getProject(task.projectId);
-            return (
-              <div
-                key={task.id}
-                className="absolute left-1 right-1 rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10"
-                style={{
-                  top,
-                  height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
-                  backgroundColor: `hsl(${enterprise?.color || '0 0% 50%'} / 0.12)`,
-                  borderLeft: `4px solid hsl(${enterprise?.color || '0 0% 50%'})`,
-                }}
-                onClick={() => setSelectedTask(task)}
-              >
-                <div className="p-2.5 h-full flex flex-col justify-center">
-                  <p className="font-medium text-sm leading-tight truncate">{task.title}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{enterprise?.name}</span>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                      <Clock className="h-3 w-3" />{formatMinutes(task.estimatedMinutes)}
-                    </span>
+          {(() => {
+            const taskTimeInfos: TaskTimeInfo[] = dayTasks.map(t => {
+              const time = t.scheduledTime || '09:00';
+              const startSlot = timeToSlot(time);
+              return { id: t.id, startSlot, endSlot: startSlot + Math.ceil(t.estimatedMinutes / 30) };
+            });
+            const layout = computeOverlapLayout(taskTimeInfos);
+
+            return dayTasks.map(task => {
+              const time = task.scheduledTime || '09:00';
+              const { top, height } = getTaskPosition(time, task.estimatedMinutes, MOBILE_SLOT_HEIGHT);
+              const enterprise = getEnterprise(task.enterpriseId);
+              const project = getProject(task.projectId);
+              const taskLayout = layout.get(task.id);
+              const col = taskLayout?.column ?? 0;
+              const totalCols = taskLayout?.totalColumns ?? 1;
+              const widthPercent = 100 / totalCols;
+              const leftPercent = col * widthPercent;
+
+              return (
+                <div
+                  key={task.id}
+                  className="absolute rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10"
+                  style={{
+                    top,
+                    height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                    left: `calc(${leftPercent}% + 4px)`,
+                    width: `calc(${widthPercent}% - 8px)`,
+                    backgroundColor: `hsl(${enterprise?.color || '0 0% 50%'} / 0.12)`,
+                    borderLeft: `4px solid hsl(${enterprise?.color || '0 0% 50%'})`,
+                  }}
+                  onClick={() => setSelectedTask(task)}
+                >
+                  <div className="p-2.5 h-full flex flex-col justify-center">
+                    <p className="font-medium text-sm leading-tight truncate">{task.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-muted-foreground">{enterprise?.name}</span>
+                      <span className="text-xs text-muted-foreground">·</span>
+                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                        <Clock className="h-3 w-3" />{formatMinutes(task.estimatedMinutes)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            });
+          })()}
         </div>
       </div>
 

@@ -33,3 +33,69 @@ export const formatMinutes = (mins: number): string => {
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
 };
+
+/**
+ * Compute horizontal layout for overlapping tasks (Google Calendar style).
+ * Returns a map of taskId → { column, totalColumns } so each task knows
+ * its horizontal position within overlapping groups.
+ */
+export interface TaskTimeInfo {
+  id: string;
+  startSlot: number;
+  endSlot: number;
+}
+
+export interface TaskLayout {
+  column: number;
+  totalColumns: number;
+}
+
+export function computeOverlapLayout(tasks: TaskTimeInfo[]): Map<string, TaskLayout> {
+  const result = new Map<string, TaskLayout>();
+  if (tasks.length === 0) return result;
+
+  // Sort by start, then by longer duration first
+  const sorted = [...tasks].sort((a, b) => a.startSlot - b.startSlot || (b.endSlot - b.startSlot) - (a.endSlot - a.startSlot));
+
+  // Group overlapping tasks into clusters
+  const clusters: TaskTimeInfo[][] = [];
+  let currentCluster: TaskTimeInfo[] = [sorted[0]];
+  let clusterEnd = sorted[0].endSlot;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const task = sorted[i];
+    if (task.startSlot < clusterEnd) {
+      // Overlaps with current cluster
+      currentCluster.push(task);
+      clusterEnd = Math.max(clusterEnd, task.endSlot);
+    } else {
+      clusters.push(currentCluster);
+      currentCluster = [task];
+      clusterEnd = task.endSlot;
+    }
+  }
+  clusters.push(currentCluster);
+
+  // Assign columns within each cluster
+  for (const cluster of clusters) {
+    const columns: number[] = []; // end slot per column
+    for (const task of cluster) {
+      // Find first column where this task fits (no overlap)
+      let col = columns.findIndex(colEnd => task.startSlot >= colEnd);
+      if (col === -1) {
+        col = columns.length;
+        columns.push(0);
+      }
+      columns[col] = task.endSlot;
+      result.set(task.id, { column: col, totalColumns: 0 }); // totalColumns set after
+    }
+    // Set totalColumns for all tasks in cluster
+    const totalCols = columns.length;
+    for (const task of cluster) {
+      const layout = result.get(task.id)!;
+      layout.totalColumns = totalCols;
+    }
+  }
+
+  return result;
+}

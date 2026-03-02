@@ -136,10 +136,13 @@ export type Database = {
       booking_requests: {
         Row: {
           created_at: string
+          duration_minutes: number
           guest_email: string
           guest_name: string
           host_user_id: string
           id: string
+          location: string | null
+          meeting_type: string
           message: string | null
           requested_date: string
           requested_end_time: string
@@ -148,10 +151,13 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          duration_minutes?: number
           guest_email: string
           guest_name: string
           host_user_id: string
           id?: string
+          location?: string | null
+          meeting_type?: string
           message?: string | null
           requested_date: string
           requested_end_time: string
@@ -160,10 +166,13 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          duration_minutes?: number
           guest_email?: string
           guest_name?: string
           host_user_id?: string
           id?: string
+          location?: string | null
+          meeting_type?: string
           message?: string | null
           requested_date?: string
           requested_end_time?: string

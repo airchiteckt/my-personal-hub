@@ -14,7 +14,191 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      enterprises: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["enterprise_status"]
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          status?: Database["public"]["Enums"]["enterprise_status"]
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          status?: Database["public"]["Enums"]["enterprise_status"]
+        }
+        Relationships: []
+      }
+      priority_settings: {
+        Row: {
+          created_at: string
+          deadline_attention_boost: number
+          deadline_attention_hours: number
+          deadline_boost_enabled: boolean
+          deadline_critical_boost: number
+          deadline_critical_hours: number
+          deadline_high_boost: number
+          deadline_high_hours: number
+          effort_penalty: number
+          id: string
+          impact_effort_enabled: boolean
+          impact_multiplier: number
+          maintenance_weight: number
+          operational_weight: number
+          strategic_weight: number
+          strategic_weight_enabled: boolean
+        }
+        Insert: {
+          created_at?: string
+          deadline_attention_boost?: number
+          deadline_attention_hours?: number
+          deadline_boost_enabled?: boolean
+          deadline_critical_boost?: number
+          deadline_critical_hours?: number
+          deadline_high_boost?: number
+          deadline_high_hours?: number
+          effort_penalty?: number
+          id?: string
+          impact_effort_enabled?: boolean
+          impact_multiplier?: number
+          maintenance_weight?: number
+          operational_weight?: number
+          strategic_weight?: number
+          strategic_weight_enabled?: boolean
+        }
+        Update: {
+          created_at?: string
+          deadline_attention_boost?: number
+          deadline_attention_hours?: number
+          deadline_boost_enabled?: boolean
+          deadline_critical_boost?: number
+          deadline_critical_hours?: number
+          deadline_high_boost?: number
+          deadline_high_hours?: number
+          effort_penalty?: number
+          id?: string
+          impact_effort_enabled?: boolean
+          impact_multiplier?: number
+          maintenance_weight?: number
+          operational_weight?: number
+          strategic_weight?: number
+          strategic_weight_enabled?: boolean
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string
+          enterprise_id: string
+          id: string
+          name: string
+          type: Database["public"]["Enums"]["project_type"]
+        }
+        Insert: {
+          created_at?: string
+          enterprise_id: string
+          id?: string
+          name: string
+          type?: Database["public"]["Enums"]["project_type"]
+        }
+        Update: {
+          created_at?: string
+          enterprise_id?: string
+          id?: string
+          name?: string
+          type?: Database["public"]["Enums"]["project_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          deadline: string | null
+          effort: number | null
+          enterprise_id: string
+          estimated_minutes: number
+          id: string
+          impact: number | null
+          is_recurring: boolean
+          priority: Database["public"]["Enums"]["task_priority"]
+          project_id: string
+          recurring_frequency: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          effort?: number | null
+          enterprise_id: string
+          estimated_minutes?: number
+          id?: string
+          impact?: number | null
+          is_recurring?: boolean
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id: string
+          recurring_frequency?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          deadline?: string | null
+          effort?: number | null
+          enterprise_id?: string
+          estimated_minutes?: number
+          id?: string
+          impact?: number | null
+          is_recurring?: boolean
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string
+          recurring_frequency?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +207,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      enterprise_status: "active" | "development" | "paused"
+      project_type: "strategic" | "operational" | "maintenance"
+      task_priority: "high" | "medium" | "low"
+      task_status: "backlog" | "scheduled" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +337,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      enterprise_status: ["active", "development", "paused"],
+      project_type: ["strategic", "operational", "maintenance"],
+      task_priority: ["high", "medium", "low"],
+      task_status: ["backlog", "scheduled", "done"],
+    },
   },
 } as const

@@ -74,20 +74,19 @@ export function DesktopWeekView() {
     e.preventDefault();
     e.currentTarget.classList.remove('bg-accent/30');
     
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+    const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
+    const time = slotToTime(slotIndex);
+
     const ritualId = e.dataTransfer.getData('ritualId');
     if (ritualId) {
-      // Dropping a ritual on a day → mark as completed for that date
-      completeRitualOnDate(ritualId, dayDate);
+      completeRitualOnDate(ritualId, dayDate, time);
       return;
     }
 
     const taskId = e.dataTransfer.getData('taskId');
     if (!taskId) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
-    const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
-    const time = slotToTime(slotIndex);
     scheduleTask(taskId, dayDate, time);
   };
 
@@ -448,6 +447,50 @@ export function DesktopWeekView() {
                               <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
                                 <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
                                 Rituale · {getRitualCategoryLabel(ritual.category)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+
+                    {/* Flexible ritual completion blocks (from drag & drop) */}
+                    {(() => {
+                      const dayCompletions = ritualCompletions.filter(c => c.completed_date === dayDate && c.completed_time);
+                      return dayCompletions.map(comp => {
+                        const ritual = rituals.find(r => r.id === comp.ritual_id);
+                        if (!ritual) return null;
+                        const time = comp.completed_time!;
+                        const startSlot = timeToSlot(time);
+                        const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                        const top = startSlot * DESKTOP_SLOT_HEIGHT;
+                        const height = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                        const color = getRitualCalendarColor(ritual.category);
+                        const CatIcon = getRitualIcon(ritual.category);
+
+                        return (
+                          <div
+                            key={`ritual-comp-${comp.id}`}
+                            onMouseDown={e => e.stopPropagation()}
+                            className="absolute rounded-lg overflow-hidden z-10 cursor-default border-2 border-dotted opacity-70"
+                            style={{
+                              top: top + 1,
+                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                              right: 2,
+                              width: '45%',
+                              backgroundColor: `hsl(${color} / 0.12)`,
+                              borderColor: `hsl(${color} / 0.4)`,
+                            }}
+                            title={`${ritual.name} [Rituale completato]`}
+                          >
+                            <div className="p-1.5 h-full flex flex-col">
+                              <p className="font-medium text-xs leading-tight truncate flex items-center gap-1 line-through">
+                                <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                                ✅ {ritual.name}
+                              </p>
+                              <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
+                                <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+                                Rituale · {time}
                               </p>
                             </div>
                           </div>

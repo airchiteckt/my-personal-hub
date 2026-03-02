@@ -92,7 +92,7 @@ interface PrpContextType {
   ritualCompletions: RitualCompletion[];
   getRitualsForDate: (date: Date) => RitualData[];
   isRitualCompleted: (ritualId: string, date: string) => boolean;
-  completeRitualOnDate: (ritualId: string, date: string) => Promise<void>;
+  completeRitualOnDate: (ritualId: string, date: string, time?: string) => Promise<void>;
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -226,7 +226,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('activity_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
         supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at'),
-        supabase.from('ritual_completions').select('id, ritual_id, completed_date').eq('user_id', userId),
+        supabase.from('ritual_completions').select('id, ritual_id, completed_date, completed_time').eq('user_id', userId),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
@@ -294,7 +294,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at').then(({ data }) => { if (data) setRituals(data as RitualData[]); });
       }).subscribe(),
       supabase.channel('ritual-completions-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'ritual_completions', filter: `user_id=eq.${userId}` }, () => {
-        supabase.from('ritual_completions').select('id, ritual_id, completed_date').eq('user_id', userId).then(({ data }) => { if (data) setRitualCompletions(data as RitualCompletion[]); });
+        supabase.from('ritual_completions').select('id, ritual_id, completed_date, completed_time').eq('user_id', userId).then(({ data }) => { if (data) setRitualCompletions(data as RitualCompletion[]); });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
@@ -660,7 +660,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     return ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr);
   }, [ritualCompletions]);
 
-  const completeRitualOnDate = useCallback(async (ritualId: string, dateStr: string) => {
+  const completeRitualOnDate = useCallback(async (ritualId: string, dateStr: string, time?: string) => {
     if (!userId) return;
     const existing = ritualCompletions.find(c => c.ritual_id === ritualId && c.completed_date === dateStr);
     if (existing) return; // already completed
@@ -668,7 +668,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       ritual_id: ritualId,
       user_id: userId,
       completed_date: dateStr,
-    }).select('id, ritual_id, completed_date').single();
+      completed_time: time || null,
+    }).select('id, ritual_id, completed_date, completed_time').single();
     if (!error && data) {
       setRitualCompletions(prev => [...prev, data as RitualCompletion]);
     }

@@ -27,6 +27,8 @@ interface CreateRitualDialogProps {
     suggestedDay: number | null;
     suggestedTime: string | null;
     description: string | null;
+    weeklySpecificDays: number[] | null;
+    weeklyTimesPerWeek: number | null;
   }) => void;
 }
 
@@ -60,10 +62,12 @@ export function CreateRitualDialog({ open, onOpenChange, enterprises, onSubmit }
   const [customDays, setCustomDays] = useState<number[]>([]);
   const [estimatedMinutes, setEstimatedMinutes] = useState(30);
   const [enterpriseId, setEnterpriseId] = useState('');
-  const [suggestedDay, setSuggestedDay] = useState<string>('');
   const [suggestedTime, setSuggestedTime] = useState('');
   const [description, setDescription] = useState('');
-
+  // Weekly sub-mode
+  const [weeklyMode, setWeeklyMode] = useState<'specific' | 'flexible'>('specific');
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+  const [weeklyTimesPerWeek, setWeeklyTimesPerWeek] = useState(2);
   const reset = () => {
     setName('');
     setCategory('performance');
@@ -71,9 +75,11 @@ export function CreateRitualDialog({ open, onOpenChange, enterprises, onSubmit }
     setCustomDays([]);
     setEstimatedMinutes(30);
     setEnterpriseId('');
-    setSuggestedDay('');
     setSuggestedTime('');
     setDescription('');
+    setWeeklyMode('specific');
+    setWeeklyDays([]);
+    setWeeklyTimesPerWeek(2);
   };
 
   const handleSubmit = () => {
@@ -84,10 +90,12 @@ export function CreateRitualDialog({ open, onOpenChange, enterprises, onSubmit }
       frequency,
       customFrequencyDays: frequency === 'custom' && customDays.length > 0 ? customDays : null,
       estimatedMinutes,
-      enterpriseId: enterpriseId || null,
-      suggestedDay: suggestedDay !== '' ? Number(suggestedDay) : null,
+      enterpriseId: enterpriseId === 'none' ? null : (enterpriseId || null),
+      suggestedDay: null,
       suggestedTime: suggestedTime || null,
       description: description.trim() || null,
+      weeklySpecificDays: frequency === 'weekly' && weeklyMode === 'specific' && weeklyDays.length > 0 ? weeklyDays : null,
+      weeklyTimesPerWeek: frequency === 'weekly' && weeklyMode === 'flexible' ? weeklyTimesPerWeek : null,
     });
     reset();
     onOpenChange(false);
@@ -214,20 +222,74 @@ export function CreateRitualDialog({ open, onOpenChange, enterprises, onSubmit }
             </div>
           )}
 
-          {/* Suggested day (for weekly) */}
+          {/* Weekly sub-mode */}
           {frequency === 'weekly' && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Giorno suggerito</Label>
-              <Select value={suggestedDay} onValueChange={setSuggestedDay}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Qualsiasi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAYS.map(d => (
-                    <SelectItem key={d.key} value={String(d.key)}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-3">
+              <Label className="text-xs font-medium">Modalità settimanale</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setWeeklyMode('specific')}
+                  className={`rounded-xl py-2.5 px-3 text-center transition-all text-sm ${
+                    weeklyMode === 'specific'
+                      ? 'bg-primary text-primary-foreground font-bold ring-2 ring-primary/20'
+                      : 'bg-muted/40 hover:bg-muted text-foreground'
+                  }`}
+                >
+                  Giorni specifici
+                </button>
+                <button
+                  onClick={() => setWeeklyMode('flexible')}
+                  className={`rounded-xl py-2.5 px-3 text-center transition-all text-sm ${
+                    weeklyMode === 'flexible'
+                      ? 'bg-primary text-primary-foreground font-bold ring-2 ring-primary/20'
+                      : 'bg-muted/40 hover:bg-muted text-foreground'
+                  }`}
+                >
+                  N volte / settimana
+                </button>
+              </div>
+
+              {weeklyMode === 'specific' && (
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Seleziona i giorni</Label>
+                  <div className="flex gap-1.5">
+                    {DAYS.map(d => (
+                      <button
+                        key={d.key}
+                        onClick={() => setWeeklyDays(prev => prev.includes(d.key) ? prev.filter(x => x !== d.key) : [...prev, d.key])}
+                        className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${
+                          weeklyDays.includes(d.key)
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted/40 hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {weeklyMode === 'flexible' && (
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Quante volte a settimana?</Label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5, 6].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setWeeklyTimesPerWeek(n)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                          weeklyTimesPerWeek === n
+                            ? 'bg-primary text-primary-foreground font-bold'
+                            : 'bg-muted/40 hover:bg-muted text-foreground'
+                        }`}
+                      >
+                        {n}×
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

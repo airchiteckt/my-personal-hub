@@ -570,6 +570,8 @@ export type Database = {
           suggested_time: string | null
           updated_at: string
           user_id: string
+          weekly_specific_days: number[] | null
+          weekly_times_per_week: number | null
         }
         Insert: {
           category?: string
@@ -586,6 +588,8 @@ export type Database = {
           suggested_time?: string | null
           updated_at?: string
           user_id: string
+          weekly_specific_days?: number[] | null
+          weekly_times_per_week?: number | null
         }
         Update: {
           category?: string
@@ -602,6 +606,8 @@ export type Database = {
           suggested_time?: string | null
           updated_at?: string
           user_id?: string
+          weekly_specific_days?: number[] | null
+          weekly_times_per_week?: number | null
         }
         Relationships: [
           {

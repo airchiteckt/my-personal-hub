@@ -1,8 +1,17 @@
 export type EnterpriseStatus = 'active' | 'development' | 'paused';
+export type EnterprisePhase = 'idea' | 'setup' | 'launch' | 'scaling' | 'stable';
 export type ProjectType = 'strategic' | 'operational' | 'maintenance';
 export type TaskStatus = 'backlog' | 'scheduled' | 'done';
 export type TaskPriority = 'high' | 'medium' | 'low';
 export type UrgencyLevel = 'normal' | 'attention' | 'high' | 'critical';
+
+export const ENTERPRISE_PHASE_LABELS: Record<EnterprisePhase, string> = {
+  idea: '💡 Idea',
+  setup: '🔧 Setup',
+  launch: '🚀 Lancio',
+  scaling: '📈 Scaling',
+  stable: '⚖️ Stabilizzazione',
+};
 
 export const ENTERPRISE_COLORS = [
   { name: 'Blu', value: '220 80% 55%' },
@@ -51,6 +60,10 @@ export interface Enterprise {
   name: string;
   status: EnterpriseStatus;
   color: string;
+  strategicImportance: number;
+  growthPotential: number;
+  phase: EnterprisePhase;
+  priorityUntil?: string;
   createdAt: string;
 }
 

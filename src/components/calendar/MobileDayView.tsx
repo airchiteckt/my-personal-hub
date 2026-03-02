@@ -5,21 +5,24 @@ import { usePrp } from '@/context/PrpContext';
 import { Task } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
+import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, completeTask, unscheduleTask, updateTask, getSortedBacklogTasks, prioritySettings } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings } = usePrp();
+  const dayAppts = getAppointmentsForDate(dateStr);
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && t.status !== 'done');
   const backlogTasks = getSortedBacklogTasks();
@@ -164,12 +167,57 @@ export function MobileDayView() {
               );
             });
           })()}
+
+          {/* Appointment blocks */}
+          {dayAppts.map(appt => {
+            const startSlot = timeToSlot(appt.startTime);
+            const endSlot = timeToSlot(appt.endTime);
+            const slots = Math.max(1, endSlot - startSlot);
+            const top = startSlot * MOBILE_SLOT_HEIGHT;
+            const height = slots * MOBILE_SLOT_HEIGHT;
+            const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
+            const color = appt.color || ent?.color || '270 60% 55%';
+
+            return (
+              <div
+                key={appt.id}
+                className="absolute rounded-xl overflow-hidden z-10 border-2 border-dashed"
+                style={{
+                  top,
+                  height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                  right: 4,
+                  width: '45%',
+                  backgroundColor: `hsl(${color} / 0.1)`,
+                  borderColor: `hsl(${color} / 0.4)`,
+                }}
+              >
+                <div className="p-2.5 h-full flex flex-col justify-center">
+                  <p className="font-medium text-sm leading-tight truncate flex items-center gap-1">
+                    <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${color})` }} />
+                    {appt.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {appt.startTime}–{appt.endTime}
+                    {ent ? ` · ${ent.name}` : ''}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Backlog FAB */}
-      {backlogTasks.length > 0 && (
-        <div className="absolute bottom-4 right-4 z-30">
+      {/* FABs */}
+      <div className="absolute bottom-4 right-4 z-30 flex flex-col gap-2">
+        <Button
+          size="lg"
+          variant="outline"
+          className="rounded-full h-12 w-12 shadow-lg bg-card"
+          onClick={() => setShowCreateAppt(true)}
+        >
+          <CalendarClock className="h-5 w-5" />
+        </Button>
+        {backlogTasks.length > 0 && (
           <Button
             size="lg"
             className="rounded-full h-14 w-14 shadow-lg"
@@ -177,8 +225,8 @@ export function MobileDayView() {
           >
             <Plus className="h-6 w-6" />
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Assign task sheet */}
       <Sheet open={selectedSlot !== null} onOpenChange={() => setSelectedSlot(null)}>
@@ -282,6 +330,12 @@ export function MobileDayView() {
           )}
         </SheetContent>
       </Sheet>
+
+      <CreateAppointmentDialog
+        open={showCreateAppt}
+        onOpenChange={setShowCreateAppt}
+        defaultDate={dateStr}
+      />
     </div>
   );
 }

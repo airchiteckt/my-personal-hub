@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType } from '@/types/prp';
+import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ interface PrpContextType {
   enterprises: Enterprise[];
   projects: Project[];
   tasks: Task[];
+  appointments: Appointment[];
   prioritySettings: PrioritySettings;
   loading: boolean;
   setPrioritySettings: (s: PrioritySettings) => void;
@@ -25,12 +26,16 @@ interface PrpContextType {
   scheduleTask: (id: string, date: string, time?: string) => void;
   completeTask: (id: string) => void;
   unscheduleTask: (id: string) => void;
+  addAppointment: (a: Omit<Appointment, 'id' | 'createdAt'>) => void;
+  updateAppointment: (id: string, updates: Partial<Appointment>) => void;
+  deleteAppointment: (id: string) => void;
   getEnterprise: (id: string) => Enterprise | undefined;
   getProject: (id: string) => Project | undefined;
   getProjectType: (projectId: string) => ProjectType;
   getProjectsForEnterprise: (enterpriseId: string) => Project[];
   getTasksForProject: (projectId: string) => Task[];
   getTasksForDate: (date: string) => Task[];
+  getAppointmentsForDate: (date: string) => Appointment[];
   getBacklogTasks: () => Task[];
   getSortedBacklogTasks: () => Task[];
 }
@@ -64,6 +69,14 @@ function dbToTask(row: any): Task {
     completedAt: row.completed_at ?? undefined, createdAt: row.created_at,
   };
 }
+function dbToAppointment(row: any): Appointment {
+  return {
+    id: row.id, enterpriseId: row.enterprise_id ?? undefined,
+    title: row.title, description: row.description ?? undefined,
+    date: row.date, startTime: row.start_time, endTime: row.end_time,
+    color: row.color ?? undefined, createdAt: row.created_at,
+  };
+}
 function dbToSettings(row: any): PrioritySettings {
   return {
     deadlineBoostEnabled: row.deadline_boost_enabled,
@@ -88,6 +101,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [prioritySettings, setPrioritySettingsState] = useState<PrioritySettings>(DEFAULT_PRIORITY_SETTINGS);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,15 +113,17 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('priority_settings').select('*').eq('user_id', userId).limit(1).maybeSingle(),
+        supabase.from('appointments').select('*').eq('user_id', userId).order('created_at'),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
       if (tRes.data) setTasks(tRes.data.map(dbToTask));
+      if (aRes.data) setAppointments(aRes.data.map(dbToAppointment));
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
@@ -141,6 +157,9 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
       supabase.channel('tasks-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setTasks(data.map(dbToTask)); });
+      }).subscribe(),
+      supabase.channel('appointments-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('appointments').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setAppointments(data.map(dbToAppointment)); });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
@@ -281,6 +300,37 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     await supabase.from('tasks').update({ status: 'backlog', scheduled_date: null, scheduled_time: null }).eq('id', id);
   }, []);
 
+  // --- Appointments CRUD ---
+  const addAppointment = useCallback(async (a: Omit<Appointment, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('appointments').insert({
+      title: a.title, description: a.description ?? null,
+      date: a.date, start_time: a.startTime, end_time: a.endTime,
+      enterprise_id: a.enterpriseId ?? null, color: a.color ?? null,
+      user_id: userId,
+    }).select().single();
+    if (error) { toast.error('Errore creazione appuntamento'); return; }
+    setAppointments(prev => [...prev, dbToAppointment(data)]);
+  }, [userId]);
+
+  const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
+    setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
+    if (updates.date !== undefined) dbUpdates.date = updates.date;
+    if (updates.startTime !== undefined) dbUpdates.start_time = updates.startTime;
+    if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
+    if (updates.enterpriseId !== undefined) dbUpdates.enterprise_id = updates.enterpriseId ?? null;
+    if (updates.color !== undefined) dbUpdates.color = updates.color ?? null;
+    await supabase.from('appointments').update(dbUpdates).eq('id', id);
+  }, []);
+
+  const deleteAppointment = useCallback(async (id: string) => {
+    setAppointments(prev => prev.filter(a => a.id !== id));
+    await supabase.from('appointments').delete().eq('id', id);
+  }, []);
+
   const getEnterprise = useCallback((id: string) => enterprises.find(e => e.id === id), [enterprises]);
   const getProject = useCallback((id: string) => projects.find(p => p.id === id), [projects]);
   const getProjectType = useCallback((projectId: string): ProjectType => {
@@ -290,6 +340,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getProjectsForEnterprise = useCallback((eid: string) => projects.filter(p => p.enterpriseId === eid), [projects]);
   const getTasksForProject = useCallback((pid: string) => tasks.filter(t => t.projectId === pid), [tasks]);
   const getTasksForDate = useCallback((date: string) => tasks.filter(t => t.scheduledDate === date && t.status !== 'done'), [tasks]);
+  const getAppointmentsForDate = useCallback((date: string) => appointments.filter(a => a.date === date), [appointments]);
   const getBacklogTasks = useCallback(() => tasks.filter(t => t.status === 'backlog'), [tasks]);
   const getSortedBacklogTasks = useCallback(() => {
     const backlog = tasks.filter(t => t.status === 'backlog');
@@ -298,13 +349,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   return (
     <PrpContext.Provider value={{
-      enterprises, projects, tasks, prioritySettings, loading, setPrioritySettings,
+      enterprises, projects, tasks, appointments, prioritySettings, loading, setPrioritySettings,
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
       addTask, updateTask, deleteTask,
       scheduleTask, completeTask, unscheduleTask,
+      addAppointment, updateAppointment, deleteAppointment,
       getEnterprise, getProject, getProjectType, getProjectsForEnterprise, getTasksForProject,
-      getTasksForDate, getBacklogTasks, getSortedBacklogTasks,
+      getTasksForDate, getAppointmentsForDate, getBacklogTasks, getSortedBacklogTasks,
     }}>
       {children}
     </PrpContext.Provider>

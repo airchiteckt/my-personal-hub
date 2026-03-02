@@ -112,6 +112,18 @@ export interface Task {
   createdAt: string;
 }
 
+export interface Appointment {
+  id: string;
+  enterpriseId?: string;
+  title: string;
+  description?: string;
+  date: string;
+  startTime: string; // HH:MM
+  endTime: string;   // HH:MM
+  color?: string;
+  createdAt: string;
+}
+
 export interface PrioritySettings {
   deadlineBoostEnabled: boolean;
   strategicWeightEnabled: boolean;

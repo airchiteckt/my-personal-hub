@@ -50,6 +50,53 @@ export type Database = {
         }
         Relationships: []
       }
+      appointments: {
+        Row: {
+          color: string | null
+          created_at: string
+          date: string
+          description: string | null
+          end_time: string
+          enterprise_id: string | null
+          id: string
+          start_time: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          date: string
+          description?: string | null
+          end_time: string
+          enterprise_id?: string | null
+          id?: string
+          start_time: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          end_time?: string
+          enterprise_id?: string | null
+          id?: string
+          start_time?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enterprises: {
         Row: {
           business_category: string

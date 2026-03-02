@@ -43,6 +43,7 @@ interface RitualCompletion {
   id: string;
   ritual_id: string;
   completed_date: string;
+  status: string;
 }
 
 const CATEGORY_META: Record<string, { label: string; icon: typeof Brain; color: string }> = {
@@ -102,7 +103,7 @@ export default function Rituals() {
     if (!user) return;
     const [ritualsRes, completionsRes] = await Promise.all([
       supabase.from('rituals').select('*').eq('user_id', user.id).order('created_at'),
-      supabase.from('ritual_completions').select('id, ritual_id, completed_date').eq('user_id', user.id)
+      supabase.from('ritual_completions').select('id, ritual_id, completed_date, status').eq('user_id', user.id)
         .gte('completed_date', format(subDays(today, 30), 'yyyy-MM-dd')),
     ]);
     setRituals((ritualsRes.data as Ritual[]) ?? []);
@@ -155,15 +156,19 @@ export default function Rituals() {
     if (!user) return;
     const dateStr = format(date, 'yyyy-MM-dd');
     const existing = completions.find(c => c.ritual_id === ritualId && c.completed_date === dateStr);
-    if (existing) {
+    if (existing && existing.status === 'done') {
       await supabase.from('ritual_completions').delete().eq('id', existing.id);
       setCompletions(prev => prev.filter(c => c.id !== existing.id));
+    } else if (existing) {
+      await supabase.from('ritual_completions').update({ status: 'done' }).eq('id', existing.id);
+      setCompletions(prev => prev.map(c => c.id === existing.id ? { ...c, status: 'done' } : c));
     } else {
       const { data, error } = await supabase.from('ritual_completions').insert({
         ritual_id: ritualId,
         user_id: user.id,
         completed_date: dateStr,
-      }).select('id, ritual_id, completed_date').single();
+        status: 'done',
+      }).select('id, ritual_id, completed_date, status').single();
       if (!error && data) setCompletions(prev => [...prev, data as RitualCompletion]);
     }
   };
@@ -181,7 +186,7 @@ export default function Rituals() {
 
   const isCompleted = (ritualId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return completions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr);
+    return completions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr && c.status === 'done');
   };
 
   const filtered = activeCategory === 'all' ? rituals : rituals.filter(r => r.category === activeCategory);

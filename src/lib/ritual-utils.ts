@@ -19,11 +19,14 @@ export interface RitualData {
   planning_mode: 'fixed' | 'flexible';
 }
 
+export type RitualCompletionStatus = 'planned' | 'done' | 'skipped';
+
 export interface RitualCompletion {
   id: string;
   ritual_id: string;
   completed_date: string;
   completed_time: string | null;
+  status: RitualCompletionStatus;
 }
 
 export const CATEGORY_META: Record<string, { label: string; icon: typeof Brain; color: string; calendarColor: string }> = {

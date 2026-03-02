@@ -6,6 +6,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
+export interface ActivityLog {
+  id: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  entityName?: string;
+  changes?: Record<string, { old: any; new: any }>;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
+export interface TimeEntry {
+  id: string;
+  taskId?: string;
+  projectId: string;
+  enterpriseId: string;
+  description?: string;
+  startedAt: string;
+  endedAt?: string;
+  durationMinutes?: number;
+  createdAt: string;
+}
+
 interface PrpContextType {
   enterprises: Enterprise[];
   projects: Project[];
@@ -55,6 +78,15 @@ interface PrpContextType {
   getKeyResultsForObjective: (objectiveId: string) => KeyResult[];
   getProjectsForKeyResult: (keyResultId: string) => Project[];
   getTasksForEnterprise: (enterpriseId: string) => Task[];
+  activityLogs: ActivityLog[];
+  timeEntries: TimeEntry[];
+  addTimeEntry: (entry: Omit<TimeEntry, 'id' | 'createdAt'>) => void;
+  updateTimeEntry: (id: string, updates: Partial<TimeEntry>) => void;
+  deleteTimeEntry: (id: string) => void;
+  getActivityLogsForEnterprise: (enterpriseId: string) => ActivityLog[];
+  getTimeEntriesForTask: (taskId: string) => TimeEntry[];
+  getTimeEntriesForProject: (projectId: string) => TimeEntry[];
+  getTimeEntriesForEnterprise: (enterpriseId: string) => TimeEntry[];
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -117,6 +149,22 @@ function dbToKeyResult(row: any): KeyResult {
     status: row.status, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
+function dbToActivityLog(row: any): ActivityLog {
+  return {
+    id: row.id, entityType: row.entity_type, entityId: row.entity_id,
+    action: row.action, entityName: row.entity_name ?? undefined,
+    changes: row.changes ?? undefined, metadata: row.metadata ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+function dbToTimeEntry(row: any): TimeEntry {
+  return {
+    id: row.id, taskId: row.task_id ?? undefined, projectId: row.project_id,
+    enterpriseId: row.enterprise_id, description: row.description ?? undefined,
+    startedAt: row.started_at, endedAt: row.ended_at ?? undefined,
+    durationMinutes: row.duration_minutes ?? undefined, createdAt: row.created_at,
+  };
+}
 function dbToSettings(row: any): PrioritySettings {
   return {
     deadlineBoostEnabled: row.deadline_boost_enabled,
@@ -148,6 +196,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [prioritySettings, setPrioritySettingsState] = useState<PrioritySettings>(DEFAULT_PRIORITY_SETTINGS);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
 
   const userId = user?.id;
 
@@ -156,7 +206,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
@@ -165,6 +215,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('objectives').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('key_results').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('activity_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
+        supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
@@ -173,6 +225,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (fpRes.data) setFocusPeriods(fpRes.data.map(dbToFocusPeriod));
       if (oRes.data) setObjectives(oRes.data.map(dbToObjective));
       if (krRes.data) setKeyResults(krRes.data.map(dbToKeyResult));
+      if (alRes.data) setActivityLogs(alRes.data.map(dbToActivityLog));
+      if (teRes.data) setTimeEntries(teRes.data.map(dbToTimeEntry));
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
@@ -516,6 +570,63 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getProjectsForKeyResult = useCallback((krId: string) => projects.filter(p => p.keyResultId === krId), [projects]);
   const getTasksForEnterprise = useCallback((eid: string) => tasks.filter(t => t.enterpriseId === eid), [tasks]);
 
+  // --- Activity Log helper ---
+  const logActivity = useCallback(async (params: {
+    entityType: string; entityId: string; action: string;
+    entityName?: string; changes?: Record<string, { old: any; new: any }>;
+    metadata?: Record<string, any>;
+  }) => {
+    if (!userId) return;
+    const { data } = await supabase.from('activity_logs').insert({
+      user_id: userId,
+      entity_type: params.entityType,
+      entity_id: params.entityId,
+      action: params.action,
+      entity_name: params.entityName,
+      changes: params.changes ?? null,
+      metadata: params.metadata ?? null,
+    }).select().single();
+    if (data) setActivityLogs(prev => [dbToActivityLog(data), ...prev]);
+  }, [userId]);
+
+  const getActivityLogsForEnterprise = useCallback((eid: string) => {
+    return activityLogs.filter(l =>
+      l.metadata?.enterprise_id === eid || (l.entityType === 'enterprise' && l.entityId === eid)
+    );
+  }, [activityLogs]);
+
+  // --- Time Entries CRUD ---
+  const addTimeEntry = useCallback(async (entry: Omit<TimeEntry, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('time_entries').insert({
+      user_id: userId, task_id: entry.taskId ?? null, project_id: entry.projectId,
+      enterprise_id: entry.enterpriseId, description: entry.description ?? null,
+      started_at: entry.startedAt, ended_at: entry.endedAt ?? null,
+      duration_minutes: entry.durationMinutes ?? null,
+    }).select().single();
+    if (error) { toast.error('Errore registrazione tempo'); return; }
+    setTimeEntries(prev => [dbToTimeEntry(data), ...prev]);
+    logActivity({ entityType: 'time_entry', entityId: data.id, action: 'created', entityName: entry.description || 'Sessione di lavoro', metadata: { enterprise_id: entry.enterpriseId, project_id: entry.projectId, task_id: entry.taskId } });
+  }, [userId, logActivity]);
+
+  const updateTimeEntry = useCallback(async (id: string, updates: Partial<TimeEntry>) => {
+    setTimeEntries(prev => prev.map(te => te.id === id ? { ...te, ...updates } : te));
+    const dbUpdates: any = {};
+    if (updates.endedAt !== undefined) dbUpdates.ended_at = updates.endedAt;
+    if (updates.durationMinutes !== undefined) dbUpdates.duration_minutes = updates.durationMinutes;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    await supabase.from('time_entries').update(dbUpdates).eq('id', id);
+  }, []);
+
+  const deleteTimeEntry = useCallback(async (id: string) => {
+    setTimeEntries(prev => prev.filter(te => te.id !== id));
+    await supabase.from('time_entries').delete().eq('id', id);
+  }, []);
+
+  const getTimeEntriesForTask = useCallback((tid: string) => timeEntries.filter(te => te.taskId === tid), [timeEntries]);
+  const getTimeEntriesForProject = useCallback((pid: string) => timeEntries.filter(te => te.projectId === pid), [timeEntries]);
+  const getTimeEntriesForEnterprise = useCallback((eid: string) => timeEntries.filter(te => te.enterpriseId === eid), [timeEntries]);
+
   return (
     <PrpContext.Provider value={{
       enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
@@ -532,6 +643,9 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       getTasksForDate, getAppointmentsForDate, getBacklogTasks, getSortedBacklogTasks,
       getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective,
       getProjectsForKeyResult, getTasksForEnterprise,
+      activityLogs, timeEntries,
+      addTimeEntry, updateTimeEntry, deleteTimeEntry,
+      getActivityLogsForEnterprise, getTimeEntriesForTask, getTimeEntriesForProject, getTimeEntriesForEnterprise,
     }}>
       {children}
     </PrpContext.Provider>

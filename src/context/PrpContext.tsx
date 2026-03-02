@@ -5,6 +5,7 @@ import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
+import { RitualData, RitualCompletion, shouldCompleteOnDate } from '@/lib/ritual-utils';
 
 export interface ActivityLog {
   id: string;
@@ -87,6 +88,10 @@ interface PrpContextType {
   getTimeEntriesForTask: (taskId: string) => TimeEntry[];
   getTimeEntriesForProject: (projectId: string) => TimeEntry[];
   getTimeEntriesForEnterprise: (enterpriseId: string) => TimeEntry[];
+  rituals: RitualData[];
+  ritualCompletions: RitualCompletion[];
+  getRitualsForDate: (date: Date) => RitualData[];
+  isRitualCompleted: (ritualId: string, date: string) => boolean;
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -198,6 +203,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [rituals, setRituals] = useState<RitualData[]>([]);
+  const [ritualCompletions, setRitualCompletions] = useState<RitualCompletion[]>([]);
 
   const userId = user?.id;
 
@@ -206,7 +213,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
@@ -217,6 +224,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('key_results').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('activity_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
         supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
+        supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at'),
+        supabase.from('ritual_completions').select('id, ritual_id, completed_date').eq('user_id', userId),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
@@ -227,6 +236,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (krRes.data) setKeyResults(krRes.data.map(dbToKeyResult));
       if (alRes.data) setActivityLogs(alRes.data.map(dbToActivityLog));
       if (teRes.data) setTimeEntries(teRes.data.map(dbToTimeEntry));
+      if (rRes.data) setRituals(rRes.data as RitualData[]);
+      if (rcRes.data) setRitualCompletions(rcRes.data as RitualCompletion[]);
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
@@ -633,6 +644,15 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getTimeEntriesForProject = useCallback((pid: string) => timeEntries.filter(te => te.projectId === pid), [timeEntries]);
   const getTimeEntriesForEnterprise = useCallback((eid: string) => timeEntries.filter(te => te.enterpriseId === eid), [timeEntries]);
 
+  // --- Ritual helpers ---
+  const getRitualsForDate = useCallback((date: Date) => {
+    return rituals.filter(r => r.is_active && shouldCompleteOnDate(r, date));
+  }, [rituals]);
+
+  const isRitualCompleted = useCallback((ritualId: string, dateStr: string) => {
+    return ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr);
+  }, [ritualCompletions]);
+
   return (
     <PrpContext.Provider value={{
       enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
@@ -652,6 +672,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       activityLogs, timeEntries,
       addTimeEntry, updateTimeEntry, deleteTimeEntry,
       getActivityLogsForEnterprise, getTimeEntriesForTask, getTimeEntriesForProject, getTimeEntriesForEnterprise,
+      rituals, ritualCompletions, getRitualsForDate, isRitualCompleted,
     }}>
       {children}
     </PrpContext.Provider>

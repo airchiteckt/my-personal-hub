@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff } from 'lucide-react';
+import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff, MoreVertical } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -718,9 +719,18 @@ export function AiAssistant() {
                 )}
                 <div className="flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
                   <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi al Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[32px] max-h-[80px] py-1" rows={1} disabled={r.isLoading} />
-                  <button onClick={r.startCall} disabled={r.isLoading} className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200" title="Chiama Radar">
-                    <Phone className="h-4 w-4" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="min-w-[160px]">
+                      <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
+                        <Phone className="h-4 w-4 mr-2" /> Chiama Radar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
                 </div>
               </div>
@@ -847,9 +857,18 @@ export function RadarFullPage() {
                 )}
                 <div className="flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
                   <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi al Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[36px] max-h-[120px] py-1.5" rows={1} disabled={r.isLoading} />
-                  <button onClick={r.startCall} disabled={r.isLoading} className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all duration-200" title="Chiama Radar">
-                    <Phone className="h-4 w-4" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200">
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="top" className="min-w-[160px]">
+                      <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
+                        <Phone className="h-4 w-4 mr-2" /> Chiama Radar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
                 </div>
               </div>

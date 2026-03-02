@@ -17,7 +17,11 @@ export function DesktopWeekView() {
   const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
-  const [apptDefaults, setApptDefaults] = useState<{ date?: string; time?: string }>({});
+  const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
+
+  // Drag-to-create state
+  const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
+  const isDraggingCreate = useRef(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -144,16 +148,44 @@ export function DesktopWeekView() {
                 return (
                   <div
                     key={day.toISOString()}
-                    className={`relative border-l transition-colors ${isCurrent ? 'bg-accent/20' : ''}`}
+                    className={`relative border-l transition-colors select-none ${isCurrent ? 'bg-accent/20' : ''}`}
                     onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('bg-accent/30'); }}
                     onDragLeave={e => { e.currentTarget.classList.remove('bg-accent/30'); }}
                     onDrop={e => handleColumnDrop(e, dayDate)}
-                    onClick={e => {
+                    onMouseDown={e => {
+                      if (e.button !== 0) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
-                      const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
-                      setApptDefaults({ date: dayDate, time: slotToTime(slotIndex) });
+                      const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
+                      isDraggingCreate.current = true;
+                      setDragCreate({ dayDate, startSlot: slot, endSlot: slot + 1 });
+                    }}
+                    onMouseMove={e => {
+                      if (!isDraggingCreate.current || !dragCreate || dragCreate.dayDate !== dayDate) return;
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+                      const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT) + 1, TOTAL_SLOTS));
+                      if (slot !== dragCreate.endSlot) {
+                        setDragCreate(prev => prev ? { ...prev, endSlot: Math.max(prev.startSlot + 1, slot) } : null);
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (!isDraggingCreate.current || !dragCreate) return;
+                      isDraggingCreate.current = false;
+                      const startSlot = Math.min(dragCreate.startSlot, dragCreate.endSlot);
+                      const endSlot = Math.max(dragCreate.startSlot, dragCreate.endSlot);
+                      setApptDefaults({
+                        date: dragCreate.dayDate,
+                        startTime: slotToTime(startSlot),
+                        endTime: slotToTime(Math.max(startSlot + 1, endSlot)),
+                      });
+                      setDragCreate(null);
                       setShowCreateAppt(true);
+                    }}
+                    onMouseLeave={() => {
+                      if (isDraggingCreate.current) {
+                        // Keep selection visible but stop extending
+                      }
                     }}
                   >
                     {/* Grid lines */}
@@ -164,6 +196,21 @@ export function DesktopWeekView() {
                         style={{ top: i * DESKTOP_SLOT_HEIGHT }}
                       />
                     ))}
+
+                    {/* Drag-to-create selection */}
+                    {dragCreate && dragCreate.dayDate === dayDate && (
+                      <div
+                        className="absolute left-1 right-1 rounded-lg bg-primary/20 border-2 border-primary/40 z-30 pointer-events-none flex items-center justify-center"
+                        style={{
+                          top: Math.min(dragCreate.startSlot, dragCreate.endSlot) * DESKTOP_SLOT_HEIGHT,
+                          height: Math.abs(dragCreate.endSlot - dragCreate.startSlot) * DESKTOP_SLOT_HEIGHT,
+                        }}
+                      >
+                        <span className="text-xs font-medium text-primary">
+                          {slotToTime(Math.min(dragCreate.startSlot, dragCreate.endSlot))} – {slotToTime(Math.max(dragCreate.startSlot, dragCreate.endSlot))}
+                        </span>
+                      </div>
+                    )}
 
                     {/* Current time line */}
                     {isCurrent && (
@@ -200,6 +247,7 @@ export function DesktopWeekView() {
                             key={task.id}
                             draggable
                             onDragStart={e => handleDragStart(e, task.id)}
+                            onMouseDown={e => e.stopPropagation()}
                             onClick={e => e.stopPropagation()}
                             className="absolute rounded-lg overflow-hidden cursor-grab active:cursor-grabbing group z-10"
                             style={{
@@ -256,6 +304,7 @@ export function DesktopWeekView() {
                       return (
                         <div
                           key={appt.id}
+                          onMouseDown={e => e.stopPropagation()}
                           onClick={e => e.stopPropagation()}
                           className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
                           style={{
@@ -304,7 +353,8 @@ export function DesktopWeekView() {
         open={showCreateAppt}
         onOpenChange={setShowCreateAppt}
         defaultDate={apptDefaults.date}
-        defaultTime={apptDefaults.time}
+        defaultTime={apptDefaults.startTime}
+        defaultEndTime={apptDefaults.endTime}
       />
     </div>
   );

@@ -13,6 +13,7 @@ type WizardAction = {
   type: 'create_focus_period' | 'create_objective' | 'create_key_result';
   data: any;
   applied?: boolean;
+  rejected?: boolean;
 };
 
 interface Props {
@@ -282,9 +283,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             if (parsed.type === 'actions' && parsed.actions?.length) {
               const actions: WizardAction[] = parsed.actions.map((a: any) => ({ ...a, applied: false }));
               setPendingActions(prev => [...prev, ...actions]);
-              for (const action of actions) {
-                await applyAction(action);
-              }
+              // Don't auto-apply — wait for user confirmation
             }
           } catch {
             // Partial JSON, put back
@@ -314,9 +313,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             if (parsed.type === 'actions' && parsed.actions?.length) {
               const actions: WizardAction[] = parsed.actions.map((a: any) => ({ ...a, applied: false }));
               setPendingActions(prev => [...prev, ...actions]);
-              for (const action of actions) {
-                await applyAction(action);
-              }
+              // Don't auto-apply — wait for user confirmation
             }
           } catch { /* ignore */ }
         }
@@ -561,6 +558,39 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               ) : (
                 <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
               )}
+            </div>
+          </div>
+        ))}
+
+        {/* Pending actions awaiting confirmation */}
+        {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
+          <div key={`pending-${i}`} className="flex justify-center py-1">
+            <div className="flex items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm">
+              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">
+                {getActionIcon(action.type)}
+              </div>
+              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+              <span className="text-[11px] text-muted-foreground truncate max-w-[120px] md:max-w-[180px]">{getActionLabel(action)}</span>
+              <button
+                onClick={() => {
+                  applyAction(action);
+                }}
+                className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors"
+                title="Conferma"
+              >
+                <Check className="h-3 w-3 text-primary" />
+              </button>
+              <button
+                onClick={() => {
+                  action.rejected = true;
+                  setPendingActions(prev => [...prev]);
+                  toast('Azione rifiutata');
+                }}
+                className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors"
+                title="Rifiuta"
+              >
+                <X className="h-3 w-3 text-destructive" />
+              </button>
             </div>
           </div>
         ))}

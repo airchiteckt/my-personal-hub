@@ -75,6 +75,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       tasksCount: tasks.length,
       hasFocusPeriodCreated: !!createdFocusId,
       hasObjectiveCreated: !!createdObjectiveId,
+      futureFocusPeriods: focusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
     };
   };
 
@@ -222,9 +223,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const quarterLabel = `Q${currentQ} ${currentYear}`;
   const hasActiveFocus = !!getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active');
 
+  const allFocusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+  const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
+
   const getOpeningMessage = (): string => {
     if (hasActiveFocus) {
-      const focus = getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active')!;
+      const focus = allFocusPeriods.find(f => f.status === 'active')!;
       const objs = getObjectivesForFocus(focus.id);
       if (objs.length === 0) {
         return `🎯 Hai già un Focus attivo: **${focus.name}**.\n\nPassiamo alla parte strategica. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere in questo trimestre?`;
@@ -234,7 +238,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       if (krs.length < 2) {
         return `📊 Hai l'Objective **"${lastObj.title}"**. Definiamo come misurare il successo.\n\nQual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
       }
-      return `✅ Hai già ${objs.length} Objective con ${krs.length} KR definiti per **${focus.name}**.\n\nVuoi aggiungere un altro Objective o raffinare quelli esistenti?`;
+      const futureLabel = futureFocusPeriods.length > 0 ? ` Hai anche ${futureFocusPeriods.length} trimestri futuri pianificati.` : '';
+      return `✅ Hai già ${objs.length} Objective con ${krs.length} KR definiti per **${focus.name}**.${futureLabel}\n\nVuoi aggiungere un altro Objective, o pianificare il prossimo trimestre?`;
     }
     return `🎯 Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };

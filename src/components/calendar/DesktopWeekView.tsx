@@ -3,18 +3,21 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 import { SmartBacklog } from './SmartBacklog';
+import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, getEnterprise, getProject, getProjectType, scheduleTask, unscheduleTask, updateTask, prioritySettings } = usePrp();
+  const { tasks, appointments, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [apptDefaults, setApptDefaults] = useState<{ date?: string; time?: string }>({});
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -64,6 +67,10 @@ export function DesktopWeekView() {
           <p className="text-sm text-muted-foreground">{weekLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
+            <CalendarClock className="h-4 w-4 mr-1" />
+            Appuntamento
+          </Button>
           <Button variant="outline" size="icon" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -131,6 +138,7 @@ export function DesktopWeekView() {
               {days.map(day => {
                 const dayDate = format(day, 'yyyy-MM-dd');
                 const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && t.status !== 'done');
+                const dayAppts = getAppointmentsForDate(dayDate);
                 const isCurrent = isToday(day);
 
                 return (
@@ -226,6 +234,50 @@ export function DesktopWeekView() {
                         );
                       });
                     })()}
+
+                    {/* Appointment blocks */}
+                    {dayAppts.map(appt => {
+                      const startSlot = timeToSlot(appt.startTime);
+                      const endSlot = timeToSlot(appt.endTime);
+                      const slots = Math.max(1, endSlot - startSlot);
+                      const top = startSlot * DESKTOP_SLOT_HEIGHT;
+                      const height = slots * DESKTOP_SLOT_HEIGHT;
+                      const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
+                      const color = appt.color || ent?.color || '270 60% 55%';
+
+                      return (
+                        <div
+                          key={appt.id}
+                          className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
+                          style={{
+                            top: top + 1,
+                            height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                            right: 2,
+                            width: '40%',
+                            backgroundColor: `hsl(${color} / 0.1)`,
+                            borderColor: `hsl(${color} / 0.4)`,
+                          }}
+                          title={`${appt.title}\n${appt.startTime}–${appt.endTime}`}
+                        >
+                          <div className="p-1.5 h-full flex flex-col">
+                            <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                              <CalendarClock className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                              {appt.title}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              {appt.startTime}–{appt.endTime}
+                              {ent ? ` · ${ent.name}` : ''}
+                            </p>
+                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); deleteAppointment(appt.id); }}
+                            className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -238,6 +290,13 @@ export function DesktopWeekView() {
           onDrop={handleBacklogDrop}
         />
       </div>
+
+      <CreateAppointmentDialog
+        open={showCreateAppt}
+        onOpenChange={setShowCreateAppt}
+        defaultDate={apptDefaults.date}
+        defaultTime={apptDefaults.time}
+      />
     </div>
   );
 }

@@ -83,7 +83,16 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
-  const [messages, setMessages] = useState<Msg[]>([]);
+  // --- Per-enterprise persistent memory ---
+  const storageKey = `radar_strategy_${enterprise.id}`;
+  const loadPersistedMessages = (): Msg[] => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  };
+
+  const [messages, setMessages] = useState<Msg[]>(() => loadPersistedMessages());
   const [pendingActions, setPendingActions] = useState<WizardAction[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -94,6 +103,26 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(messages));
+    }
+  }, [messages, storageKey]);
+
+  // Reset state when enterprise changes
+  const prevEnterpriseId = useRef(enterprise.id);
+  useEffect(() => {
+    if (prevEnterpriseId.current !== enterprise.id) {
+      prevEnterpriseId.current = enterprise.id;
+      setMessages(loadPersistedMessages());
+      setPendingActions([]);
+      setInput('');
+      setCreatedFocusId(activeFocusId || null);
+      setCreatedObjectiveId(null);
+    }
+  }, [enterprise.id]);
 
   // Phase detection
   const { currentPhase, completedPhases } = useMemo(() => {

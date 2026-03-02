@@ -92,6 +92,7 @@ interface PrpContextType {
   ritualCompletions: RitualCompletion[];
   getRitualsForDate: (date: Date) => RitualData[];
   isRitualCompleted: (ritualId: string, date: string) => boolean;
+  completeRitualOnDate: (ritualId: string, date: string) => Promise<void>;
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -659,6 +660,20 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     return ritualCompletions.some(c => c.ritual_id === ritualId && c.completed_date === dateStr);
   }, [ritualCompletions]);
 
+  const completeRitualOnDate = useCallback(async (ritualId: string, dateStr: string) => {
+    if (!userId) return;
+    const existing = ritualCompletions.find(c => c.ritual_id === ritualId && c.completed_date === dateStr);
+    if (existing) return; // already completed
+    const { data, error } = await supabase.from('ritual_completions').insert({
+      ritual_id: ritualId,
+      user_id: userId,
+      completed_date: dateStr,
+    }).select('id, ritual_id, completed_date').single();
+    if (!error && data) {
+      setRitualCompletions(prev => [...prev, data as RitualCompletion]);
+    }
+  }, [userId, ritualCompletions]);
+
   return (
     <PrpContext.Provider value={{
       enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
@@ -678,7 +693,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       activityLogs, timeEntries,
       addTimeEntry, updateTimeEntry, deleteTimeEntry,
       getActivityLogsForEnterprise, getTimeEntriesForTask, getTimeEntriesForProject, getTimeEntriesForEnterprise,
-      rituals, ritualCompletions, getRitualsForDate, isRitualCompleted,
+      rituals, ritualCompletions, getRitualsForDate, isRitualCompleted, completeRitualOnDate,
     }}>
       {children}
     </PrpContext.Provider>

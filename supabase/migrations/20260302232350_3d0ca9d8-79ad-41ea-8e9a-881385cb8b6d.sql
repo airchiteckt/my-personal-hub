@@ -1,0 +1,1 @@
+ALTER TABLE public.ritual_completions ADD COLUMN completed_time text DEFAULT NULL;

@@ -522,6 +522,7 @@ export type Database = {
       ritual_completions: {
         Row: {
           completed_date: string
+          completed_time: string | null
           created_at: string
           id: string
           notes: string | null
@@ -530,6 +531,7 @@ export type Database = {
         }
         Insert: {
           completed_date: string
+          completed_time?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -538,6 +540,7 @@ export type Database = {
         }
         Update: {
           completed_date?: string
+          completed_time?: string | null
           created_at?: string
           id?: string
           notes?: string | null

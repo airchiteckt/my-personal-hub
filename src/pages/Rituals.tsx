@@ -33,6 +33,8 @@ interface Ritual {
   description: string | null;
   is_active: boolean;
   created_at: string;
+  weekly_specific_days: number[] | null;
+  weekly_times_per_week: number | null;
 }
 
 interface RitualCompletion {
@@ -60,7 +62,19 @@ function shouldCompleteOnDate(ritual: Ritual, date: Date): boolean {
   const dow = date.getDay();
   switch (ritual.frequency) {
     case 'daily': return true;
-    case 'weekly': return ritual.suggested_day != null ? dow === ritual.suggested_day : dow >= 1 && dow <= 5;
+    case 'weekly': {
+      // Specific days mode
+      if (ritual.weekly_specific_days && ritual.weekly_specific_days.length > 0) {
+        return ritual.weekly_specific_days.includes(dow);
+      }
+      // Flexible mode (N times per week) - show all weekdays as available
+      if (ritual.weekly_times_per_week) {
+        return dow >= 1 && dow <= 5; // show Mon-Fri as potential
+      }
+      // Legacy: suggested_day
+      if (ritual.suggested_day != null) return dow === ritual.suggested_day;
+      return dow >= 1 && dow <= 5;
+    }
     case 'monthly': return date.getDate() === 1;
     case 'custom': return ritual.custom_frequency_days?.includes(dow) ?? false;
     default: return false;
@@ -108,6 +122,8 @@ export default function Rituals() {
       suggested_day: data.suggestedDay,
       suggested_time: data.suggestedTime,
       description: data.description,
+      weekly_specific_days: data.weeklySpecificDays,
+      weekly_times_per_week: data.weeklyTimesPerWeek,
     });
     if (error) toast.error('Errore nella creazione');
     else { toast.success('Rituale creato!'); fetchData(); }
@@ -152,9 +168,28 @@ export default function Rituals() {
 
   // Weekly completion rate
   const getWeeklyRate = (ritual: Ritual) => {
+    // For flexible weekly (N times/week), expected = N
+    if (ritual.frequency === 'weekly' && ritual.weekly_times_per_week) {
+      const completedCount = weekDays.filter(d => isCompleted(ritual.id, d) && d <= today).length;
+      return Math.min(100, Math.round((completedCount / ritual.weekly_times_per_week) * 100));
+    }
     const expected = weekDays.filter(d => shouldCompleteOnDate(ritual, d) && (d <= today)).length;
     const completed = weekDays.filter(d => isCompleted(ritual.id, d) && shouldCompleteOnDate(ritual, d)).length;
     return expected > 0 ? Math.round((completed / expected) * 100) : 0;
+  };
+
+  const getFrequencyLabel = (ritual: Ritual) => {
+    if (ritual.frequency === 'weekly') {
+      if (ritual.weekly_specific_days && ritual.weekly_specific_days.length > 0) {
+        const dayNames = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+        const sorted = [...ritual.weekly_specific_days].sort((a, b) => (a === 0 ? 7 : a) - (b === 0 ? 7 : b));
+        return sorted.map(d => dayNames[d]).join(', ');
+      }
+      if (ritual.weekly_times_per_week) {
+        return `${ritual.weekly_times_per_week}× / settimana`;
+      }
+    }
+    return FREQ_LABELS[ritual.frequency] || ritual.frequency;
   };
 
   if (loading) {
@@ -266,7 +301,7 @@ export default function Rituals() {
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{ritual.name}</p>
                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                        <span>{FREQ_LABELS[ritual.frequency]}</span>
+                        <span>{getFrequencyLabel(ritual)}</span>
                         {ritual.estimated_minutes && (
                           <>
                             <span>·</span>

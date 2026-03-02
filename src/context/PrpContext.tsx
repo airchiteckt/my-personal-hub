@@ -17,7 +17,7 @@ interface PrpContextType {
   prioritySettings: PrioritySettings;
   loading: boolean;
   setPrioritySettings: (s: PrioritySettings) => void;
-  addEnterprise: (e: Omit<Enterprise, 'id' | 'createdAt'>) => void;
+  addEnterprise: (e: Omit<Enterprise, 'id' | 'createdAt'>) => Promise<string | undefined>;
   updateEnterprise: (id: string, updates: Partial<Enterprise>) => void;
   deleteEnterprise: (id: string) => void;
   addProject: (p: Omit<Project, 'id' | 'createdAt'>) => void;
@@ -244,8 +244,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     }).eq('id', settingsId);
   }, [settingsId]);
 
-  const addEnterprise = useCallback(async (e: Omit<Enterprise, 'id' | 'createdAt'>) => {
-    if (!userId) return;
+  const addEnterprise = useCallback(async (e: Omit<Enterprise, 'id' | 'createdAt'>): Promise<string | undefined> => {
+    if (!userId) return undefined;
     const { data, error } = await supabase.from('enterprises').insert({
       name: e.name, status: e.status, color: e.color, user_id: userId,
       strategic_importance: e.strategicImportance,
@@ -255,8 +255,9 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       time_horizon: e.timeHorizon,
       priority_until: e.priorityUntil ?? null,
     }).select().single();
-    if (error) { toast.error('Errore creazione impresa'); return; }
+    if (error) { toast.error('Errore creazione impresa'); return undefined; }
     setEnterprises(prev => [...prev, dbToEnterprise(data)]);
+    return data.id;
   }, [userId]);
 
   const updateEnterprise = useCallback(async (id: string, updates: Partial<Enterprise>) => {

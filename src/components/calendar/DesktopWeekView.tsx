@@ -5,7 +5,8 @@ import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock } from 'lucide-react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
-import type { Task } from '@/types/prp';
+import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
+import type { Task, Appointment } from '@/types/prp';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -25,6 +26,7 @@ export function DesktopWeekView() {
   const [showChoice, setShowChoice] = useState(false);
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -316,7 +318,7 @@ export function DesktopWeekView() {
                         <div
                           key={appt.id}
                           onMouseDown={e => e.stopPropagation()}
-                          onClick={e => e.stopPropagation()}
+                          onClick={e => { e.stopPropagation(); setEditingAppt(appt); }}
                           className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
                           style={{
                             top: top + 1,
@@ -391,6 +393,12 @@ export function DesktopWeekView() {
           task={editingTask}
         />
       )}
+
+      <EditAppointmentDialog
+        open={!!editingAppt}
+        onOpenChange={(open) => !open && setEditingAppt(null)}
+        appointment={editingAppt}
+      />
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { format, addDays, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
-import { Task } from '@/types/prp';
+import { Task, Appointment } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock } from 'lucide-react';
@@ -12,12 +12,14 @@ import {
 } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
+import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [apptDate, setApptDate] = useState<string>();
   const [apptTime, setApptTime] = useState<string>();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -183,7 +185,8 @@ export function MobileDayView() {
             return (
               <div
                 key={appt.id}
-                className="absolute rounded-xl overflow-hidden z-10 border-2 border-dashed"
+                onClick={() => setEditingAppt(appt)}
+                className="absolute rounded-xl overflow-hidden z-10 border-2 border-dashed cursor-pointer"
                 style={{
                   top,
                   height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
@@ -352,6 +355,12 @@ export function MobileDayView() {
         onOpenChange={setShowCreateAppt}
         defaultDate={apptDate || dateStr}
         defaultTime={apptTime}
+      />
+
+      <EditAppointmentDialog
+        open={!!editingAppt}
+        onOpenChange={(open) => !open && setEditingAppt(null)}
+        appointment={editingAppt}
       />
     </div>
   );

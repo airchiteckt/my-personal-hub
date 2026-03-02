@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import type { Enterprise } from '@/types/prp';
@@ -21,6 +20,8 @@ interface Props {
   activeFocusId?: string;
   onCreated?: () => void;
 }
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 
 export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const { session } = useAuth();
@@ -44,11 +45,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, pendingActions]);
 
-  // Auto-focus input when opened
   useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (isOpen) setTimeout(() => inputRef.current?.focus(), 100);
   }, [isOpen]);
 
   const buildContext = () => {
@@ -93,31 +91,131 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setInput('');
     setIsLoading(true);
 
-    // Reset textarea height
     if (inputRef.current) inputRef.current.style.height = 'auto';
 
+    let assistantContent = '';
+
     try {
-      const { data, error } = await supabase.functions.invoke('ai-assistant', {
-        body: { type: 'okr_wizard', messages: newMessages, context: buildContext() },
+      const resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          type: 'okr_wizard',
+          messages: newMessages,
+          context: buildContext(),
+        }),
       });
-      if (error) throw error;
 
-      const aiMessage = data?.message || '';
-      const actions: WizardAction[] = (data?.actions || []).map((a: any) => ({ ...a, applied: false }));
-
-      if (aiMessage) {
-        setMessages(prev => [...prev, { role: 'assistant', content: aiMessage }]);
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error(errData.error || `Errore ${resp.status}`);
       }
 
-      if (actions.length > 0) {
-        setPendingActions(prev => [...prev, ...actions]);
-        for (const action of actions) {
-          await applyAction(action);
+      if (!resp.body) throw new Error('No response body');
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let streamDone = false;
+
+      // Create assistant message placeholder
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+      while (!streamDone) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let newlineIdx: number;
+        while ((newlineIdx = buffer.indexOf('\n')) !== -1) {
+          let line = buffer.slice(0, newlineIdx);
+          buffer = buffer.slice(newlineIdx + 1);
+          if (line.endsWith('\r')) line = line.slice(0, -1);
+          if (line.startsWith(':') || line.trim() === '') continue;
+          if (!line.startsWith('data: ')) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === '[DONE]') { streamDone = true; break; }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+
+            if (parsed.type === 'delta' && parsed.content) {
+              assistantContent += parsed.content;
+              const contentSnapshot = assistantContent;
+              setMessages(prev => {
+                const last = prev[prev.length - 1];
+                if (last?.role === 'assistant') {
+                  return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: contentSnapshot } : m);
+                }
+                return [...prev, { role: 'assistant', content: contentSnapshot }];
+              });
+            }
+
+            if (parsed.type === 'actions' && parsed.actions?.length) {
+              const actions: WizardAction[] = parsed.actions.map((a: any) => ({ ...a, applied: false }));
+              setPendingActions(prev => [...prev, ...actions]);
+              for (const action of actions) {
+                await applyAction(action);
+              }
+            }
+          } catch {
+            // Partial JSON, put back
+            buffer = line + '\n' + buffer;
+            break;
+          }
         }
+      }
+
+      // Flush remaining buffer
+      if (buffer.trim()) {
+        for (let raw of buffer.split('\n')) {
+          if (!raw) continue;
+          if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+          if (!raw.startsWith('data: ')) continue;
+          const jsonStr = raw.slice(6).trim();
+          if (jsonStr === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(jsonStr);
+            if (parsed.type === 'delta' && parsed.content) {
+              assistantContent += parsed.content;
+              const contentSnapshot = assistantContent;
+              setMessages(prev =>
+                prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: contentSnapshot } : m)
+              );
+            }
+            if (parsed.type === 'actions' && parsed.actions?.length) {
+              const actions: WizardAction[] = parsed.actions.map((a: any) => ({ ...a, applied: false }));
+              setPendingActions(prev => [...prev, ...actions]);
+              for (const action of actions) {
+                await applyAction(action);
+              }
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      // Remove empty assistant message if no content came
+      if (!assistantContent) {
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
+          return prev;
+        });
       }
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || 'Errore AI');
+      // Remove empty assistant message on error
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'assistant' && !last.content) return prev.slice(0, -1);
+        return prev;
+      });
     }
     setIsLoading(false);
   };
@@ -194,7 +292,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    // Auto-resize
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
   };
@@ -231,7 +328,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const currentYear = now.getFullYear();
   const quarterLabel = `Q${currentQ} ${currentYear}`;
   const hasActiveFocus = !!getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active');
-
   const allFocusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
   const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
 
@@ -253,7 +349,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return `🎯 Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
 
-  // Closed state: CTA button
   if (!isOpen) {
     return (
       <button
@@ -277,7 +372,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     );
   }
 
-  // Open state: chat panel
   return (
     <div className="rounded-xl border border-primary/20 overflow-hidden bg-card shadow-sm">
       {/* Header */}
@@ -340,8 +434,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </div>
         ))}
 
-        {/* Loading indicator */}
-        {isLoading && (
+        {/* Loading indicator (only when no content streaming yet) */}
+        {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex justify-start">
             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2">
               <Sparkles className="h-3 w-3 text-primary" />

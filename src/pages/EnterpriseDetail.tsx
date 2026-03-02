@@ -20,6 +20,7 @@ import { getDisplayPriority, getPriorityEmoji, getUrgencyLevel, getUrgencyDot } 
 import { CreateFocusPeriodDialog } from '@/components/enterprise/CreateFocusPeriodDialog';
 import { CreateObjectiveDialog } from '@/components/enterprise/CreateObjectiveDialog';
 import { CreateKeyResultDialog } from '@/components/enterprise/CreateKeyResultDialog';
+import { ProjectsTasksSection } from '@/components/enterprise/ProjectsTasksSection';
 import { format as fnsFormat, differenceInDays, parseISO } from 'date-fns';
 import { OkrWizard } from '@/components/enterprise/OkrWizard';
 import { EnterpriseTracking } from '@/components/enterprise/EnterpriseTracking';
@@ -490,94 +491,14 @@ const EnterpriseDetail = () => {
 
         {/* ===== EXECUTION (Projects + Tasks) ===== */}
         <TabsContent value="execution" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              <Layers className="h-5 w-5" /> Progetti & Task
-            </h2>
-            <Button size="sm" onClick={() => setShowCreateProject(true)}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> Progetto
-            </Button>
-          </div>
-
-          {enterpriseProjects.length === 0 ? (
-            <Card className="p-8 text-center border-dashed">
-              <p className="text-muted-foreground text-sm">Nessun progetto. Creane uno per iniziare!</p>
-            </Card>
-          ) : (
-            enterpriseProjects.map(project => {
-              const projectTasks = getTasksForProject(project.id);
-              const activeTasks = projectTasks.filter(t => t.status !== 'done');
-              const donePT = projectTasks.filter(t => t.status === 'done').length;
-              const pctPT = projectTasks.length > 0 ? Math.round((donePT / projectTasks.length) * 100) : 0;
-              return (
-                <Card key={project.id} className="p-4">
-                  <div className="flex items-center justify-between mb-2 gap-2">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <h3 className="font-semibold text-sm truncate">{project.name}</h3>
-                      <Badge className={`${typeStyles[project.type]} shrink-0 text-[10px]`}>
-                        {PROJECT_TYPE_LABELS[project.type]}
-                      </Badge>
-                      {project.keyResultId && (
-                        <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
-                          <Target className="h-2.5 w-2.5" /> KR
-                        </Badge>
-                      )}
-                      {pctPT > 0 && (
-                        <span className="text-[10px] text-muted-foreground">{pctPT}%</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingProject(project)}>
-                        <Edit2 className="h-3 w-3" />
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setCreateTaskForProject(project.id)}>
-                        <Plus className="h-3 w-3 mr-1" /> Task
-                      </Button>
-                    </div>
-                  </div>
-                  {projectTasks.length > 0 && <Progress value={pctPT} className="h-1 mb-2" />}
-
-                  {projectTasks.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-1">Nessuna task</p>
-                  ) : (
-                    <div className="space-y-1">
-                      {projectTasks.map(task => (
-                        <div
-                          key={task.id}
-                          className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 group cursor-pointer hover:bg-muted/80 transition-colors"
-                          onClick={() => setEditingTask(task)}
-                        >
-                          {task.status !== 'done' ? (
-                            <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 rounded-full border border-border" onClick={(e) => { e.stopPropagation(); completeTask(task.id); }}>
-                              <Check className="h-2.5 w-2.5" />
-                            </Button>
-                          ) : (
-                            <div className="h-5 w-5 shrink-0 rounded-full bg-primary flex items-center justify-center">
-                              <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                            </div>
-                          )}
-                          <span className={`flex-1 text-xs min-w-0 truncate ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
-                            {getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings))}{' '}
-                            {task.title}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 shrink-0">
-                            <Clock className="h-2.5 w-2.5" />
-                            {formatMinutes(task.estimatedMinutes)}
-                          </span>
-                          <Badge variant="outline" className="text-[10px] hidden md:inline-flex">
-                            {TASK_STATUS_LABELS[task.status]}
-                          </Badge>
-                          <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); deleteTask(task.id); }}>
-                            <Trash2 className="h-2.5 w-2.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-              );
-            })
-          )}
+          <ProjectsTasksSection
+            enterpriseId={id!}
+            enterpriseType={enterprise.enterpriseType}
+            onCreateProject={() => setShowCreateProject(true)}
+            onCreateTask={(projectId) => setCreateTaskForProject(projectId)}
+            onEditProject={(project) => setEditingProject(project)}
+            onEditTask={(task) => setEditingTask(task)}
+          />
         </TabsContent>
 
         {/* ===== TRACKING ===== */}

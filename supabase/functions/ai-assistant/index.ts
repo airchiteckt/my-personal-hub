@@ -29,8 +29,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
-    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer "))
@@ -557,14 +557,14 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
       // Override system prompt
       aiMessages[0] = { role: "system", content: globalSystemPrompt };
 
-      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "google/gemini-3-flash-preview",
           messages: aiMessages,
           tools: globalTools,
           stream: true,
@@ -704,14 +704,14 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
         },
       ];
 
-      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "google/gemini-3-flash-preview",
           messages: aiMessages,
           tools: wizardTools,
           stream: true,
@@ -798,14 +798,14 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
     }
 
     if (toolDef) {
-      const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+      const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "google/gemini-3-flash-preview",
           messages: aiMessages,
           tools: [{ type: "function", function: toolDef }],
           tool_choice: { type: "function", function: { name: toolDef.name } },
@@ -836,14 +836,14 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
     }
 
     // Streaming for chat-like interactions
-    const response = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
+    const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "google/gemini-3-flash-preview",
         messages: aiMessages,
         stream: true,
       }),

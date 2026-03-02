@@ -209,7 +209,7 @@ export function DesktopWeekView() {
       </div>
       {/* Rituals drag widget */}
       {activeRituals.length > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-1 overflow-x-auto shrink-0">
+        <div className="flex items-center gap-2 mb-3 px-1 shrink-0" style={{ overflow: 'visible' }}>
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
             <Repeat className="h-3 w-3 inline mr-1" />Rituali
           </span>
@@ -219,14 +219,27 @@ export function DesktopWeekView() {
             const color = getRitualCalendarColor(r.category);
             const CatIcon = getRitualIcon(r.category);
             const done = count >= target;
+            if (done) {
+              return (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap opacity-40 cursor-default"
+                  style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
+                >
+                  <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
+                  <span className="font-medium">{r.name}</span>
+                  <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
+                </div>
+              );
+            }
             return (
               <div
                 key={r.id}
-                draggable={!done}
+                draggable
                 onDragStart={e => handleRitualDragStart(e, r.id)}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap transition-all ${done ? 'opacity-40 cursor-default' : 'cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02]'}`}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02] transition-all"
                 style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
-                title={done ? 'Completato questa settimana' : 'Trascina sul calendario per segnare completato'}
+                title="Trascina sul calendario per pianificare"
               >
                 <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
                 <span className="font-medium">{r.name}</span>

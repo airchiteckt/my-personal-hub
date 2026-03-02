@@ -272,6 +272,12 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       supabase.channel('key-results-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'key_results', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('key_results').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setKeyResults(data.map(dbToKeyResult)); });
       }).subscribe(),
+      supabase.channel('activity-logs-changes').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'activity_logs', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('activity_logs').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(200).then(({ data }) => { if (data) setActivityLogs(data.map(dbToActivityLog)); });
+      }).subscribe(),
+      supabase.channel('time-entries-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'time_entries', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }).then(({ data }) => { if (data) setTimeEntries(data.map(dbToTimeEntry)); });
+      }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
   }, [userId]);

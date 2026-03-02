@@ -39,7 +39,14 @@ const PrpContext = createContext<PrpContextType | null>(null);
 
 // --- DB row <-> Frontend type mappers ---
 function dbToEnterprise(row: any): Enterprise {
-  return { id: row.id, name: row.name, status: row.status, color: row.color, createdAt: row.created_at };
+  return {
+    id: row.id, name: row.name, status: row.status, color: row.color,
+    strategicImportance: row.strategic_importance ?? 3,
+    growthPotential: row.growth_potential ?? 3,
+    phase: row.phase ?? 'setup',
+    priorityUntil: row.priority_until ?? undefined,
+    createdAt: row.created_at,
+  };
 }
 function dbToProject(row: any): Project {
   return { id: row.id, enterpriseId: row.enterprise_id, name: row.name, type: row.type, createdAt: row.created_at };
@@ -162,7 +169,13 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   const addEnterprise = useCallback(async (e: Omit<Enterprise, 'id' | 'createdAt'>) => {
     if (!userId) return;
-    const { data, error } = await supabase.from('enterprises').insert({ name: e.name, status: e.status, color: e.color, user_id: userId }).select().single();
+    const { data, error } = await supabase.from('enterprises').insert({
+      name: e.name, status: e.status, color: e.color, user_id: userId,
+      strategic_importance: e.strategicImportance,
+      growth_potential: e.growthPotential,
+      phase: e.phase,
+      priority_until: e.priorityUntil ?? null,
+    }).select().single();
     if (error) { toast.error('Errore creazione impresa'); return; }
     setEnterprises(prev => [...prev, dbToEnterprise(data)]);
   }, [userId]);
@@ -173,6 +186,10 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.name !== undefined) dbUpdates.name = updates.name;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
     if (updates.color !== undefined) dbUpdates.color = updates.color;
+    if (updates.strategicImportance !== undefined) dbUpdates.strategic_importance = updates.strategicImportance;
+    if (updates.growthPotential !== undefined) dbUpdates.growth_potential = updates.growthPotential;
+    if (updates.phase !== undefined) dbUpdates.phase = updates.phase;
+    if (updates.priorityUntil !== undefined) dbUpdates.priority_until = updates.priorityUntil ?? null;
     await supabase.from('enterprises').update(dbUpdates).eq('id', id);
   }, []);
 

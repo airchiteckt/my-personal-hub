@@ -54,25 +54,37 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          growth_potential: number
           id: string
           name: string
+          phase: string
+          priority_until: string | null
           status: Database["public"]["Enums"]["enterprise_status"]
+          strategic_importance: number
           user_id: string | null
         }
         Insert: {
           color?: string
           created_at?: string
+          growth_potential?: number
           id?: string
           name: string
+          phase?: string
+          priority_until?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
+          strategic_importance?: number
           user_id?: string | null
         }
         Update: {
           color?: string
           created_at?: string
+          growth_potential?: number
           id?: string
           name?: string
+          phase?: string
+          priority_until?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
+          strategic_importance?: number
           user_id?: string | null
         }
         Relationships: []

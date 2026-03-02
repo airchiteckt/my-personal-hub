@@ -63,6 +63,7 @@ export interface Task {
   priority: TaskPriority;
   status: TaskStatus;
   scheduledDate?: string;
+  scheduledTime?: string;
   deadline?: string;
   isRecurring: boolean;
   recurringFrequency?: string;

@@ -250,11 +250,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   const addTask = useCallback(async (t: Omit<Task, 'id' | 'createdAt' | 'status'>) => {
     if (!userId) return;
+    const isScheduled = !!(t.scheduledDate);
     const { data, error } = await supabase.from('tasks').insert({
       enterprise_id: t.enterpriseId, project_id: t.projectId, title: t.title,
       estimated_minutes: t.estimatedMinutes, priority: t.priority,
       is_recurring: t.isRecurring, impact: t.impact ?? null, effort: t.effort ?? null,
       deadline: t.deadline ?? null, user_id: userId,
+      scheduled_date: t.scheduledDate ?? null, scheduled_time: t.scheduledTime ?? null,
+      status: isScheduled ? 'scheduled' : 'backlog',
     }).select().single();
     if (error) { toast.error('Errore creazione task'); return; }
     setTasks(prev => [...prev, dbToTask(data)]);

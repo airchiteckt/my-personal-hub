@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff, MoreVertical } from 'lucide-react';
+import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, X, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff, MoreVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
@@ -12,7 +12,7 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
-type GlobalAction = { type: string; data: any; applied?: boolean };
+type GlobalAction = { type: string; data: any; applied?: boolean; rejected?: boolean };
 type RadarView = 'home' | 'chat' | 'voice';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
 
@@ -291,7 +291,7 @@ function useRadar() {
           try {
             const p = JSON.parse(json);
             if (p.type === 'delta' && p.content) { assistantContent += p.content; const snap = assistantContent; setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m)); }
-            if (p.type === 'actions' && p.actions?.length) { const acts: GlobalAction[] = p.actions.map((a: any) => ({ ...a, applied: false })); setPendingActions(prev => [...prev, ...acts]); for (const a of acts) await applyAction(a); }
+            if (p.type === 'actions' && p.actions?.length) { const acts: GlobalAction[] = p.actions.map((a: any) => ({ ...a, applied: false, rejected: false })); setPendingActions(prev => [...prev, ...acts]); }
           } catch { buffer = line + '\n' + buffer; break; }
         }
       }
@@ -392,7 +392,42 @@ function useRadar() {
     };
     return map[type] || <Radio className="h-3 w-3" />;
   };
-  const getActionLabel = (a: GlobalAction) => a.data?.name || a.data?.title || a.type.replace(/_/g, ' ');
+  const getActionLabel = (a: GlobalAction) => {
+    const label = a.data?.name || a.data?.title || a.type.replace(/_/g, ' ');
+    return label;
+  };
+  const getActionDescription = (a: GlobalAction) => {
+    const parts: string[] = [];
+    if (a.data?.priority) parts.push(`priorità ${a.data.priority}`);
+    if (a.data?.estimated_minutes) parts.push(`${a.data.estimated_minutes} min`);
+    if (a.data?.date || a.data?.start_date) parts.push(a.data.date || a.data.start_date);
+    if (a.data?.start_time && a.data?.end_time) parts.push(`${a.data.start_time}-${a.data.end_time}`);
+    return parts.join(' · ');
+  };
+  const getActionTypeLabel = (type: string) => {
+    const map: Record<string, string> = {
+      create_enterprise: 'Nuova impresa', create_project: 'Nuovo progetto', create_task: 'Nuova task',
+      create_focus_period: 'Nuovo focus', create_objective: 'Nuovo obiettivo', create_key_result: 'Nuovo KR',
+      schedule_task: 'Pianifica task', complete_task: 'Completa task', create_appointment: 'Nuovo appuntamento',
+    };
+    return map[type] || type.replace(/_/g, ' ');
+  };
+
+  const approveAction = async (action: GlobalAction) => {
+    await applyAction(action);
+    if (callActiveRef.current) {
+      speakText('Fatto.');
+    }
+  };
+
+  const rejectAction = (action: GlobalAction) => {
+    action.rejected = true;
+    setPendingActions(prev => [...prev]);
+    toast('Azione annullata');
+    if (callActiveRef.current) {
+      speakText('Annullato.');
+    }
+  };
 
   const tasksDueToday = tasks.filter(t => t.scheduledDate === new Date().toISOString().split('T')[0] && t.status !== 'done').length;
   const activeEnterprises = enterprises.filter(e => e.status === 'active').length;
@@ -415,16 +450,90 @@ function useRadar() {
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
+    getActionDescription, getActionTypeLabel, approveAction, rejectAction,
     goBack, stopSpeaking, tasksDueToday, activeEnterprises, backlogCount, activeFocus,
     formatDuration,
   };
 }
 
+// ─── Action Confirmation Card ───
+function ActionConfirmCard({ action, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, onApprove, onReject }: {
+  action: GlobalAction;
+  getActionIcon: (type: string) => React.ReactNode;
+  getActionLabel: (a: GlobalAction) => string;
+  getActionDescription: (a: GlobalAction) => string;
+  getActionTypeLabel: (type: string) => string;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  if (action.applied) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-primary/[0.05] border border-primary/10 px-3 py-2">
+        <div className="h-5 w-5 rounded bg-primary/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
+        <div className="flex-1 min-w-0">
+          <span className="text-xs font-medium text-foreground truncate block">{getActionLabel(action)}</span>
+        </div>
+        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+      </div>
+    );
+  }
+  if (action.rejected) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-muted/30 border border-border/30 px-3 py-2 opacity-60">
+        <div className="h-5 w-5 rounded bg-muted flex items-center justify-center">{getActionIcon(action.type)}</div>
+        <div className="flex-1 min-w-0">
+          <span className="text-xs text-muted-foreground line-through truncate block">{getActionLabel(action)}</span>
+        </div>
+        <X className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      </div>
+    );
+  }
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      className="rounded-xl border border-primary/20 bg-primary/[0.04] p-3 space-y-2.5"
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0 mt-0.5">{getActionIcon(action.type)}</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{getActionTypeLabel(action.type)}</p>
+          <p className="text-sm font-semibold text-foreground mt-0.5 truncate">{getActionLabel(action)}</p>
+          {getActionDescription(action) && (
+            <p className="text-[11px] text-muted-foreground mt-0.5">{getActionDescription(action)}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button
+          onClick={onApprove}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+        >
+          <Check className="h-3.5 w-3.5" /> Approva
+        </button>
+        <button
+          onClick={onReject}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-foreground py-2 text-xs font-medium hover:bg-muted transition-colors"
+        >
+          <X className="h-3.5 w-3.5" /> Annulla
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Voice View (shared) ───
-function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages }: {
+function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction }: {
   callState: CallState; callActive: boolean; callDuration: number; input: string; isLoading: boolean;
   startCall: () => void; endCall: () => void; stopSpeaking: () => void; formatDuration: (s: number) => string;
   messages: Msg[];
+  pendingActions: GlobalAction[];
+  getActionIcon: (type: string) => React.ReactNode;
+  getActionLabel: (a: GlobalAction) => string;
+  getActionDescription: (a: GlobalAction) => string;
+  getActionTypeLabel: (type: string) => string;
+  approveAction: (a: GlobalAction) => void;
+  rejectAction: (a: GlobalAction) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
@@ -537,7 +646,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
         <div ref={scrollRef} className="flex-1 w-full max-w-sm overflow-y-auto space-y-2 mb-3 px-1">
           {messages.map((msg, i) => {
             // Skip the first system-like user message (greeting prompt)
-            if (i === 0 && msg.role === 'user' && msg.content.includes('Salutami brevemente')) return null;
+            if (i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'))) return null;
             return (
               <motion.div
                 key={i}
@@ -568,6 +677,12 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
               </div>
             </div>
           )}
+          {/* Pending action cards in voice view */}
+          {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
+            <div key={`va-${i}`} className="w-full">
+              <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
+            </div>
+          ))}
         </div>
       )}
 
@@ -689,7 +804,7 @@ export function AiAssistant() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
           )}
 
           {r.view === 'chat' && (
@@ -709,13 +824,9 @@ export function AiAssistant() {
                     </div>
                   </div>
                 ))}
-                {r.pendingActions.filter(a => a.applied).map((action, i) => (
-                  <div key={`a-${i}`} className="flex justify-center py-0.5">
-                    <div className="flex items-center gap-2 rounded-md bg-primary/[0.05] border border-primary/10 px-3 py-1.5">
-                      <div className="h-4 w-4 rounded bg-primary/10 flex items-center justify-center">{r.getActionIcon(action.type)}</div>
-                      <span className="text-[11px] text-muted-foreground truncate max-w-[200px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{r.getActionLabel(action)}</span>
-                      <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-                    </div>
+                {r.pendingActions.map((action, i) => (
+                  <div key={`a-${i}`} className="py-0.5">
+                    <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
                   </div>
                 ))}
                 {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
@@ -833,7 +944,7 @@ export function RadarFullPage() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
           )}
 
           {r.view === 'chat' && (
@@ -853,13 +964,9 @@ export function RadarFullPage() {
                     </div>
                   </div>
                 ))}
-                {r.pendingActions.filter(a => a.applied).map((action, i) => (
-                  <div key={`a-${i}`} className="flex justify-center py-0.5">
-                    <div className="flex items-center gap-2 rounded-md bg-primary/[0.05] border border-primary/10 px-3 py-1.5">
-                      <div className="h-4 w-4 rounded bg-primary/10 flex items-center justify-center">{r.getActionIcon(action.type)}</div>
-                      <span className="text-[11px] text-muted-foreground truncate max-w-[250px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{r.getActionLabel(action)}</span>
-                      <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-                    </div>
+                {r.pendingActions.map((action, i) => (
+                  <div key={`a-${i}`} className="py-0.5">
+                    <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
                   </div>
                 ))}
                 {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (

@@ -125,137 +125,151 @@ export function MobileDayView() {
             </div>
           )}
 
-          {/* Task blocks */}
+          {/* All items with unified overlap layout */}
           {(() => {
-            const taskTimeInfos: TaskTimeInfo[] = dayTasks.map(t => {
+            const allTimeInfos: TaskTimeInfo[] = [];
+            dayTasks.forEach(t => {
               const time = t.scheduledTime || '09:00';
-              const startSlot = timeToSlot(time);
-              return { id: t.id, startSlot, endSlot: startSlot + Math.ceil(t.estimatedMinutes / 30) };
+              const ss = timeToSlot(time);
+              allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: ss + Math.ceil(t.estimatedMinutes / 30) });
             });
-            const layout = computeOverlapLayout(taskTimeInfos);
-
-            return dayTasks.map(task => {
-              const time = task.scheduledTime || '09:00';
-              const { top, height } = getTaskPosition(time, task.estimatedMinutes, MOBILE_SLOT_HEIGHT);
-              const enterprise = getEnterprise(task.enterpriseId);
-              const project = getProject(task.projectId);
-              const taskLayout = layout.get(task.id);
-              const col = taskLayout?.column ?? 0;
-              const totalCols = taskLayout?.totalColumns ?? 1;
-              const widthPercent = 100 / totalCols;
-              const leftPercent = col * widthPercent;
-
-              const isDone = task.status === 'done';
-              return (
-                <div
-                  key={task.id}
-                  className={`absolute rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10 ${isDone ? 'opacity-40' : ''}`}
-                  style={{
-                    top,
-                    height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
-                    left: `calc(${leftPercent}% + 4px)`,
-                    width: `calc(${widthPercent}% - 8px)`,
-                    backgroundColor: `hsl(${enterprise?.color || '0 0% 50%'} / 0.12)`,
-                    borderLeft: `4px solid hsl(${enterprise?.color || '0 0% 50%'})`,
-                  }}
-                  onClick={() => setSelectedTask(task)}
-                >
-                  <div className="p-2.5 h-full flex flex-col justify-center">
-                    <p className={`font-medium text-sm leading-tight truncate ${isDone ? 'line-through' : ''}`}>
-                      {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
-                      {task.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">{enterprise?.name}</span>
-                      <span className="text-xs text-muted-foreground">·</span>
-                      <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                        <Clock className="h-3 w-3" />{formatMinutes(task.estimatedMinutes)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
+            dayAppts.forEach(appt => {
+              const ss = timeToSlot(appt.startTime);
+              const ee = timeToSlot(appt.endTime);
+              allTimeInfos.push({ id: `appt-${appt.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
             });
-          })()}
+            const dayRituals = getRitualsForDate(selectedDate).filter(r => r.planning_mode === 'fixed');
+            dayRituals.forEach(ritual => {
+              const ss = timeToSlot(ritual.suggested_time || '07:00');
+              allTimeInfos.push({ id: `ritual-${ritual.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
+            });
 
-          {/* Appointment blocks */}
-          {dayAppts.map(appt => {
-            const startSlot = timeToSlot(appt.startTime);
-            const endSlot = timeToSlot(appt.endTime);
-            const slots = Math.max(1, endSlot - startSlot);
-            const top = startSlot * MOBILE_SLOT_HEIGHT;
-            const height = slots * MOBILE_SLOT_HEIGHT;
-            const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
-            const color = appt.color || ent?.color || '270 60% 55%';
+            const uLayout = computeOverlapLayout(allTimeInfos);
+            const uLS = (itemId: string) => {
+              const l = uLayout.get(itemId);
+              const col = l?.column ?? 0;
+              const totalCols = l?.totalColumns ?? 1;
+              const wp = 100 / totalCols;
+              return { left: `calc(${col * wp}% + 4px)`, width: `calc(${wp}% - 8px)` };
+            };
 
             return (
-              <div
-                key={appt.id}
-                onClick={() => setEditingAppt(appt)}
-                className="absolute rounded-xl overflow-hidden z-10 border-2 border-dashed cursor-pointer"
-                style={{
-                  top,
-                  height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
-                  right: 4,
-                  width: '45%',
-                  backgroundColor: `hsl(${color} / 0.1)`,
-                  borderColor: `hsl(${color} / 0.4)`,
-                }}
-              >
-                <div className="p-2.5 h-full flex flex-col justify-center">
-                  <p className="font-medium text-sm leading-tight truncate flex items-center gap-1">
-                    <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${color})` }} />
-                    {appt.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {appt.startTime}–{appt.endTime}
-                    {ent ? ` · ${ent.name}` : ''}
-                  </p>
-                </div>
-              </div>
+              <>
+                {/* Task blocks */}
+                {dayTasks.map(task => {
+                  const time = task.scheduledTime || '09:00';
+                  const { top, height } = getTaskPosition(time, task.estimatedMinutes, MOBILE_SLOT_HEIGHT);
+                  const enterprise = getEnterprise(task.enterpriseId);
+                  const sty = uLS(task.id);
+                  const isDone = task.status === 'done';
+                  return (
+                    <div
+                      key={task.id}
+                      className={`absolute rounded-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-transform z-10 ${isDone ? 'opacity-40' : ''}`}
+                      style={{
+                        top,
+                        height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                        ...sty,
+                        backgroundColor: `hsl(${enterprise?.color || '0 0% 50%'} / 0.12)`,
+                        borderLeft: `4px solid hsl(${enterprise?.color || '0 0% 50%'})`,
+                      }}
+                      onClick={() => setSelectedTask(task)}
+                    >
+                      <div className="p-2.5 h-full flex flex-col justify-center">
+                        <p className={`font-medium text-sm leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                          {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
+                          {task.title}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-muted-foreground">{enterprise?.name}</span>
+                          <span className="text-xs text-muted-foreground">·</span>
+                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="h-3 w-3" />{formatMinutes(task.estimatedMinutes)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Appointment blocks */}
+                {dayAppts.map(appt => {
+                  const startSlot = timeToSlot(appt.startTime);
+                  const endSlot = timeToSlot(appt.endTime);
+                  const slots = Math.max(1, endSlot - startSlot);
+                  const top = startSlot * MOBILE_SLOT_HEIGHT;
+                  const height = slots * MOBILE_SLOT_HEIGHT;
+                  const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
+                  const color = appt.color || ent?.color || '270 60% 55%';
+                  const sty = uLS(`appt-${appt.id}`);
+
+                  return (
+                    <div
+                      key={appt.id}
+                      onClick={() => setEditingAppt(appt)}
+                      className="absolute rounded-xl overflow-hidden z-10 border-2 border-dashed cursor-pointer"
+                      style={{
+                        top,
+                        height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.1)`,
+                        borderColor: `hsl(${color} / 0.4)`,
+                      }}
+                    >
+                      <div className="p-2.5 h-full flex flex-col justify-center">
+                        <p className="font-medium text-sm leading-tight truncate flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {appt.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {appt.startTime}–{appt.endTime}
+                          {ent ? ` · ${ent.name}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Ritual blocks */}
+                {dayRituals.map(ritual => {
+                  const time = ritual.suggested_time || '07:00';
+                  const startSlot = timeToSlot(time);
+                  const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                  const top = startSlot * MOBILE_SLOT_HEIGHT;
+                  const height = slotsNeeded * MOBILE_SLOT_HEIGHT;
+                  const color = getRitualCalendarColor(ritual.category);
+                  const completed = isRitualCompleted(ritual.id, dateStr);
+                  const CatIcon = getRitualIcon(ritual.category);
+                  const sty = uLS(`ritual-${ritual.id}`);
+
+                  return (
+                    <div
+                      key={`ritual-${ritual.id}`}
+                      className={`absolute rounded-xl overflow-hidden z-10 ${completed ? 'opacity-40' : ''}`}
+                      style={{
+                        top,
+                        height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.12)`,
+                        borderLeft: `3px solid hsl(${color} / 0.6)`,
+                      }}
+                    >
+                      <div className="p-2 h-full flex flex-col justify-center">
+                        <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
+                          <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {completed && '✅ '}
+                          {ritual.name}
+                        </p>
+                        <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
+                          <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+                          Rituale
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
             );
-          })}
-
-          {/* Ritual blocks */}
-          {(() => {
-            const dayRituals = getRitualsForDate(selectedDate).filter(r => r.planning_mode === 'fixed');
-            return dayRituals.map(ritual => {
-              const time = ritual.suggested_time || '07:00';
-              const startSlot = timeToSlot(time);
-              const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-              const top = startSlot * MOBILE_SLOT_HEIGHT;
-              const height = slotsNeeded * MOBILE_SLOT_HEIGHT;
-              const color = getRitualCalendarColor(ritual.category);
-              const completed = isRitualCompleted(ritual.id, dateStr);
-              const CatIcon = getRitualIcon(ritual.category);
-
-              return (
-                <div
-                  key={`ritual-${ritual.id}`}
-                  className={`absolute rounded-xl overflow-hidden z-10 ${completed ? 'opacity-40' : ''}`}
-                  style={{
-                    top,
-                    height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
-                    right: 4,
-                    width: '40%',
-                    backgroundColor: `hsl(${color} / 0.12)`,
-                    borderLeft: `3px solid hsl(${color} / 0.6)`,
-                  }}
-                >
-                  <div className="p-2 h-full flex flex-col justify-center">
-                    <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
-                      <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                      {completed && '✅ '}
-                      {ritual.name}
-                    </p>
-                    <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
-                      <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
-                      Rituale
-                    </p>
-                  </div>
-                </div>
-              );
-            });
           })()}
         </div>
       </div>

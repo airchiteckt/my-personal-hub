@@ -35,9 +35,10 @@ interface RitualCalendarCardProps {
   onDelete?: () => void;
   onDragStart?: (e: React.DragEvent) => void;
   onClick?: () => void;
+  style?: { left: string; width: string };
 }
 
-function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick }: RitualCalendarCardProps) {
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';
@@ -53,8 +54,9 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
       style={{
         top: top + 1,
         height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-        left: 2,
-        right: 2,
+        left: posStyle?.left ?? 2,
+        width: posStyle?.width,
+        right: posStyle ? undefined : 2,
         backgroundColor: `hsl(${color} / ${isDone ? '0.15' : isSkipped ? '0.05' : '0.08'})`,
         borderColor: `hsl(${color} / ${isDone ? '0.6' : '0.4'})`,
       }}
@@ -396,206 +398,173 @@ export function DesktopWeekView() {
                       </div>
                     )}
 
-                    {/* Task blocks */}
+                    {/* All items with unified overlap layout */}
                     {(() => {
-                      const taskTimeInfos: TaskTimeInfo[] = dayTasks.map(t => {
+                      const allTimeInfos: TaskTimeInfo[] = [];
+                      dayTasks.forEach(t => {
                         const time = t.scheduledTime || '09:00';
-                        const startSlot = timeToSlot(time);
-                        return { id: t.id, startSlot, endSlot: startSlot + Math.ceil(t.estimatedMinutes / 30) };
+                        const ss = timeToSlot(time);
+                        allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: ss + Math.ceil(t.estimatedMinutes / 30) });
                       });
-                      const layout = computeOverlapLayout(taskTimeInfos);
-
-                      return dayTasks.map(task => {
-                        const time = task.scheduledTime || '09:00';
-                        const { top, height } = getTaskPosition(time, task.estimatedMinutes, DESKTOP_SLOT_HEIGHT);
-                        const ent = getEnterprise(task.enterpriseId);
-                        const taskLayout = layout.get(task.id);
-                        const col = taskLayout?.column ?? 0;
-                        const totalCols = taskLayout?.totalColumns ?? 1;
-                        const widthPercent = 100 / totalCols;
-                        const leftPercent = col * widthPercent;
-
-                          const isDone = task.status === 'done';
-                          return (
-                          <div
-                            key={task.id}
-                            draggable={!isDone}
-                            onDragStart={e => !isDone && handleDragStart(e, task.id)}
-                            onMouseDown={e => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                            className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
-                            style={{
-                              top: top + 1,
-                              height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-                              left: `calc(${leftPercent}% + 2px)`,
-                              width: `calc(${widthPercent}% - 4px)`,
-                              backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
-                              borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
-                            }}
-                          >
-                            <div className="p-1.5 h-full flex flex-col">
-                              <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
-                                {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
-                                {task.title}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                                {ent?.name} · {formatMinutes(task.estimatedMinutes)}
-                              </p>
-                            </div>
-
-                            {/* Resize controls on hover (not for done tasks) */}
-                            {!isDone && (
-                            <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
-                              {task.estimatedMinutes > 30 && (
-                                <button
-                                  onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes - 30 }); }}
-                                  className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
-                                >
-                                  −30
-                                </button>
-                              )}
-                              <button
-                                onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes + 30 }); }}
-                                className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
-                              >
-                                +30
-                              </button>
-                            </div>
-                            )}
-                          </div>
-                        );
+                      dayAppts.forEach(appt => {
+                        const ss = timeToSlot(appt.startTime);
+                        const ee = timeToSlot(appt.endTime);
+                        allTimeInfos.push({ id: `appt-${appt.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
                       });
-                    })()}
+                      const dayRituals = getRitualsForDate(day).filter(r => r.planning_mode === 'fixed');
+                      dayRituals.forEach(ritual => {
+                        const ss = timeToSlot(ritual.suggested_time || '07:00');
+                        allTimeInfos.push({ id: `ritual-${ritual.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
+                      });
+                      const flexCompletions = ritualCompletions.filter(c => c.completed_date === dayDate && c.completed_time);
+                      const flexRituals: { ritual: typeof rituals[0]; comp: typeof flexCompletions[0] }[] = [];
+                      flexCompletions.forEach(comp => {
+                        const ritual = rituals.find(r => r.id === comp.ritual_id);
+                        if (!ritual || ritual.planning_mode === 'fixed') return;
+                        flexRituals.push({ ritual, comp });
+                        const ss = timeToSlot(comp.completed_time!);
+                        allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
+                      });
 
-                    {/* Appointment blocks */}
-                    {dayAppts.map(appt => {
-                      const startSlot = timeToSlot(appt.startTime);
-                      const endSlot = timeToSlot(appt.endTime);
-                      const slots = Math.max(1, endSlot - startSlot);
-                      const top = startSlot * DESKTOP_SLOT_HEIGHT;
-                      const height = slots * DESKTOP_SLOT_HEIGHT;
-                      const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
-                      const color = appt.color || ent?.color || '270 60% 55%';
+                      const uLayout = computeOverlapLayout(allTimeInfos);
+                      const uLS = (itemId: string) => {
+                        const l = uLayout.get(itemId);
+                        const col = l?.column ?? 0;
+                        const totalCols = l?.totalColumns ?? 1;
+                        const wp = 100 / totalCols;
+                        return { left: `calc(${col * wp}% + 2px)`, width: `calc(${wp}% - 4px)` };
+                      };
 
                       return (
-                        <div
-                          key={appt.id}
-                          onMouseDown={e => e.stopPropagation()}
-                          onClick={e => { e.stopPropagation(); setEditingAppt(appt); }}
-                          className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
-                          style={{
-                            top: top + 1,
-                            height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
-                            left: 2,
-                            right: 2,
-                            backgroundColor: `hsl(${color} / 0.1)`,
-                            borderColor: `hsl(${color} / 0.4)`,
-                          }}
-                          title={`${appt.title}\n${appt.startTime}–${appt.endTime}`}
-                        >
-                          <div className="p-1.5 h-full flex flex-col">
-                            <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
-                              <CalendarClock className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                              {appt.title}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                              {appt.startTime}–{appt.endTime}
-                              {ent ? ` · ${ent.name}` : ''}
-                            </p>
-                          </div>
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteAppointment(appt.id); }}
-                            className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            ×
-                          </button>
-                        </div>
+                        <>
+                          {dayTasks.map(task => {
+                            const time = task.scheduledTime || '09:00';
+                            const { top, height } = getTaskPosition(time, task.estimatedMinutes, DESKTOP_SLOT_HEIGHT);
+                            const ent = getEnterprise(task.enterpriseId);
+                            const isDone = task.status === 'done';
+                            const sty = uLS(task.id);
+                            return (
+                              <div
+                                key={task.id}
+                                draggable={!isDone}
+                                onDragStart={e => !isDone && handleDragStart(e, task.id)}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); setEditingTask(task); }}
+                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
+                                style={{
+                                  top: top + 1,
+                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  ...sty,
+                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
+                                  borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
+                                }}
+                              >
+                                <div className="p-1.5 h-full flex flex-col">
+                                  <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                                    {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
+                                    {task.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                    {ent?.name} · {formatMinutes(task.estimatedMinutes)}
+                                  </p>
+                                </div>
+                                {!isDone && (
+                                  <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
+                                    {task.estimatedMinutes > 30 && (
+                                      <button onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes - 30 }); }} className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent">−30</button>
+                                    )}
+                                    <button onClick={e => { e.stopPropagation(); updateTask(task.id, { estimatedMinutes: task.estimatedMinutes + 30 }); }} className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent">+30</button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {dayAppts.map(appt => {
+                            const startSlot = timeToSlot(appt.startTime);
+                            const endSlot = timeToSlot(appt.endTime);
+                            const slots = Math.max(1, endSlot - startSlot);
+                            const top = startSlot * DESKTOP_SLOT_HEIGHT;
+                            const height = slots * DESKTOP_SLOT_HEIGHT;
+                            const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
+                            const color = appt.color || ent?.color || '270 60% 55%';
+                            const sty = uLS(`appt-${appt.id}`);
+                            return (
+                              <div
+                                key={appt.id}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); setEditingAppt(appt); }}
+                                className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
+                                style={{
+                                  top: top + 1,
+                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  ...sty,
+                                  backgroundColor: `hsl(${color} / 0.1)`,
+                                  borderColor: `hsl(${color} / 0.4)`,
+                                }}
+                                title={`${appt.title}\n${appt.startTime}–${appt.endTime}`}
+                              >
+                                <div className="p-1.5 h-full flex flex-col">
+                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                    <CalendarClock className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                                    {appt.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                    {appt.startTime}–{appt.endTime}
+                                    {ent ? ` · ${ent.name}` : ''}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={e => { e.stopPropagation(); deleteAppointment(appt.id); }}
+                                  className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                                >×</button>
+                              </div>
+                            );
+                          })}
+                          {dayRituals.map(ritual => {
+                            const time = ritual.suggested_time || '07:00';
+                            const startSlot = timeToSlot(time);
+                            const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                            const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
+                            const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                            const color = getRitualCalendarColor(ritual.category);
+                            const comp = ritualCompletions.find(c => c.ritual_id === ritual.id && c.completed_date === dayDate);
+                            const rstatus = comp?.status || 'pending';
+                            const CatIcon = getRitualIcon(ritual.category);
+                            return (
+                              <RitualCalendarCard
+                                key={`ritual-${ritual.id}-${dayDate}`}
+                                ritual={ritual} status={rstatus} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                onComplete={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => completeRitualOnDate(ritual.id, dayDate)); } else { completeRitualOnDate(ritual.id, dayDate); } }}
+                                onSkip={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => skipRitualOnDate(ritual.id, dayDate)); } else { skipRitualOnDate(ritual.id, dayDate); } }}
+                                onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
+                                onClick={() => setEditingRitual({ ritual, date: dayDate, time, status: rstatus, compId: comp?.id })}
+                                style={uLS(`ritual-${ritual.id}`)}
+                              />
+                            );
+                          })}
+                          {flexRituals.map(({ ritual, comp }) => {
+                            const time = comp.completed_time!;
+                            const startSlot = timeToSlot(time);
+                            const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                            const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
+                            const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                            const color = getRitualCalendarColor(ritual.category);
+                            const CatIcon = getRitualIcon(ritual.category);
+                            return (
+                              <RitualCalendarCard
+                                key={`ritual-comp-${comp.id}`}
+                                ritual={ritual} status={comp.status} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
+                                onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
+                                onDelete={() => deleteRitualCompletion(comp.id)}
+                                onDragStart={e => { deleteRitualCompletion(comp.id); e.dataTransfer.setData('text/plain', `ritual:${ritual.id}`); e.dataTransfer.effectAllowed = 'move'; }}
+                                onClick={() => setEditingRitual({ ritual, date: dayDate, time: comp.completed_time!, status: comp.status, compId: comp.id })}
+                                style={uLS(`ritual-comp-${comp.id}`)}
+                              />
+                            );
+                          })}
+                        </>
                       );
-                    })}
-
-                    {/* Ritual blocks (fixed - from schedule) */}
-                    {(() => {
-                      const dayRituals = getRitualsForDate(day).filter(r => r.planning_mode === 'fixed');
-                      return dayRituals.map(ritual => {
-                        const time = ritual.suggested_time || '07:00';
-                        const startSlot = timeToSlot(time);
-                        const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                        const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
-                        const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
-                        const color = getRitualCalendarColor(ritual.category);
-                        const comp = ritualCompletions.find(c => c.ritual_id === ritual.id && c.completed_date === dayDate);
-                        const status = comp?.status || 'pending';
-                        const CatIcon = getRitualIcon(ritual.category);
-
-                        return (
-                          <RitualCalendarCard
-                            key={`ritual-${ritual.id}-${dayDate}`}
-                            ritual={ritual}
-                            status={status}
-                            top={topPos}
-                            height={heightVal}
-                            color={color}
-                            CatIcon={CatIcon}
-                            time={time}
-                            onComplete={() => {
-                              if (!comp) {
-                                // Plan then complete
-                                planRitualOnDate(ritual.id, dayDate, time).then(() => completeRitualOnDate(ritual.id, dayDate));
-                              } else {
-                                completeRitualOnDate(ritual.id, dayDate);
-                              }
-                            }}
-                            onSkip={() => {
-                              if (!comp) {
-                                planRitualOnDate(ritual.id, dayDate, time).then(() => skipRitualOnDate(ritual.id, dayDate));
-                              } else {
-                                skipRitualOnDate(ritual.id, dayDate);
-                              }
-                            }}
-                            onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
-                            onClick={() => setEditingRitual({ ritual, date: dayDate, time, status, compId: comp?.id })}
-                          />
-                        );
-                      });
-                    })()}
-
-                    {/* Flexible ritual blocks (from drag & drop) */}
-                    {(() => {
-                      const dayCompletions = ritualCompletions.filter(c => c.completed_date === dayDate && c.completed_time);
-                      return dayCompletions.map(comp => {
-                        const ritual = rituals.find(r => r.id === comp.ritual_id);
-                        if (!ritual || ritual.planning_mode === 'fixed') return null;
-                        const time = comp.completed_time!;
-                        const startSlot = timeToSlot(time);
-                        const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                        const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
-                        const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
-                        const color = getRitualCalendarColor(ritual.category);
-                        const CatIcon = getRitualIcon(ritual.category);
-
-                        return (
-                          <RitualCalendarCard
-                            key={`ritual-comp-${comp.id}`}
-                            ritual={ritual}
-                            status={comp.status}
-                            top={topPos}
-                            height={heightVal}
-                            color={color}
-                            CatIcon={CatIcon}
-                            time={time}
-                            onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
-                            onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
-                            onDelete={() => deleteRitualCompletion(comp.id)}
-                            onDragStart={e => {
-                              // Delete old completion, then start drag as new ritual placement
-                              deleteRitualCompletion(comp.id);
-                              e.dataTransfer.setData('text/plain', `ritual:${ritual.id}`);
-                              e.dataTransfer.effectAllowed = 'move';
-                            }}
-                            onClick={() => setEditingRitual({ ritual, date: dayDate, time: comp.completed_time!, status: comp.status, compId: comp.id })}
-                          />
-                        );
-                      });
                     })()}
                   </div>
                 );

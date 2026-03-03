@@ -331,7 +331,6 @@ function useRadar() {
 
   // Start a call
   const startCall = useCallback(async () => {
-    setCallState('connecting');
     setCallActive(true);
     callActiveRef.current = true;
     isSpeakingRef.current = false;
@@ -339,35 +338,28 @@ function useRadar() {
     setView('voice');
     setCallDuration(0);
     setInput('');
+    setCallState('processing');
 
-    // Unlock audio element in user gesture context
-    try {
-      const unlockAudio = new Audio();
-      unlockAudio.volume = 0;
-      await unlockAudio.play().catch(() => {});
-      unlockAudio.pause();
-      audioRef.current = new Audio();
-      audioRef.current.preload = 'auto';
-    } catch {}
+    // Pre-create audio element for TTS playback
+    audioRef.current = new Audio();
+    audioRef.current.preload = 'auto';
 
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Send an automatic greeting to kick off the conversation
-      const greetingMsg = 'Dammi un briefing veloce: cosa ho in agenda oggi?';
-      setCallState('processing');
-      // Small delay to let UI render voice view, use ref to avoid stale closure
-      setTimeout(() => {
-        if (doSendRef.current) {
-          doSendRef.current(greetingMsg, true);
-        }
-      }, 600);
     } catch {
       toast.error('Permesso microfono necessario per la chiamata');
       endCall();
+      return;
     }
-  }, [startContinuousListening]);
+
+    // Fire greeting immediately via ref (no setTimeout)
+    const greetingMsg = 'Dammi un briefing veloce: cosa ho in agenda oggi?';
+    if (doSendRef.current) {
+      doSendRef.current(greetingMsg, true);
+    }
+  }, []);
 
   // End a call
   const endCall = useCallback(() => {

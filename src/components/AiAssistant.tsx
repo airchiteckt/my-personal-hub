@@ -349,7 +349,11 @@ function useRadar() {
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      setTimeout(() => startContinuousListening(), 500);
+      // Send an automatic greeting to kick off the conversation
+      const greetingMsg = 'Dammi un briefing veloce: cosa ho in agenda oggi?';
+      setCallState('processing');
+      // Small delay to let UI render voice view
+      setTimeout(() => handleSendVoice(greetingMsg), 600);
     } catch {
       toast.error('Permesso microfono necessario per la chiamata');
       endCall();

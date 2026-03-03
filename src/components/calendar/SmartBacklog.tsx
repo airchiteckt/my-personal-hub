@@ -19,9 +19,10 @@ import { toast } from 'sonner';
 interface Props {
   onDragStart: (e: React.DragEvent, taskId: string) => void;
   onDrop: (e: React.DragEvent) => void;
+  onTaskClick?: (task: Task) => void;
 }
 
-export function SmartBacklog({ onDragStart, onDrop }: Props) {
+export function SmartBacklog({ onDragStart, onDrop, onTaskClick }: Props) {
   const { session } = useAuth();
   const {
     tasks, enterprises, projects, getEnterprise, getProject, getProjectType,
@@ -222,6 +223,7 @@ export function SmartBacklog({ onDragStart, onDrop }: Props) {
                 label="Da Pianificare Oggi"
                 tasks={sections.planToday}
                 onDragStart={onDragStart}
+                onTaskClick={onTaskClick}
                 freeMinutes={freeMinutes}
                 maxConsecutive={maxConsecutiveFreeMinutes}
                 accentClass="text-destructive"
@@ -235,6 +237,7 @@ export function SmartBacklog({ onDragStart, onDrop }: Props) {
                 label="Alta Priorità Strategica"
                 tasks={sections.highStrategic}
                 onDragStart={onDragStart}
+                onTaskClick={onTaskClick}
                 freeMinutes={freeMinutes}
                 maxConsecutive={maxConsecutiveFreeMinutes}
                 accentClass="text-primary"
@@ -248,6 +251,7 @@ export function SmartBacklog({ onDragStart, onDrop }: Props) {
                 label="Resto del Backlog"
                 tasks={sections.rest}
                 onDragStart={onDragStart}
+                onTaskClick={onTaskClick}
                 freeMinutes={freeMinutes}
                 maxConsecutive={maxConsecutiveFreeMinutes}
                 accentClass="text-muted-foreground"
@@ -311,12 +315,13 @@ interface BacklogSectionProps {
   label: string;
   tasks: Task[];
   onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onTaskClick?: (task: Task) => void;
   freeMinutes: number;
   maxConsecutive: number;
   accentClass: string;
 }
 
-function BacklogSection({ icon, label, tasks, onDragStart, freeMinutes, maxConsecutive, accentClass }: BacklogSectionProps) {
+function BacklogSection({ icon, label, tasks, onDragStart, onTaskClick, freeMinutes, maxConsecutive, accentClass }: BacklogSectionProps) {
   const { getEnterprise, getProjectType, prioritySettings } = usePrp();
 
   return (
@@ -341,7 +346,8 @@ function BacklogSection({ icon, label, tasks, onDragStart, freeMinutes, maxConse
               key={task.id}
               draggable
               onDragStart={e => onDragStart(e, task.id)}
-              className="p-2.5 rounded-xl border bg-card cursor-grab active:cursor-grabbing hover:shadow-sm hover:border-primary/20 transition-all group"
+              onClick={() => onTaskClick?.(task)}
+              className="p-2.5 rounded-xl border bg-card cursor-pointer hover:shadow-sm hover:border-primary/20 transition-all group"
               style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})` }}
             >
               {/* Title + duration */}

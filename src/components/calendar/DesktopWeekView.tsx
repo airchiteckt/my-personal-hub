@@ -14,6 +14,7 @@ import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
+import { getMoonPhase } from '@/lib/moon-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
 import { SmartBacklog } from './SmartBacklog';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
@@ -281,6 +282,7 @@ export function DesktopWeekView() {
                   </p>
                   <p className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
                     {format(day, 'd')}
+                    <span className="ml-1 text-xs opacity-60" title={getMoonPhase(day).nameIt}>{getMoonPhase(day).emoji}</span>
                   </p>
                   {totalMins > 0 && (
                     <p className="text-[10px] text-muted-foreground">{formatMinutes(totalMins)}</p>

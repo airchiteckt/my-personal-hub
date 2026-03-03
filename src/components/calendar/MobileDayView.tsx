@@ -12,6 +12,7 @@ import {
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot, getDisplayPriority, getPriorityEmoji } from '@/lib/priority-engine';
+import { getMoonPhase } from '@/lib/moon-utils';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
@@ -77,6 +78,7 @@ export function MobileDayView() {
             onClick={() => setSelectedDate(new Date())}
           >
             {isViewingToday ? 'Oggi' : format(selectedDate, 'EEEE d MMM', { locale: it })}
+            {' '}<span title={getMoonPhase(selectedDate).nameIt}>{getMoonPhase(selectedDate).emoji}</span>
           </button>
           <p className="text-xs text-muted-foreground">
             {dayTasks.length} task · {formatMinutes(totalMinutes)}

@@ -5,6 +5,7 @@ import { usePrp } from '@/context/PrpContext';
 import { Task, Appointment } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
 import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks } from 'lucide-react';
 import {
@@ -78,7 +79,17 @@ export function MobileDayView() {
             onClick={() => setSelectedDate(new Date())}
           >
             {isViewingToday ? 'Oggi' : format(selectedDate, 'EEEE d MMM', { locale: it })}
-            {' '}<span title={getMoonPhase(selectedDate).nameIt}>{getMoonPhase(selectedDate).emoji}</span>
+            {' '}
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="cursor-default">{getMoonPhase(selectedDate).emoji}</span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  {getMoonPhase(selectedDate).nameIt}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </button>
           <p className="text-xs text-muted-foreground">
             {dayTasks.length} task · {formatMinutes(totalMinutes)}

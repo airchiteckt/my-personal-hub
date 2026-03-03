@@ -65,6 +65,7 @@ function useRadar() {
   const recognitionRef = useRef<any>(null);
   const callActiveRef = useRef(false); // ref to track call state in callbacks
   const pendingSendRef = useRef<string | null>(null); // for auto-sending recognized text
+  const doSendRef = useRef<(text: string, isVoiceCall: boolean) => Promise<void>>();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -136,7 +137,7 @@ function useRadar() {
         const text = pendingSendRef.current;
         pendingSendRef.current = null;
         setCallState('processing');
-        handleSendVoice(text);
+        if (doSendRef.current) doSendRef.current(text, true);
         return;
       }
       if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 200);
@@ -258,6 +259,7 @@ function useRadar() {
 
   // Core send function (used by both text and voice)
   const doSend = async (text: string, isVoiceCall: boolean) => {
+    doSendRef.current = doSend; // keep ref fresh
     if (!text || isLoading) return;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
@@ -324,6 +326,9 @@ function useRadar() {
     await doSend(text, true);
   };
 
+  // Keep ref always pointing to latest doSend
+  doSendRef.current = doSend;
+
   // Start a call
   const startCall = useCallback(async () => {
     setCallState('connecting');
@@ -352,8 +357,12 @@ function useRadar() {
       // Send an automatic greeting to kick off the conversation
       const greetingMsg = 'Dammi un briefing veloce: cosa ho in agenda oggi?';
       setCallState('processing');
-      // Small delay to let UI render voice view
-      setTimeout(() => handleSendVoice(greetingMsg), 600);
+      // Small delay to let UI render voice view, use ref to avoid stale closure
+      setTimeout(() => {
+        if (doSendRef.current) {
+          doSendRef.current(greetingMsg, true);
+        }
+      }, 600);
     } catch {
       toast.error('Permesso microfono necessario per la chiamata');
       endCall();

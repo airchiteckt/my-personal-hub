@@ -466,6 +466,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
+    const snapshot = [...appointments];
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -475,8 +476,13 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
     if (updates.enterpriseId !== undefined) dbUpdates.enterprise_id = updates.enterpriseId ?? null;
     if (updates.color !== undefined) dbUpdates.color = updates.color ?? null;
-    await supabase.from('appointments').update(dbUpdates).eq('id', id);
-  }, []);
+    const { error } = await supabase.from('appointments').update(dbUpdates).eq('id', id);
+    if (error) {
+      console.error('Update appointment failed:', error);
+      toast.error('Errore aggiornamento appuntamento');
+      setAppointments(snapshot);
+    }
+  }, [appointments]);
 
   const deleteAppointment = useCallback(async (id: string) => {
     setAppointments(prev => prev.filter(a => a.id !== id));

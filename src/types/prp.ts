@@ -180,6 +180,7 @@ export interface Task {
   enterpriseId: string;
   projectId: string;
   title: string;
+  description?: string;
   estimatedMinutes: number;
   priority: TaskPriority;
   status: TaskStatus;

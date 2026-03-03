@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
@@ -17,6 +18,7 @@ interface Props {
 export function EditTaskDialog({ open, onOpenChange, task }: Props) {
   const { updateTask, deleteTask, completeTask, unscheduleTask, prioritySettings, getProjectsForEnterprise } = usePrp();
   const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task.estimatedMinutes);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const [deadline, setDeadline] = useState(task.deadline || '');
@@ -28,6 +30,7 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
 
   useEffect(() => {
     setTitle(task.title);
+    setDescription(task.description || '');
     setEstimatedMinutes(task.estimatedMinutes);
     setPriority(task.priority);
     setDeadline(task.deadline || '');
@@ -40,6 +43,7 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
     if (!title.trim()) return;
     updateTask(task.id, {
       title: title.trim(),
+      description: description.trim() || undefined,
       estimatedMinutes,
       priority,
       deadline: deadline || undefined,
@@ -74,6 +78,11 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
           <div className="space-y-2">
             <Label>Titolo</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </div>
 
           {/* Move to different project */}

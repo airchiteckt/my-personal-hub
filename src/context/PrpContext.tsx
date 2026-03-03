@@ -121,7 +121,8 @@ function dbToProject(row: any): Project {
 function dbToTask(row: any): Task {
   return {
     id: row.id, enterpriseId: row.enterprise_id, projectId: row.project_id,
-    title: row.title, estimatedMinutes: row.estimated_minutes, priority: row.priority,
+    title: row.title, description: row.description ?? undefined,
+    estimatedMinutes: row.estimated_minutes, priority: row.priority,
     status: row.status, scheduledDate: row.scheduled_date ?? undefined,
     scheduledTime: row.scheduled_time ?? undefined, deadline: row.deadline ?? undefined,
     impact: row.impact ?? undefined, effort: row.effort ?? undefined,
@@ -399,6 +400,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     const isScheduled = !!(t.scheduledDate);
     const { data, error } = await supabase.from('tasks').insert({
       enterprise_id: t.enterpriseId, project_id: t.projectId, title: t.title,
+      description: t.description ?? null,
       estimated_minutes: t.estimatedMinutes, priority: t.priority,
       is_recurring: t.isRecurring, impact: t.impact ?? null, effort: t.effort ?? null,
       deadline: t.deadline ?? null, user_id: userId,
@@ -413,6 +415,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     if (updates.estimatedMinutes !== undefined) dbUpdates.estimated_minutes = updates.estimatedMinutes;
     if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
     if (updates.status !== undefined) dbUpdates.status = updates.status;

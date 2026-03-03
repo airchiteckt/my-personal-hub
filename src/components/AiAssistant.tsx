@@ -88,20 +88,23 @@ function useRadar() {
   // Start continuous listening (for call mode — also runs during TTS for interruption)
   const isSpeakingRef = useRef(false);
   const greetingCacheRef = useRef<Blob | null>(null);
+  const isStartingRecognitionRef = useRef(false); // Guard against concurrent starts
 
   // Detect mobile for SpeechRecognition adjustments
   const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
+    // Prevent multiple concurrent starts (main mobile fix)
+    if (isStartingRecognitionRef.current) return;
+    isStartingRecognitionRef.current = true;
+
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast.error('Browser non supporta il riconoscimento vocale'); return; }
-    try { if (recognitionRef.current) recognitionRef.current.abort(); } catch {}
+    if (!SR) { toast.error('Browser non supporta il riconoscimento vocale'); isStartingRecognitionRef.current = false; return; }
+    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
 
     const r = new SR();
     r.lang = 'it-IT';
-    // Mobile browsers (especially iOS) don't support continuous mode well
-    // Use non-continuous mode on mobile — restart after each result
     r.continuous = !isMobileDevice;
     r.interimResults = true;
 
@@ -128,27 +131,18 @@ function useRadar() {
 
       if (finalTranscript.trim()) {
         if (silenceTimer) clearTimeout(silenceTimer);
+        const delay = isMobileDevice ? 1000 : 700;
         silenceTimer = setTimeout(() => {
           if (callActiveRef.current && finalTranscript.trim()) {
             pendingSendRef.current = finalTranscript.trim();
             try { r.stop(); } catch {}
           }
-        }, isMobileDevice ? 1000 : 700); // Longer silence on mobile for slower processing
-      }
-
-      // On mobile non-continuous mode, if we got a final result, auto-send
-      if (isMobileDevice && finalTranscript.trim()) {
-        if (silenceTimer) clearTimeout(silenceTimer);
-        silenceTimer = setTimeout(() => {
-          if (callActiveRef.current && finalTranscript.trim()) {
-            pendingSendRef.current = finalTranscript.trim();
-            try { r.stop(); } catch {}
-          }
-        }, 800);
+        }, delay);
       }
     };
 
     r.onend = () => {
+      isStartingRecognitionRef.current = false;
       if (silenceTimer) clearTimeout(silenceTimer);
       if (pendingSendRef.current) {
         const text = pendingSendRef.current;
@@ -157,18 +151,20 @@ function useRadar() {
         if (doSendRef.current) doSendRef.current(text, true);
         return;
       }
-      // On mobile, always restart quickly since non-continuous mode ends after each utterance
-      const restartDelay = isMobileDevice ? 100 : 200;
+      // Don't restart while TTS is playing — audio.onended will restart
+      if (isSpeakingRef.current) return;
+      const restartDelay = isMobileDevice ? 300 : 200;
       if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, restartDelay);
     };
 
     r.onerror = (e: any) => {
+      isStartingRecognitionRef.current = false;
       if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') {
-        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, isMobileDevice ? 200 : 300);
+        if (isSpeakingRef.current) return; // Don't restart during TTS
+        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, isMobileDevice ? 400 : 300);
         return;
       }
-      // On mobile, 'not-allowed' means user denied mic — show clear message
       if (e.error === 'not-allowed') {
         toast.error('Permesso microfono negato. Controlla le impostazioni del browser.');
         return;
@@ -178,8 +174,12 @@ function useRadar() {
     };
 
     recognitionRef.current = r;
-    try { r.start(); if (!isSpeakingRef.current) setCallState('listening'); } catch (err) {
+    try {
+      r.start();
+      if (!isSpeakingRef.current) setCallState('listening');
+    } catch (err) {
       console.warn('[Radar] STT start failed, retrying...', err);
+      isStartingRecognitionRef.current = false;
       setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     }
   }, []);
@@ -192,8 +192,8 @@ function useRadar() {
       isSpeakingRef.current = true;
       setCallState('speaking');
 
-      // Start listening during TTS for interruption support
-      startContinuousListening();
+      // On desktop, listen during TTS for interruption; on mobile skip to avoid mic flicker
+      if (!isMobileDevice) startContinuousListening();
 
       let blob: Blob;
 

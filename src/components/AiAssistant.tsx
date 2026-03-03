@@ -260,7 +260,9 @@ function useRadar() {
   // Core send function (used by both text and voice)
   const doSend = async (text: string, isVoiceCall: boolean) => {
     doSendRef.current = doSend; // keep ref fresh
-    if (!text || isLoading) return;
+    if (!text) return;
+    // For voice calls, queue if already loading instead of dropping
+    if (isLoading && !isVoiceCall) return;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages); setInput(''); setIsLoading(true);
@@ -354,8 +356,8 @@ function useRadar() {
       return;
     }
 
-    // Fire greeting immediately via ref (no setTimeout)
-    const greetingMsg = 'Dammi un briefing veloce: cosa ho in agenda oggi?';
+    // Fire greeting immediately — just a salutation, user will give instructions
+    const greetingMsg = 'Salutami brevemente e dimmi che sei pronto a ricevere istruzioni. Non dare briefing, aspetta che sia io a chiederti qualcosa.';
     if (doSendRef.current) {
       doSendRef.current(greetingMsg, true);
     }
@@ -419,10 +421,13 @@ function useRadar() {
 }
 
 // ─── Voice View (shared) ───
-function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration }: {
+function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages }: {
   callState: CallState; callActive: boolean; callDuration: number; input: string; isLoading: boolean;
   startCall: () => void; endCall: () => void; stopSpeaking: () => void; formatDuration: (s: number) => string;
+  messages: Msg[];
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
   const stateLabel: Record<CallState, string> = {
     idle: 'CHIAMA RADAR',
     connecting: 'CONNESSIONE...',
@@ -438,7 +443,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.92 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="flex-1 flex flex-col items-center justify-center p-6 border-t border-border/30 relative"
+      className="flex-1 flex flex-col items-center p-6 border-t border-border/30 relative overflow-hidden"
     >
       {/* Call timer */}
       <AnimatePresence>
@@ -447,7 +452,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="absolute top-4 left-0 right-0 text-center"
+            className="text-center mb-3 shrink-0"
           >
             <span className="text-xs text-muted-foreground tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
               {formatDuration(callDuration)}
@@ -456,106 +461,115 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
         )}
       </AnimatePresence>
 
-      {/* Radar rings animation */}
-      <div className="relative mb-6">
-        {/* Outer pulsing rings - only when listening */}
-        {callActive && (
-          <>
+      {/* Compact Radar indicator + state */}
+      <div className="flex items-center gap-3 mb-4 shrink-0">
+        <div className="relative">
+          {callActive && callState === 'listening' && (
             <motion.div
-              className="absolute rounded-full border-2 border-primary/10 pointer-events-none"
-              style={{ width: 180, height: 180, left: -50, top: -50 }}
-              animate={callState === 'listening' ? { scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] } : callState === 'speaking' ? { scale: [1, 1.15, 1], opacity: [0.3, 0.1, 0.3] } : {}}
+              className="absolute rounded-full border-2 border-primary/20 pointer-events-none"
+              style={{ width: 52, height: 52, left: -6, top: -6 }}
+              animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] }}
               transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
             />
+          )}
+          {!callActive ? (
+            <motion.button
+              onClick={startCall}
+              className="relative h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.93 }}
+            >
+              <Phone className="h-4 w-4" />
+            </motion.button>
+          ) : (
             <motion.div
-              className="absolute rounded-full border-2 border-primary/15 pointer-events-none"
-              style={{ width: 140, height: 140, left: -30, top: -30 }}
-              animate={callState === 'listening' ? { scale: [1, 1.2, 1], opacity: [0.5, 0.1, 0.5] } : callState === 'speaking' ? { scale: [1, 1.1, 1], opacity: [0.4, 0.15, 0.4] } : {}}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
-            />
-          </>
-        )}
-
-        {/* Core button */}
-        {!callActive ? (
-          <motion.button
-            onClick={startCall}
-            className="relative h-20 w-20 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xl hover:shadow-2xl"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.93 }}
-          >
-            <Phone className="h-7 w-7" />
-          </motion.button>
-        ) : (
-          <motion.div
-            className={`relative h-20 w-20 rounded-full flex items-center justify-center ${
-              callState === 'speaking'
-                ? 'bg-primary shadow-[0_0_25px_hsl(var(--primary)/0.3)]'
-                : callState === 'listening'
-                ? 'bg-primary shadow-[0_0_20px_hsl(var(--primary)/0.2)]'
+              className={`relative h-10 w-10 rounded-full flex items-center justify-center ${
+                callState === 'speaking' ? 'bg-primary shadow-[0_0_15px_hsl(var(--primary)/0.3)]'
+                : callState === 'listening' ? 'bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.2)]'
                 : 'bg-primary/80'
-            } text-primary-foreground`}
-            animate={callState === 'listening' ? { scale: [1, 1.04, 1] } : callState === 'speaking' ? { scale: [1, 1.02, 1] } : {}}
-            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              } text-primary-foreground`}
+              animate={callState === 'listening' ? { scale: [1, 1.04, 1] } : {}}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              {callState === 'processing' || callState === 'connecting' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : callState === 'speaking' ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
+            </motion.div>
+          )}
+        </div>
+        <div>
+          <motion.p
+            className="text-xs font-medium text-muted-foreground"
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+            animate={callState === 'listening' ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
+            transition={callState === 'listening' ? { duration: 2, repeat: Infinity } : {}}
           >
-            {callState === 'processing' || callState === 'connecting' ? (
-              <Loader2 className="h-7 w-7 animate-spin" />
-            ) : callState === 'speaking' ? (
-              <Volume2 className="h-7 w-7" />
-            ) : (
-              <Mic className="h-7 w-7" />
-            )}
-          </motion.div>
-        )}
+            {stateLabel[callState]}
+          </motion.p>
+          {callState === 'speaking' && (
+            <button onClick={stopSpeaking} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>INTERROMPI</button>
+          )}
+        </div>
       </div>
 
-      {/* State label */}
-      <motion.p
-        className="text-sm font-medium text-muted-foreground mb-1"
-        style={{ fontFamily: "'JetBrains Mono', monospace" }}
-        animate={callState === 'listening' ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
-        transition={callState === 'listening' ? { duration: 2, repeat: Infinity } : {}}
-      >
-        {stateLabel[callState]}
-      </motion.p>
-
-      {/* Speaking audio bars */}
+      {/* Live transcript of what user is saying */}
       <AnimatePresence>
-        {callState === 'speaking' && (
+        {callActive && input && callState === 'listening' && (
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="flex items-center gap-[3px] mt-3"
-          >
-            {[0, 1, 2, 3, 4, 5, 6].map(i => (
-              <motion.div
-                key={i}
-                className="w-[3px] rounded-full bg-primary"
-                animate={{ height: [4, 14 + Math.random() * 8, 4] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.08, ease: 'easeInOut' }}
-              />
-            ))}
-            <button onClick={stopSpeaking} className="ml-3 text-[11px] text-muted-foreground hover:text-foreground transition-colors">Skip</button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Live transcript */}
-      <AnimatePresence>
-        {callActive && input && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-5 w-full max-w-xs"
+            className="w-full max-w-sm mb-3 shrink-0"
           >
-            <div className="bg-muted/30 rounded-xl px-3 py-2 border border-border/30 text-center">
-              <p className="text-sm text-foreground/80 italic">"{input}"</p>
+            <div className="bg-primary/5 rounded-lg px-3 py-2 border border-primary/10 text-center">
+              <p className="text-xs text-foreground/70 italic">🎤 "{input}"</p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Chat transcript - scrollable */}
+      {messages.length > 0 && (
+        <div ref={scrollRef} className="flex-1 w-full max-w-sm overflow-y-auto space-y-2 mb-3 px-1">
+          {messages.map((msg, i) => {
+            // Skip the first system-like user message (greeting prompt)
+            if (i === 0 && msg.role === 'user' && msg.content.includes('Salutami brevemente')) return null;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
+                  msg.role === 'user'
+                    ? 'bg-primary/10 text-foreground border border-primary/15'
+                    : 'bg-muted/50 text-foreground border border-border/40'
+                }`}>
+                  <p className="text-xs leading-relaxed">
+                    {msg.role === 'user' && <span className="text-[10px] text-muted-foreground mr-1">🎤</span>}
+                    {msg.content}
+                  </p>
+                </div>
+              </motion.div>
+            );
+          })}
+          {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
+            <div className="flex justify-start">
+              <div className="bg-muted/50 rounded-xl px-3 py-2 border border-border/40">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  <span className="text-[10px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>ELABORO...</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Hang up */}
       {callActive && (
@@ -564,7 +578,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           onClick={(e) => { e.stopPropagation(); endCall(); }}
-          className="relative z-10 mt-8 h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          className="shrink-0 mt-2 h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
         >
           <PhoneOff className="h-5 w-5" />
         </motion.button>
@@ -675,7 +689,7 @@ export function AiAssistant() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} />
           )}
 
           {r.view === 'chat' && (
@@ -819,7 +833,7 @@ export function RadarFullPage() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} />
           )}
 
           {r.view === 'chat' && (

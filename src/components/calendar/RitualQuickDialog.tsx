@@ -102,6 +102,11 @@ export function RitualQuickDialog({
           <p className="text-sm text-muted-foreground capitalize">{dateFormatted}</p>
         </DialogHeader>
 
+        {/* Description */}
+        {ritual.description && (
+          <p className="text-sm text-muted-foreground leading-relaxed">{ritual.description}</p>
+        )}
+
         {/* Status badge */}
         <div className="flex items-center gap-2">
           <Badge

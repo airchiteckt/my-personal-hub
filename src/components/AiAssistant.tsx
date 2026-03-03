@@ -87,6 +87,10 @@ function useRadar() {
 
   // Start continuous listening (for call mode — also runs during TTS for interruption)
   const isSpeakingRef = useRef(false);
+  const greetingCacheRef = useRef<Blob | null>(null);
+
+  // Detect mobile for SpeechRecognition adjustments
+  const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
@@ -96,7 +100,9 @@ function useRadar() {
 
     const r = new SR();
     r.lang = 'it-IT';
-    r.continuous = true;
+    // Mobile browsers (especially iOS) don't support continuous mode well
+    // Use non-continuous mode on mobile — restart after each result
+    r.continuous = !isMobileDevice;
     r.interimResults = true;
 
     let finalTranscript = '';
@@ -127,7 +133,18 @@ function useRadar() {
             pendingSendRef.current = finalTranscript.trim();
             try { r.stop(); } catch {}
           }
-        }, 700);
+        }, isMobileDevice ? 1000 : 700); // Longer silence on mobile for slower processing
+      }
+
+      // On mobile non-continuous mode, if we got a final result, auto-send
+      if (isMobileDevice && finalTranscript.trim()) {
+        if (silenceTimer) clearTimeout(silenceTimer);
+        silenceTimer = setTimeout(() => {
+          if (callActiveRef.current && finalTranscript.trim()) {
+            pendingSendRef.current = finalTranscript.trim();
+            try { r.stop(); } catch {}
+          }
+        }, 800);
       }
     };
 
@@ -140,13 +157,20 @@ function useRadar() {
         if (doSendRef.current) doSendRef.current(text, true);
         return;
       }
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 200);
+      // On mobile, always restart quickly since non-continuous mode ends after each utterance
+      const restartDelay = isMobileDevice ? 100 : 200;
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, restartDelay);
     };
 
     r.onerror = (e: any) => {
       if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') {
-        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 300);
+        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, isMobileDevice ? 200 : 300);
+        return;
+      }
+      // On mobile, 'not-allowed' means user denied mic — show clear message
+      if (e.error === 'not-allowed') {
+        toast.error('Permesso microfono negato. Controlla le impostazioni del browser.');
         return;
       }
       console.error('Speech error:', e.error);
@@ -154,7 +178,8 @@ function useRadar() {
     };
 
     recognitionRef.current = r;
-    try { r.start(); if (!isSpeakingRef.current) setCallState('listening'); } catch {
+    try { r.start(); if (!isSpeakingRef.current) setCallState('listening'); } catch (err) {
+      console.warn('[Radar] STT start failed, retrying...', err);
       setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     }
   }, []);
@@ -170,16 +195,27 @@ function useRadar() {
       // Start listening during TTS for interruption support
       startContinuousListening();
 
-      const res = await fetch(TTS_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ text: clean }),
-      });
-      if (!res.ok) throw new Error('TTS failed');
+      let blob: Blob;
 
-      // If user interrupted while fetching, skip playback
-      if (!isSpeakingRef.current) return;
+      // Check if this is the greeting and we have it cached
+      const isGreeting = clean === 'Pronto.' || clean === 'Pronto';
+      if (isGreeting && greetingCacheRef.current) {
+        blob = greetingCacheRef.current;
+      } else {
+        const res = await fetch(TTS_URL, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY, 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          body: JSON.stringify({ text: clean }),
+        });
+        if (!res.ok) throw new Error('TTS failed');
 
-      const blob = await res.blob();
+        // If user interrupted while fetching, skip playback
+        if (!isSpeakingRef.current) return;
+
+        blob = await res.blob();
+        // Cache greeting for future calls
+        if (isGreeting) greetingCacheRef.current = blob;
+      }
+
       const url = URL.createObjectURL(blob);
       const audio = audioRef.current || new Audio();
       audio.pause();
@@ -356,11 +392,9 @@ function useRadar() {
       return;
     }
 
-    // Fire greeting immediately — just a salutation, user will give instructions
-    const greetingMsg = 'Rispondi solo: "Pronto." — nient\'altro.';
-    if (doSendRef.current) {
-      doSendRef.current(greetingMsg, true);
-    }
+    // Skip AI call for greeting — play "Pronto." directly via TTS (cached after first time)
+    setMessages(prev => [...prev, { role: 'assistant', content: 'Pronto.' }]);
+    speakText('Pronto.');
   }, []);
 
   // End a call

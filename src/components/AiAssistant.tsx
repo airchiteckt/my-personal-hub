@@ -357,7 +357,7 @@ function useRadar() {
     }
 
     // Fire greeting immediately — just a salutation, user will give instructions
-    const greetingMsg = 'Salutami brevemente e dimmi che sei pronto a ricevere istruzioni. Non dare briefing, aspetta che sia io a chiederti qualcosa.';
+    const greetingMsg = 'Rispondi solo: "Pronto." — nient\'altro.';
     if (doSendRef.current) {
       doSendRef.current(greetingMsg, true);
     }

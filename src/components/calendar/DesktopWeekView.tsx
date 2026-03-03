@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X } from 'lucide-react';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
-import { EditRitualDialog } from '@/components/rituals/EditRitualDialog';
+import { RitualQuickDialog } from './RitualQuickDialog';
 import type { Task, Appointment } from '@/types/prp';
 import { supabase } from '@/integrations/supabase/client';
+import type { RitualCompletion } from '@/lib/ritual-utils';
 import {
   TOTAL_SLOTS, DESKTOP_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -115,7 +116,7 @@ export function DesktopWeekView() {
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
-  const [editingRitual, setEditingRitual] = useState<RitualData | null>(null);
+  const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -552,7 +553,7 @@ export function DesktopWeekView() {
                               }
                             }}
                             onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
-                            onClick={() => setEditingRitual(ritual)}
+                            onClick={() => setEditingRitual({ ritual, date: dayDate, time, status, compId: comp?.id })}
                           />
                         );
                       });
@@ -591,7 +592,7 @@ export function DesktopWeekView() {
                               e.dataTransfer.setData('text/plain', `ritual:${ritual.id}`);
                               e.dataTransfer.effectAllowed = 'move';
                             }}
-                            onClick={() => setEditingRitual(ritual)}
+                            onClick={() => setEditingRitual({ ritual, date: dayDate, time: comp.completed_time!, status: comp.status, compId: comp.id })}
                           />
                         );
                       });
@@ -648,25 +649,21 @@ export function DesktopWeekView() {
       />
 
       {editingRitual && (
-        <EditRitualDialog
+        <RitualQuickDialog
           open={!!editingRitual}
           onOpenChange={(open) => !open && setEditingRitual(null)}
-          enterprises={enterprises}
-          ritual={editingRitual}
-          onSubmit={async (id, data) => {
-            await supabase.from('rituals').update({
-              name: data.name,
-              category: data.category,
-              frequency: data.frequency,
-              planning_mode: data.planningMode,
-              custom_frequency_days: data.customFrequencyDays,
-              estimated_minutes: data.estimatedMinutes,
-              enterprise_id: data.enterpriseId,
-              suggested_time: data.suggestedTime,
-              description: data.description,
-              weekly_specific_days: data.weeklySpecificDays,
-              weekly_times_per_week: data.weeklyTimesPerWeek,
-            }).eq('id', id);
+          ritual={editingRitual.ritual}
+          date={editingRitual.date}
+          time={editingRitual.time}
+          status={editingRitual.status}
+          allCompletions={ritualCompletions as RitualCompletion[]}
+          onComplete={() => completeRitualOnDate(editingRitual.ritual.id, editingRitual.date)}
+          onSkip={() => skipRitualOnDate(editingRitual.ritual.id, editingRitual.date)}
+          onDelete={editingRitual.compId ? () => deleteRitualCompletion(editingRitual.compId!) : undefined}
+          onChangeTime={async (newTime) => {
+            if (editingRitual.compId) {
+              await supabase.from('ritual_completions').update({ completed_time: newTime }).eq('id', editingRitual.compId);
+            }
             setEditingRitual(null);
           }}
         />

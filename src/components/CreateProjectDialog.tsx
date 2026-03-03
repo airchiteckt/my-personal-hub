@@ -202,10 +202,10 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
               ) : (
                 <Select value={keyResultId || ''} onValueChange={v => setKeyResultId(v || undefined)}>
                   <SelectTrigger><SelectValue placeholder="Seleziona KR..." /></SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" className="max-w-[var(--radix-select-trigger-width)] w-full" sideOffset={4}>
                     {availableKRs.map(kr => (
-                      <SelectItem key={kr.id} value={kr.id}>
-                        <span className="text-xs">{kr.objectiveTitle} → {kr.title}</span>
+                      <SelectItem key={kr.id} value={kr.id} className="max-w-full">
+                        <span className="text-xs truncate block">{kr.objectiveTitle} → {kr.title}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

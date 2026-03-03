@@ -4,6 +4,7 @@ import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
@@ -282,7 +283,16 @@ export function DesktopWeekView() {
                   </p>
                   <p className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
                     {format(day, 'd')}
-                    <span className="ml-1 text-xs opacity-60" title={getMoonPhase(day).nameIt}>{getMoonPhase(day).emoji}</span>
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 text-xs opacity-60 cursor-default">{getMoonPhase(day).emoji}</span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">
+                          {getMoonPhase(day).nameIt}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </p>
                   {totalMins > 0 && (
                     <p className="text-[10px] text-muted-foreground">{formatMinutes(totalMins)}</p>

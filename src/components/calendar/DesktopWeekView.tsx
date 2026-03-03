@@ -281,7 +281,7 @@ export function DesktopWeekView() {
                   <p className="text-xs text-muted-foreground uppercase font-medium">
                     {format(day, 'EEE', { locale: it })}
                   </p>
-                  <p className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
+                  <div className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
                     {format(day, 'd')}
                     <TooltipProvider delayDuration={200}>
                       <Tooltip>
@@ -293,7 +293,7 @@ export function DesktopWeekView() {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
-                  </p>
+                  </div>
                   {totalMins > 0 && (
                     <p className="text-[10px] text-muted-foreground">{formatMinutes(totalMins)}</p>
                   )}

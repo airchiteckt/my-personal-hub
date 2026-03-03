@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { formatMinutes } from '@/lib/calendar-utils';
+import { useState, useCallback } from 'react';
 
 const Index = () => {
   const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -14,6 +15,19 @@ const Index = () => {
   const todayTasks = getTasksForDate(todayStr);
   const totalMinutes = todayTasks.reduce((sum, t) => sum + t.estimatedMinutes, 0);
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd');
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+
+  const handleComplete = useCallback((taskId: string) => {
+    setCompletingIds(prev => new Set(prev).add(taskId));
+    setTimeout(() => {
+      completeTask(taskId);
+      setCompletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(taskId);
+        return next;
+      });
+    }, 600);
+  }, [completeTask]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -46,29 +60,48 @@ const Index = () => {
             {todayTasks.map(task => {
               const enterprise = getEnterprise(task.enterpriseId);
               const project = getProject(task.projectId);
+              const isCompleting = completingIds.has(task.id);
               return (
                 <motion.div
                   key={task.id}
                   initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -200 }}
+                  animate={isCompleting
+                    ? { opacity: 0, x: -60, scale: 0.95, transition: { duration: 0.5, ease: 'easeInOut' } }
+                    : { opacity: 1, y: 0 }
+                  }
+                  exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.3 } }}
                   layout
                   transition={{ duration: 0.2 }}
                 >
                   <Card
-                    className="p-3 md:p-4 flex items-center gap-3 md:gap-4"
-                    style={{ borderLeft: `4px solid hsl(${enterprise?.color || '0 0% 50%'})` }}
+                    className={`p-3 md:p-4 flex items-center gap-3 md:gap-4 transition-colors duration-300 ${isCompleting ? 'bg-green-50 dark:bg-green-950/20' : ''}`}
+                    style={{ borderLeft: `4px solid hsl(${isCompleting ? '142 70% 45%' : enterprise?.color || '0 0% 50%'})` }}
                   >
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="shrink-0 rounded-full h-8 w-8 md:h-9 md:w-9 border border-border hover:bg-accent"
-                      onClick={() => completeTask(task.id)}
+                    <motion.div
+                      animate={isCompleting
+                        ? { scale: [1, 1.3, 1], rotate: [0, 0, 0] }
+                        : {}
+                      }
+                      transition={{ duration: 0.3 }}
                     >
-                      <Check className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                    </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className={`shrink-0 rounded-full h-8 w-8 md:h-9 md:w-9 border transition-all duration-300 ${
+                          isCompleting
+                            ? 'bg-green-500 border-green-500 text-white hover:bg-green-500'
+                            : 'border-border hover:bg-accent'
+                        }`}
+                        onClick={() => !isCompleting && handleComplete(task.id)}
+                        disabled={isCompleting}
+                      >
+                        <Check className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                      </Button>
+                    </motion.div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm md:text-base truncate">{task.title}</p>
+                      <p className={`font-medium text-sm md:text-base truncate transition-all duration-300 ${isCompleting ? 'line-through text-muted-foreground' : ''}`}>
+                        {task.title}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {enterprise?.name} · {project?.name}
                         {task.scheduledTime && ` · ${task.scheduledTime}`}

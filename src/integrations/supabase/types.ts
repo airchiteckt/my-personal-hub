@@ -689,6 +689,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           deadline: string | null
+          description: string | null
           effort: number | null
           enterprise_id: string
           estimated_minutes: number
@@ -708,6 +709,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
+          description?: string | null
           effort?: number | null
           enterprise_id: string
           estimated_minutes?: number
@@ -727,6 +729,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           deadline?: string | null
+          description?: string | null
           effort?: number | null
           enterprise_id?: string
           estimated_minutes?: number

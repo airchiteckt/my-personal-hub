@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,7 @@ interface TaskSuggestion {
 export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }: Props) {
   const { addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(30);
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [deadline, setDeadline] = useState('');
@@ -115,6 +117,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
     if (!title.trim() || !projectId) return;
     addTask({
       title: title.trim(),
+      description: description.trim() || undefined,
       estimatedMinutes,
       priority,
       enterpriseId,
@@ -124,6 +127,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
     setTitle('');
+    setDescription('');
     setEstimatedMinutes(30);
     setDeadline('');
     setImpact(2);
@@ -199,6 +203,11 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
           <div className="space-y-2">
             <Label>Titolo</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Descrivi la task" onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </div>
 
           {/* AI Effort Estimation Inline */}

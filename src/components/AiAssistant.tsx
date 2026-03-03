@@ -190,7 +190,7 @@ function useRadar() {
       audio.onended = () => {
         URL.revokeObjectURL(url);
         isSpeakingRef.current = false;
-        if (callActiveRef.current) { setInput(''); setCallState('listening'); }
+        if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
         else setCallState('idle');
       };
       audio.onerror = () => {

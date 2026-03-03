@@ -5,7 +5,8 @@ import { usePrp } from '@/context/PrpContext';
 import { Task, Appointment } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat } from 'lucide-react';
+import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -20,9 +21,12 @@ export function MobileDayView() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [apptDate, setApptDate] = useState<string>();
   const [apptTime, setApptTime] = useState<string>();
+  const [taskDate, setTaskDate] = useState<string>();
+  const [taskTime, setTaskTime] = useState<string>();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
@@ -296,6 +300,24 @@ export function MobileDayView() {
               </div>
             </button>
 
+            {/* Create task option */}
+            <button
+              className="w-full p-4 rounded-xl border-2 border-dashed text-left hover:bg-accent active:bg-accent transition-colors flex items-center gap-3"
+              onClick={() => {
+                const time = slotToTime(selectedSlot!);
+                setSelectedSlot(null);
+                setTaskDate(dateStr);
+                setTaskTime(time);
+                setShowCreateTask(true);
+              }}
+            >
+              <ListChecks className="h-5 w-5 text-primary shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Nuova task</p>
+                <p className="text-xs text-muted-foreground">Crea e pianifica una task</p>
+              </div>
+            </button>
+
             {/* Backlog tasks */}
             {backlogTasks.length > 0 && (
               <>
@@ -405,6 +427,13 @@ export function MobileDayView() {
         open={!!editingAppt}
         onOpenChange={(open) => !open && setEditingAppt(null)}
         appointment={editingAppt}
+      />
+
+      <CalendarCreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        defaultDate={taskDate}
+        defaultTime={taskTime}
       />
     </div>
   );

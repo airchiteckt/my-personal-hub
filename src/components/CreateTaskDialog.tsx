@@ -9,6 +9,7 @@ import { TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect } from 'react';
 import { useAiInline } from '@/hooks/use-ai-inline';
+import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
 import { Sparkles, Loader2, Zap, Plus } from 'lucide-react';
 
 interface Props {
@@ -61,7 +62,13 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
     type: 'okr_task_suggest',
   });
 
-  // Trigger effort estimation when title changes
+  // Task quality validation AI
+  const { data: taskValidation, loading: taskValidating, debouncedFetch: fetchTaskValidation, clear: clearTaskValidation } = useAiInline<any>({
+    type: 'validate_task',
+    debounceMs: 1200,
+  });
+
+  // Trigger effort estimation + quality validation when title changes
   useEffect(() => {
     if (title.trim().length >= 5 && enterprise && project) {
       setAiApplied(false);
@@ -73,8 +80,16 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
         },
         `Stima effort per la task: "${title.trim()}"`
       );
+      fetchTaskValidation(
+        {
+          enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory },
+          project: { name: project.name, type: project.type },
+        },
+        `Valida questa task del progetto "${project.name}": "${title.trim()}"`
+      );
     } else {
       clearEffort();
+      clearTaskValidation();
     }
   }, [title]);
 
@@ -209,6 +224,14 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
             <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </div>
+
+          {/* AI Quality Validation */}
+          <OkrValidationFeedback
+            data={taskValidation}
+            loading={taskValidating}
+            type="task"
+            onApplySuggestion={(v) => setTitle(v)}
+          />
 
           {/* AI Effort Estimation Inline */}
           {(effortLoading || (effortData && !aiApplied)) && (

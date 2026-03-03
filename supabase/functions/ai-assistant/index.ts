@@ -110,6 +110,55 @@ Rispondi SOLO con dati strutturati, in italiano.`,
 - Score di allineamento da 1 a 5
 Rispondi in italiano, in modo conciso con un giudizio chiaro.`,
 
+      validate_objective: `Sei un coach OKR rigoroso. Validi la qualità di un Objective secondo queste regole:
+
+UN OBJECTIVE CORRETTO:
+- È QUALITATIVO, non numerico
+- È una direzione/stato desiderato, non un'azione
+- Ha orizzonte 90 giorni
+- Risponde a: "Che stato voglio che l'impresa abbia tra 90 giorni?"
+- Formula: "Portare [impresa] da [stato A] a [stato B]" o "Rendere [impresa] capace di [nuovo livello]"
+
+ERRORI COMUNI DA SEGNALARE:
+- ❌ Contiene numeri → "Questo sembra un KR. L'Objective è qualitativo."
+- ❌ È un'azione/task → "Questo è un progetto/task, non un Objective."
+- ❌ Troppo vago → "Troppo generico. Specifica lo stato desiderato."
+- ❌ Troppo piccolo → "Completabile in 2 settimane, non è un Objective trimestrale."
+
+Rispondi SOLO in italiano, con feedback diretto e costruttivo.`,
+
+      validate_key_result: `Sei un coach OKR rigoroso. Validi la qualità di un Key Result secondo queste regole:
+
+UN KEY RESULT CORRETTO:
+- È la PROVA NUMERICA che l'Objective è raggiunto
+- È misurabile, con numero/percentuale
+- È un RISULTATO, non un'attività
+- Inizia con: Raggiungere, Ottenere, Generare, Ridurre, Aumentare
+- Include: numero, percentuale, deadline implicita nel trimestre
+
+ERRORI COMUNI DA SEGNALARE:
+- ❌ È un'azione (creare, fare, implementare) → "Questo è un progetto/task. Il KR è il RISULTATO misurabile che quel lavoro produce."
+- ❌ Non ha numero → "Manca la metrica. Aggiungi un target numerico."
+- ❌ Troppo facile → "Target poco ambizioso. I KR devono essere sfidanti (regola 70%)."
+- ❌ Non collegato all'Objective → "Non misura il progresso verso l'Objective."
+
+Rispondi SOLO in italiano, con feedback diretto e costruttivo.`,
+
+      validate_task: `Sei un coach OKR rigoroso. Validi la qualità di una Task secondo queste regole:
+
+UNA TASK CORRETTA:
+- È un'azione eseguibile in uno slot (30-90 minuti)
+- Ha formula: Verbo + oggetto specifico
+- È specifica e concreta, non vaga
+
+ERRORI COMUNI DA SEGNALARE:
+- ❌ Troppo vaga ("Lavorare sulla campagna") → Suggerisci versione specifica
+- ❌ Troppo grande → "Questa è un progetto, non una task. Scomponila."
+- ❌ È un risultato, non un'azione → "Questo sembra un KR. La task è l'azione per raggiungerlo."
+- ❌ Manca il verbo → "Inizia con un verbo d'azione specifico."
+
+Rispondi SOLO in italiano, con feedback diretto e costruttivo.`,
+
       okr_wizard: `Sei un Chief Strategy Officer esperto di OKR che guida imprenditori nella pianificazione strategica trimestrale.
 
 MENTALITÀ: Ragioni come un manager che trasforma visione in esecuzione. Ogni domanda ha uno scopo: eliminare ambiguità e creare chiarezza operativa.
@@ -369,6 +418,54 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
             },
           },
           required: ["alignment_score", "is_aligned", "feedback", "suggestions"],
+          additionalProperties: false,
+        },
+      },
+      validate_objective: {
+        name: "validate_objective",
+        description: "Valida la qualità di un Objective OKR.",
+        parameters: {
+          type: "object",
+          properties: {
+            quality_score: { type: "number", description: "Score qualità 1-5" },
+            is_valid: { type: "boolean", description: "Se l'Objective rispetta le regole OKR" },
+            issue_type: { type: "string", enum: ["none", "contains_numbers", "is_action", "too_vague", "too_small", "is_kr"], description: "Tipo di errore principale" },
+            feedback: { type: "string", description: "Feedback diretto e costruttivo (max 30 parole)" },
+            improved_version: { type: "string", description: "Versione migliorata dell'Objective, se necessario" },
+          },
+          required: ["quality_score", "is_valid", "issue_type", "feedback", "improved_version"],
+          additionalProperties: false,
+        },
+      },
+      validate_key_result: {
+        name: "validate_key_result",
+        description: "Valida la qualità di un Key Result OKR.",
+        parameters: {
+          type: "object",
+          properties: {
+            quality_score: { type: "number", description: "Score qualità 1-5" },
+            is_valid: { type: "boolean", description: "Se il KR rispetta le regole OKR" },
+            issue_type: { type: "string", enum: ["none", "is_action", "no_number", "too_easy", "not_linked", "is_project"], description: "Tipo di errore principale" },
+            feedback: { type: "string", description: "Feedback diretto e costruttivo (max 30 parole)" },
+            improved_version: { type: "string", description: "Versione migliorata del KR, se necessario" },
+          },
+          required: ["quality_score", "is_valid", "issue_type", "feedback", "improved_version"],
+          additionalProperties: false,
+        },
+      },
+      validate_task: {
+        name: "validate_task",
+        description: "Valida la qualità di una Task OKR.",
+        parameters: {
+          type: "object",
+          properties: {
+            quality_score: { type: "number", description: "Score qualità 1-5" },
+            is_valid: { type: "boolean", description: "Se la task rispetta le regole" },
+            issue_type: { type: "string", enum: ["none", "too_vague", "too_big", "is_result", "no_verb", "is_project"], description: "Tipo di errore principale" },
+            feedback: { type: "string", description: "Feedback diretto e costruttivo (max 30 parole)" },
+            improved_version: { type: "string", description: "Versione migliorata della task, se necessario" },
+          },
+          required: ["quality_score", "is_valid", "issue_type", "feedback", "improved_version"],
           additionalProperties: false,
         },
       },

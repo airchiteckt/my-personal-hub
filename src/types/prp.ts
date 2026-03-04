@@ -284,6 +284,20 @@ export interface PrioritySettings {
   effortPenalty: number; // default 1
 }
 
+export interface Reminder {
+  id: string;
+  title: string;
+  description?: string;
+  reminderDate: string;
+  reminderTime?: string;
+  enterpriseId?: string;
+  taskId?: string;
+  isFollowUp: boolean;
+  isDismissed: boolean;
+  color?: string;
+  createdAt: string;
+}
+
 export const DEFAULT_PRIORITY_SETTINGS: PrioritySettings = {
   deadlineBoostEnabled: true,
   strategicWeightEnabled: true,

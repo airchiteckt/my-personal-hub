@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult } from '@/types/prp';
+import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,6 +102,13 @@ interface PrpContextType {
   getJournalForDate: (date: string) => JournalEntry | null;
   saveJournalEntry: (date: string, content: string, mood?: string) => Promise<void>;
   deleteJournalEntry: (id: string) => Promise<void>;
+  // Reminders
+  reminders: Reminder[];
+  addReminder: (r: Omit<Reminder, 'id' | 'createdAt'>) => void;
+  updateReminder: (id: string, updates: Partial<Reminder>) => void;
+  deleteReminder: (id: string) => void;
+  getRemindersForDate: (date: string) => Reminder[];
+  getRemindersForTask: (taskId: string) => Reminder[];
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -181,6 +188,15 @@ function dbToTimeEntry(row: any): TimeEntry {
     durationMinutes: row.duration_minutes ?? undefined, createdAt: row.created_at,
   };
 }
+function dbToReminder(row: any): Reminder {
+  return {
+    id: row.id, title: row.title, description: row.description ?? undefined,
+    reminderDate: row.reminder_date, reminderTime: row.reminder_time ?? undefined,
+    enterpriseId: row.enterprise_id ?? undefined, taskId: row.task_id ?? undefined,
+    isFollowUp: row.is_follow_up, isDismissed: row.is_dismissed,
+    color: row.color ?? undefined, createdAt: row.created_at,
+  };
+}
 function dbToSettings(row: any): PrioritySettings {
   return {
     deadlineBoostEnabled: row.deadline_boost_enabled,
@@ -217,6 +233,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [rituals, setRituals] = useState<RitualData[]>([]);
   const [ritualCompletions, setRitualCompletions] = useState<RitualCompletion[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
 
   const userId = user?.id;
 
@@ -225,7 +242,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes, remRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
@@ -239,6 +256,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at'),
         supabase.from('ritual_completions').select('id, ritual_id, completed_date, completed_time, status').eq('user_id', userId),
         supabase.from('journal_entries').select('*').eq('user_id', userId).order('entry_date', { ascending: false }),
+        supabase.from('reminders').select('*').eq('user_id', userId).eq('is_dismissed', false).order('reminder_date'),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
@@ -252,6 +270,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (rRes.data) setRituals(rRes.data as RitualData[]);
       if (rcRes.data) setRitualCompletions(rcRes.data as RitualCompletion[]);
       if (jRes.data) setJournalEntries(jRes.data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, createdAt: r.created_at, updatedAt: r.updated_at })));
+      if (remRes.data) setReminders(remRes.data.map(dbToReminder));
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
@@ -313,6 +332,9 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('journal_entries').select('*').eq('user_id', userId).order('entry_date', { ascending: false }).then(({ data }) => {
           if (data) setJournalEntries(data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, createdAt: r.created_at, updatedAt: r.updated_at })));
         });
+      }).subscribe(),
+      supabase.channel('reminders-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('reminders').select('*').eq('user_id', userId).eq('is_dismissed', false).order('reminder_date').then(({ data }) => { if (data) setReminders(data.map(dbToReminder)); });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
@@ -761,6 +783,49 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     await supabase.from('journal_entries').delete().eq('id', id);
   }, []);
 
+  // --- Reminders CRUD ---
+  const addReminder = useCallback(async (r: Omit<Reminder, 'id' | 'createdAt'>) => {
+    if (!userId) return;
+    const { data, error } = await supabase.from('reminders').insert({
+      user_id: userId,
+      title: r.title,
+      description: r.description ?? null,
+      reminder_date: r.reminderDate,
+      reminder_time: r.reminderTime ?? null,
+      enterprise_id: r.enterpriseId ?? null,
+      task_id: r.taskId ?? null,
+      is_follow_up: r.isFollowUp,
+      is_dismissed: false,
+      color: r.color ?? null,
+    }).select().single();
+    if (error) { toast.error('Errore creazione promemoria'); return; }
+    setReminders(prev => [...prev, dbToReminder(data)]);
+  }, [userId]);
+
+  const updateReminder = useCallback(async (id: string, updates: Partial<Reminder>) => {
+    setReminders(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
+    if (updates.reminderDate !== undefined) dbUpdates.reminder_date = updates.reminderDate;
+    if (updates.reminderTime !== undefined) dbUpdates.reminder_time = updates.reminderTime ?? null;
+    if (updates.isDismissed !== undefined) dbUpdates.is_dismissed = updates.isDismissed;
+    if (updates.color !== undefined) dbUpdates.color = updates.color ?? null;
+    await supabase.from('reminders').update(dbUpdates).eq('id', id);
+    // If dismissed, remove from local state
+    if (updates.isDismissed) {
+      setReminders(prev => prev.filter(r => r.id !== id));
+    }
+  }, []);
+
+  const deleteReminder = useCallback(async (id: string) => {
+    setReminders(prev => prev.filter(r => r.id !== id));
+    await supabase.from('reminders').delete().eq('id', id);
+  }, []);
+
+  const getRemindersForDate = useCallback((date: string) => reminders.filter(r => r.reminderDate === date && !r.isDismissed), [reminders]);
+  const getRemindersForTask = useCallback((taskId: string) => reminders.filter(r => r.taskId === taskId), [reminders]);
+
   return (
     <PrpContext.Provider value={{
       enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
@@ -782,6 +847,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       getActivityLogsForEnterprise, getTimeEntriesForTask, getTimeEntriesForProject, getTimeEntriesForEnterprise,
       rituals, ritualCompletions, getRitualsForDate, isRitualCompleted, isRitualPlanned, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion,
       journalEntries, getJournalForDate, saveJournalEntry, deleteJournalEntry,
+      reminders, addReminder, updateReminder, deleteReminder, getRemindersForDate, getRemindersForTask,
     }}>
       {children}
     </PrpContext.Provider>

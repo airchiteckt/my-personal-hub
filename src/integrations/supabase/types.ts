@@ -549,6 +549,66 @@ export type Database = {
           },
         ]
       }
+      reminders: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          enterprise_id: string | null
+          id: string
+          is_dismissed: boolean
+          is_follow_up: boolean
+          reminder_date: string
+          reminder_time: string | null
+          task_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          enterprise_id?: string | null
+          id?: string
+          is_dismissed?: boolean
+          is_follow_up?: boolean
+          reminder_date: string
+          reminder_time?: string | null
+          task_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          enterprise_id?: string | null
+          id?: string
+          is_dismissed?: boolean
+          is_follow_up?: boolean
+          reminder_date?: string
+          reminder_time?: string | null
+          task_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reminders_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reminders_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ritual_completions: {
         Row: {
           completed_date: string

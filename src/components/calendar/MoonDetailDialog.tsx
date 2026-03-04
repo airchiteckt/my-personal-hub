@@ -47,7 +47,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     if (!location || !times) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
-    const data = getMoonDataAtHour(date, currentHour, location.lat, location.lon);
+    const data = getMoonDataAtHour(date, currentHour, location.lat, location.lon, times);
     const isAboveHorizon = data.altitude > -0.833;
     const hoursFromTransit = data.transitHour !== null ? Math.abs(currentHour - data.transitHour) : 12;
     const hoursFromRise = data.riseHour !== null ? Math.abs(currentHour - data.riseHour) : null;
@@ -57,8 +57,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
 
   // LII: day samples for chart
   const liiSamples = useMemo(
-    () => location ? getLIIDaySamples(date, location.lat, location.lon, getMoonDataAtHour) : [],
-    [date, location]
+    () => (location && times) ? getLIIDaySamples(date, location.lat, location.lon, getMoonDataAtHour, times) : [],
+    [date, location, times]
   );
 
   // Merge altitude + LII for combined chart

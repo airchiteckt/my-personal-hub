@@ -230,9 +230,11 @@ export function getMoonAltitudeSamples(date: Date, latitude: number, longitude: 
 
 /**
  * Get moon data at a specific hour of a given day (used by LII calculator).
+ * Optionally accepts pre-computed times to avoid redundant getMoonTimes calls.
  */
 export function getMoonDataAtHour(
-  date: Date, hour: number, lat: number, lon: number
+  date: Date, hour: number, lat: number, lon: number,
+  precomputedTimes?: MoonTimes
 ): {
   altitude: number;
   illumination: number;
@@ -253,8 +255,7 @@ export function getMoonDataAtHour(
 
   const phase = getMoonPhase(sampleDate);
 
-  // Get rise/set/transit for the day
-  const times = getMoonTimes(date, lat, lon);
+  const times = precomputedTimes ?? getMoonTimes(date, lat, lon);
   const parseTime = (t: string | null): number | null => {
     if (!t) return null;
     const [h, m] = t.split(':').map(Number);

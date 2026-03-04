@@ -26,7 +26,7 @@ const Settings = () => {
           Impostazioni
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Configura priorità e assistente AI
+          Configura priorità e link pubblici
         </p>
       </div>
 

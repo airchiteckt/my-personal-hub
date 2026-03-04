@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
+import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { EditReminderDialog } from '@/components/EditReminderDialog';
 import { CreateReminderDialog } from '@/components/CreateReminderDialog';
@@ -127,6 +128,7 @@ export function DesktopWeekView() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
   const [journalDate, setJournalDate] = useState<string | null>(null);
+  const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -685,6 +687,15 @@ export function DesktopWeekView() {
           open={!!editingTask}
           onOpenChange={(open) => !open && setEditingTask(null)}
           task={editingTask}
+          onCompleted={(t) => setTimeout(() => setFollowUpTask(t), 300)}
+        />
+      )}
+
+      {followUpTask && (
+        <TaskFollowUpDialog
+          open={!!followUpTask}
+          onOpenChange={(open) => !open && setFollowUpTask(null)}
+          task={followUpTask}
         />
       )}
 

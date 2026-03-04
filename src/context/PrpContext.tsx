@@ -53,6 +53,7 @@ interface PrpContextType {
   deleteTask: (id: string) => void;
   scheduleTask: (id: string, date: string, time?: string) => void;
   completeTask: (id: string) => void;
+  uncompleteTask: (id: string) => void;
   unscheduleTask: (id: string) => void;
   addAppointment: (a: Omit<Appointment, 'id' | 'createdAt'>) => void;
   updateAppointment: (id: string, updates: Partial<Appointment>) => void;
@@ -482,6 +483,11 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     await supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', id);
   }, []);
 
+  const uncompleteTask = useCallback(async (id: string) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'backlog' as const, completedAt: undefined } : t));
+    await supabase.from('tasks').update({ status: 'backlog', completed_at: null }).eq('id', id);
+  }, []);
+
   const unscheduleTask = useCallback(async (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'backlog' as const, scheduledDate: undefined, scheduledTime: undefined } : t));
     await supabase.from('tasks').update({ status: 'backlog', scheduled_date: null, scheduled_time: null }).eq('id', id);
@@ -833,7 +839,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
       addTask, updateTask, deleteTask,
-      scheduleTask, completeTask, unscheduleTask,
+      scheduleTask, completeTask, uncompleteTask, unscheduleTask,
       addAppointment, updateAppointment, deleteAppointment,
       addFocusPeriod, updateFocusPeriod, deleteFocusPeriod,
       addObjective, updateObjective, deleteObjective,

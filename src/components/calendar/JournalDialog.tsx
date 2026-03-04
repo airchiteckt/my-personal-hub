@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Zap } from 'lucide-react';
 
 export interface JournalEntry {
   id: string;
   entryDate: string;
   content: string;
   mood?: string;
+  energyLevel?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,24 +27,26 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   date: string;
   entry: JournalEntry | null;
-  onSave: (date: string, content: string, mood?: string) => void;
+  onSave: (date: string, content: string, mood?: string, energyLevel?: number) => void;
   onDelete: (id: string) => void;
 }
 
 export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelete }: Props) {
   const [content, setContent] = useState('');
   const [mood, setMood] = useState<string | undefined>();
+  const [energyLevel, setEnergyLevel] = useState<number | undefined>();
 
   useEffect(() => {
     if (open) {
       setContent(entry?.content || '');
       setMood(entry?.mood || undefined);
+      setEnergyLevel(entry?.energyLevel || undefined);
     }
   }, [open, entry]);
 
   const handleSave = () => {
-    if (!content.trim() && !mood) return;
-    onSave(date, content.trim(), mood);
+    if (!content.trim() && !mood && !energyLevel) return;
+    onSave(date, content.trim(), mood, energyLevel);
     onOpenChange(false);
   };
 
@@ -57,6 +60,12 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
   const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('it-IT', {
     weekday: 'long', day: 'numeric', month: 'long',
   });
+
+  const getEnergyColor = (level: number) => {
+    if (level <= 3) return 'bg-destructive/80 text-destructive-foreground';
+    if (level <= 6) return 'bg-accent text-accent-foreground';
+    return 'bg-primary text-primary-foreground';
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -89,6 +98,33 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
             </div>
           </div>
 
+          {/* Energy level */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <Zap className="h-4 w-4" /> Livello di energia
+            </p>
+            <div className="flex gap-1">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map(level => (
+                <button
+                  key={level}
+                  onClick={() => setEnergyLevel(energyLevel === level ? undefined : level)}
+                  className={`h-8 w-full rounded-md text-xs font-bold transition-all ${
+                    energyLevel !== undefined && level <= energyLevel
+                      ? getEnergyColor(level)
+                      : 'bg-muted/50 text-muted-foreground hover:bg-accent'
+                  }`}
+                >
+                  {level}
+                </button>
+              ))}
+            </div>
+            {energyLevel && (
+              <p className="text-[10px] text-muted-foreground text-center">
+                {energyLevel <= 3 ? 'Bassa energia' : energyLevel <= 6 ? 'Energia media' : 'Alta energia'} — {energyLevel}/10
+              </p>
+            )}
+          </div>
+
           {/* Content */}
           <Textarea
             value={content}
@@ -99,7 +135,7 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
           />
 
           <div className="flex gap-2">
-            <Button onClick={handleSave} className="flex-1" disabled={!content.trim() && !mood}>
+            <Button onClick={handleSave} className="flex-1" disabled={!content.trim() && !mood && !energyLevel}>
               Salva
             </Button>
             {entry && (

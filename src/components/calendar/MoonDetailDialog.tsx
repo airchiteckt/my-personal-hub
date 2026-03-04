@@ -79,15 +79,22 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     return getLIIDaySamples(illum, riseHour, setHour, transitHour, getAlt);
   }, [date, location, times, phase.illumination, riseHour, setHour, transitHour]);
 
-  // Merge altitude + LII for combined chart
+  // Compute max altitude to scale LII onto the same axis
+  const maxAlt = useMemo(() => {
+    if (altitudeSamples.length === 0) return 90;
+    return Math.max(10, ...altitudeSamples.map(s => Math.abs(s.altitude)));
+  }, [altitudeSamples]);
+
+  // Merge altitude + LII for combined chart, scaling LII to altitude range (0 → maxAlt)
   const combinedSamples = useMemo(() => {
     if (altitudeSamples.length === 0) return [];
     return altitudeSamples.map((s, i) => ({
       hour: s.hour,
       altitude: s.altitude,
       lii: liiSamples[i]?.lii ?? 0,
+      liiScaled: ((liiSamples[i]?.lii ?? 0) / 100) * maxAlt,
     }));
-  }, [altitudeSamples, liiSamples]);
+  }, [altitudeSamples, liiSamples, maxAlt]);
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
 
@@ -213,30 +220,25 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                       strokeOpacity={0.3}
                     />
                     <YAxis
-                      yAxisId="alt"
                       tick={{ fontSize: 9 }}
                       tickFormatter={(v: number) => `${v}°`}
                       stroke="hsl(var(--muted-foreground))"
                       strokeOpacity={0.3}
                     />
-                    <YAxis
-                      yAxisId="lii"
-                      orientation="right"
-                      domain={[0, 100]}
-                      tick={{ fontSize: 9 }}
-                      hide
-                    />
-                    <ReferenceLine yAxisId="alt" y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
+                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
                     <Tooltip
-                      formatter={(v: number, name: string) => [
-                        name === 'altitude' ? `${v}°` : `${v}`,
-                        name === 'altitude' ? 'Altitudine' : 'LII'
-                      ]}
+                      formatter={(v: number, name: string) => {
+                        if (name === 'liiScaled') {
+                          // Show original LII value, not scaled
+                          const original = Math.round((v / maxAlt) * 100);
+                          return [`${original}`, 'LII'];
+                        }
+                        return [`${v}°`, 'Altitudine'];
+                      }}
                       labelFormatter={(v: number) => `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`}
                       contentStyle={{ fontSize: 11, borderRadius: 8, background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
                     />
                     <Area
-                      yAxisId="alt"
                       type="monotone"
                       dataKey="altitude"
                       stroke="hsl(var(--primary))"
@@ -244,9 +246,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                       fill="url(#moonAltGrad)"
                     />
                     <Line
-                      yAxisId="lii"
                       type="monotone"
-                      dataKey="lii"
+                      dataKey="liiScaled"
                       stroke="hsl(30 90% 55%)"
                       strokeWidth={2}
                       dot={false}

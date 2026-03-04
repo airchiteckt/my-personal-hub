@@ -130,10 +130,11 @@ export function calculateLII(input: LIIInput): LIIResult {
 
 // Weights
 const W0 = -2.2;   // intercept (bias)
-const W_L = 3.0;    // LII weight
+const W_L = 3.0;    // LII weight (expects LII_ext in 0–1)
 const W_B = 0.9;    // evening boost weight
 const W_F = 1.2;    // full moon proximity boost
 const W_C = 1.4;    // post-full-moon crash weight
+const W_D = 1.0;    // daytime baseline weight
 
 // Shape parameters
 const EVENING_CENTER = 23;
@@ -141,13 +142,18 @@ const EVENING_WIDTH = 2.5;
 const FULLMOON_SIGMA = 16;         // full moon boost bell width (hours)
 const CRASH_CENTER = 18;           // crash bell centered 18h after full moon
 const CRASH_SIGMA = 8;             // crash bell width (hours)
+const DAYTIME_CENTER = 13;         // circadian peak hour
+const DAYTIME_WIDTH = 4;           // circadian bell width (hours)
+const DAYTIME_AMP = 0.8;           // circadian amplitude
 
 export interface EnergiaAttesaInput {
-  /** LII score 0–100 */
-  lii: number;
+  /** LII_ext continuous value in [0,1] (NOT the 0–100 score) */
+  liiExt: number;
   /** Current hour as fraction of day (0–24) */
   currentHour: number;
-  /** Hours distance to nearest full moon (signed: negative=past, positive=future), null if unknown */
+  /** Hours since the most recent full moon (≥0), null if unknown */
+  hoursPostFullMoon: number | null;
+  /** Hours to nearest full moon (absolute, for proximity boost), null if unknown */
   hoursToFullMoon: number | null;
 }
 
@@ -167,22 +173,26 @@ function sigmoid(x: number): number {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { lii, currentHour, hoursToFullMoon } = input;
+  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon } = input;
 
   // Evening boost bell
   const B = Math.exp(-Math.pow((currentHour - EVENING_CENTER) / EVENING_WIDTH, 2));
 
-  // Full moon proximity boost (absolute Δf)
-  const deltaF = hoursToFullMoon !== null ? Math.abs(hoursToFullMoon) : 999;
-  const FMP = Math.exp(-Math.pow(deltaF / FULLMOON_SIGMA, 2));
+  // Daytime baseline (circadian)
+  const D = DAYTIME_AMP * Math.exp(-Math.pow((currentHour - DAYTIME_CENTER) / DAYTIME_WIDTH, 2));
 
-  // Post-full-moon crash bell centered at CRASH_CENTER hours after full moon
-  const crash = Math.exp(-Math.pow((deltaF - CRASH_CENTER) / CRASH_SIGMA, 2));
+  // Full moon proximity boost (symmetric, uses absolute distance to nearest)
+  const deltaFAbs = hoursToFullMoon !== null ? hoursToFullMoon : 999;
+  const FMP = Math.exp(-Math.pow(deltaFAbs / FULLMOON_SIGMA, 2));
+
+  // Post-full-moon crash (asymmetric: only AFTER the full moon)
+  const deltaPost = hoursPostFullMoon !== null ? hoursPostFullMoon : 999;
+  const crash = Math.exp(-Math.pow((deltaPost - CRASH_CENTER) / CRASH_SIGMA, 2));
 
   // Linear combination → single sigmoid
-  const x = W0 + W_L * (lii / 100) + W_B * B + W_F * FMP - W_C * crash;
+  // liiExt is already in [0,1], no division needed
+  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash;
 
-  // Single sigmoid → 0–10
   const raw = x;
   const score = Math.round(10 * sigmoid(x) * 10) / 10;
 
@@ -202,13 +212,14 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
  */
 export function getEnergiaDaySamples(
   hoursToFullMoon: number | null,
-  getLIIAtHour: (hour: number) => number
+  hoursPostFullMoon: number | null,
+  getLIIExtAtHour: (hour: number) => number
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
-    const lii = getLIIAtHour(h);
-    const e = calculateEnergiaAttesa({ lii, currentHour: h, hoursToFullMoon });
+    const liiExt = getLIIExtAtHour(h);
+    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

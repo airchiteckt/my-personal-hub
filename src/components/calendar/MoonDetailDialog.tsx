@@ -68,14 +68,20 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     });
   }, [date, location, times, riseHour, setHour, transitHour]);
 
-  // Hours to nearest full moon (past or future) — absolute, no wrap
-  const hoursToFullMoon = useMemo(() => {
+  // Full moon timing: nearest (for proximity boost) and post (for crash)
+  const { hoursToFullMoon, hoursPostFullMoon } = useMemo(() => {
     const now = new Date();
-    const hoursToNext = Math.abs(nextEvents.nextFull.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const hoursToNext = (nextEvents.nextFull.getTime() - now.getTime()) / (1000 * 60 * 60);
     // Previous full moon: ~synodic month before the next one
     const prevFull = new Date(nextEvents.nextFull.getTime() - 29.53059 * 24 * 60 * 60 * 1000);
-    const hoursToPrev = Math.abs(now.getTime() - prevFull.getTime()) / (1000 * 60 * 60);
-    return Math.min(hoursToNext, hoursToPrev);
+    const hoursSincePrev = (now.getTime() - prevFull.getTime()) / (1000 * 60 * 60);
+    // Nearest (absolute) for proximity boost
+    const hoursToFullMoon = Math.min(Math.abs(hoursToNext), Math.abs(hoursSincePrev));
+    // Post: hours since the most recent full moon (always ≥ 0)
+    const hoursPostFullMoon = hoursToNext > 0
+      ? hoursSincePrev  // next is in the future → prev is the most recent
+      : Math.abs(hoursToNext); // next is in the past (shouldn't happen, but safe)
+    return { hoursToFullMoon, hoursPostFullMoon };
   }, [nextEvents.nextFull]);
 
   // Energia Attesa: current value
@@ -83,8 +89,13 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     if (!currentLII) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
-    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, hoursToFullMoon });
-  }, [currentLII, hoursToFullMoon]);
+    return calculateEnergiaAttesa({
+      liiExt: currentLII.extended,
+      currentHour,
+      hoursPostFullMoon,
+      hoursToFullMoon,
+    });
+  }, [currentLII, hoursToFullMoon, hoursPostFullMoon]);
 
   // LII: day samples for chart
   const liiSamples = useMemo(() => {
@@ -97,17 +108,22 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     return getLIIDaySamples(illum, riseHour, setHour, transitHour, getAlt);
   }, [date, location, times, phase.illumination, riseHour, setHour, transitHour]);
 
-  // Energia Attesa: day samples for chart
+  // Energia Attesa: day samples for chart (uses LII_ext continuous, not score)
   const energiaSamples = useMemo(() => {
-    if (liiSamples.length === 0) return [];
-    const getLIIAtHour = (hour: number) => {
-      const closest = liiSamples.reduce((prev, curr) =>
-        Math.abs(curr.hour - hour) < Math.abs(prev.hour - hour) ? curr : prev
-      );
-      return closest.lii;
+    if (!location || !times) return [];
+    const illum = phase.illumination;
+    const getLIIExtAtHour = (hour: number) => {
+      const data = getMoonDataAtHour(date, hour, location.lat, location.lon, times);
+      const lii = calculateLII({
+        currentHour: hour,
+        riseHour, setHour, transitHour,
+        illumination: illum,
+        altitude: data.altitude,
+      });
+      return lii.extended;
     };
-    return getEnergiaDaySamples(hoursToFullMoon, getLIIAtHour);
-  }, [liiSamples, hoursToFullMoon]);
+    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, getLIIExtAtHour);
+  }, [date, location, times, phase.illumination, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {

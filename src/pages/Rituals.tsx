@@ -9,8 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import {
   Brain, Shield, Cog, Plus, Repeat, Clock, Building2, Check,
-  MoreHorizontal, Trash2, Pencil, CalendarDays, Pin, Shuffle, BookOpen,
+  MoreHorizontal, Trash2, Pencil, CalendarDays, Pin, Shuffle, BookOpen, ChevronDown, Flame,
 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -469,54 +470,102 @@ export default function Rituals() {
       )}
 
       {/* Journal Section */}
-      <Card className="p-4 mt-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Journal — Diario quotidiano
-            </span>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => setJournalDate(format(new Date(), 'yyyy-MM-dd'))} className="gap-1.5">
-            <Plus className="h-3.5 w-3.5" /> Oggi
-          </Button>
-        </div>
+      {(() => {
+        // KPI calculations
+        const totalEntries = journalEntries.length;
+        const thisWeekEntries = journalEntries.filter(e => {
+          const d = new Date(e.entryDate + 'T00:00:00');
+          return d >= weekStart && d <= weekEnd;
+        }).length;
+        const thisMonthEntries = journalEntries.filter(e => {
+          const d = new Date(e.entryDate + 'T00:00:00');
+          return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+        }).length;
+        // Streak: consecutive days from today backwards
+        let streak = 0;
+        const sortedDates = [...new Set(journalEntries.map(e => e.entryDate))].sort().reverse();
+        for (let i = 0; i < sortedDates.length; i++) {
+          const expected = format(subDays(today, i), 'yyyy-MM-dd');
+          if (sortedDates[i] === expected) streak++;
+          else break;
+        }
+        const weeklyRate = Math.round((thisWeekEntries / 7) * 100);
 
-        {journalEntries.length === 0 ? (
-          <div className="text-center py-8">
-            <BookOpen className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
-            <p className="text-muted-foreground text-sm">Nessuna voce nel journal</p>
-            <p className="text-muted-foreground text-xs mt-1">Inizia a scrivere il tuo diario quotidiano dal calendario o da qui</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {(showAllJournals ? journalEntries : journalEntries.slice(0, 7)).map(entry => {
-              const moodEmoji = { great: '😊', good: '🙂', neutral: '😐', tough: '😟', stressed: '😤' }[entry.mood || ''] || '';
-              const dateLabel = new Date(entry.entryDate + 'T00:00:00').toLocaleDateString('it-IT', {
-                weekday: 'short', day: 'numeric', month: 'short',
-              });
-              return (
-                <div
-                  key={entry.id}
-                  className="flex items-start gap-3 py-2.5 border-t border-border/50 group cursor-pointer hover:bg-accent/30 rounded-md px-2 -mx-2 transition-colors"
-                  onClick={() => setJournalDate(entry.entryDate)}
-                >
-                  <div className="flex flex-col items-center shrink-0 w-12 pt-0.5">
-                    {moodEmoji && <span className="text-lg">{moodEmoji}</span>}
-                    <span className="text-[10px] text-muted-foreground capitalize">{dateLabel}</span>
+        return (
+          <Card className="p-4 mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Journal — Diario quotidiano
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* KPI badges */}
+                {streak > 0 && (
+                  <Badge variant="outline" className="text-[10px] gap-1 py-0 h-5">
+                    <Flame className="h-3 w-3 text-orange-500" /> {streak}d streak
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-[10px] py-0 h-5">
+                  {thisWeekEntries}/7 sett.
+                </Badge>
+                <Button variant="outline" size="sm" onClick={() => setJournalDate(format(new Date(), 'yyyy-MM-dd'))} className="gap-1.5 h-7 text-xs">
+                  <Plus className="h-3 w-3" /> Oggi
+                </Button>
+              </div>
+            </div>
+
+            {/* KPI bar */}
+            <div className="flex items-center gap-4 mb-3 text-[11px] text-muted-foreground">
+              <span>Settimana: <strong className={weeklyRate >= 70 ? 'text-primary' : 'text-foreground'}>{weeklyRate}%</strong></span>
+              <span>Mese: <strong>{thisMonthEntries}</strong> voci</span>
+              <span>Totale: <strong>{totalEntries}</strong></span>
+            </div>
+            <Progress value={weeklyRate} className="h-1.5 mb-3" />
+
+            {/* Collapsible entries */}
+            {journalEntries.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full text-muted-foreground gap-1.5 h-8">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                    Voci recenti ({journalEntries.length})
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="space-y-1 mt-2">
+                    {(showAllJournals ? journalEntries : journalEntries.slice(0, 7)).map(entry => {
+                      const moodEmoji = { great: '😊', good: '🙂', neutral: '😐', tough: '😟', stressed: '😤' }[entry.mood || ''] || '';
+                      const dateLabel = new Date(entry.entryDate + 'T00:00:00').toLocaleDateString('it-IT', {
+                        weekday: 'short', day: 'numeric', month: 'short',
+                      });
+                      return (
+                        <div
+                          key={entry.id}
+                          className="flex items-start gap-3 py-2 border-t border-border/50 group cursor-pointer hover:bg-accent/30 rounded-md px-2 -mx-2 transition-colors"
+                          onClick={() => setJournalDate(entry.entryDate)}
+                        >
+                          <div className="flex flex-col items-center shrink-0 w-12 pt-0.5">
+                            {moodEmoji && <span className="text-lg">{moodEmoji}</span>}
+                            <span className="text-[10px] text-muted-foreground capitalize">{dateLabel}</span>
+                          </div>
+                          <p className="text-sm text-foreground/80 line-clamp-2 flex-1">{entry.content || <span className="text-muted-foreground italic">Solo mood</span>}</p>
+                        </div>
+                      );
+                    })}
+                    {journalEntries.length > 7 && !showAllJournals && (
+                      <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setShowAllJournals(true)}>
+                        Mostra tutti ({journalEntries.length})
+                      </Button>
+                    )}
                   </div>
-                  <p className="text-sm text-foreground/80 line-clamp-2 flex-1">{entry.content || <span className="text-muted-foreground italic">Solo mood registrato</span>}</p>
-                </div>
-              );
-            })}
-            {journalEntries.length > 7 && !showAllJournals && (
-              <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setShowAllJournals(true)}>
-                Mostra tutti ({journalEntries.length} voci)
-              </Button>
+                </CollapsibleContent>
+              </Collapsible>
             )}
-          </div>
-        )}
-      </Card>
+          </Card>
+        );
+      })()}
 
       {/* Info card */}
       <Card className="p-4 bg-muted/50 border-dashed mt-4">

@@ -83,10 +83,10 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
           {!enterpriseId && (
             <div className="space-y-2">
               <Label>Impresa <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
-              <Select value={selectedEnterpriseId} onValueChange={setSelectedEnterpriseId}>
+              <Select value={selectedEnterpriseId || "none"} onValueChange={v => setSelectedEnterpriseId(v === "none" ? "" : v)}>
                 <SelectTrigger><SelectValue placeholder="Nessuna" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna</SelectItem>
+                  <SelectItem value="none">Nessuna</SelectItem>
                   {enterprises.map(e => (
                     <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                   ))}

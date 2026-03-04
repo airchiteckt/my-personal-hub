@@ -95,19 +95,20 @@ export function getLIIDaySamples(
   date: Date,
   latitude: number,
   longitude: number,
-  getMoonDataAtHour: (date: Date, hour: number, lat: number, lon: number) => {
+  getMoonDataAtHourFn: (date: Date, hour: number, lat: number, lon: number, precomputedTimes?: any) => {
     altitude: number;
     illumination: number;
     transitHour: number | null;
     riseHour: number | null;
     setHour: number | null;
-  }
+  },
+  precomputedTimes?: any
 ): { hour: number; lii: number }[] {
   const result: { hour: number; lii: number }[] = [];
 
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
-    const data = getMoonDataAtHour(date, h, latitude, longitude);
+    const data = getMoonDataAtHourFn(date, h, latitude, longitude, precomputedTimes);
 
     const isAboveHorizon = data.altitude > -0.833;
     const hoursFromTransit = data.transitHour !== null ? Math.abs(h - data.transitHour) : 12;

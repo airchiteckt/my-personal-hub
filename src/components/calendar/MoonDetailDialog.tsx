@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour, type MoonTimes as MoonTimesType } from '@/lib/moon-utils';
-import { calculateLII, getLIIDaySamples, type LIIResult } from '@/lib/lunar-influence';
+import { calculateLII, getLIIDaySamples, calculateEnergiaAttesa, getEnergiaDaySamples, type LIIResult, type EnergiaAttesaResult } from '@/lib/lunar-influence';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
@@ -68,6 +68,14 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     });
   }, [date, location, times, riseHour, setHour, transitHour]);
 
+  // Energia Attesa: current value
+  const currentEnergia = useMemo<EnergiaAttesaResult | null>(() => {
+    if (!currentLII) return null;
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, riseHour, setHour });
+  }, [currentLII, riseHour, setHour]);
+
   // LII: day samples for chart
   const liiSamples = useMemo(() => {
     if (!location || !times) return [];
@@ -79,13 +87,26 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     return getLIIDaySamples(illum, riseHour, setHour, transitHour, getAlt);
   }, [date, location, times, phase.illumination, riseHour, setHour, transitHour]);
 
+  // Energia Attesa: day samples for chart
+  const energiaSamples = useMemo(() => {
+    if (liiSamples.length === 0) return [];
+    const getLIIAtHour = (hour: number) => {
+      // Find closest sample
+      const closest = liiSamples.reduce((prev, curr) =>
+        Math.abs(curr.hour - hour) < Math.abs(prev.hour - hour) ? curr : prev
+      );
+      return closest.lii;
+    };
+    return getEnergiaDaySamples(riseHour, setHour, getLIIAtHour);
+  }, [liiSamples, riseHour, setHour]);
+
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {
     if (altitudeSamples.length === 0) return 90;
     return Math.max(10, ...altitudeSamples.map(s => Math.abs(s.altitude)));
   }, [altitudeSamples]);
 
-  // Merge altitude + LII for combined chart, scaling LII to altitude range (0 → maxAlt)
+  // Merge altitude + LII + Energia for combined chart, scaling to altitude range
   const combinedSamples = useMemo(() => {
     if (altitudeSamples.length === 0) return [];
     return altitudeSamples.map((s, i) => ({
@@ -93,8 +114,10 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       altitude: s.altitude,
       lii: liiSamples[i]?.lii ?? 0,
       liiScaled: ((liiSamples[i]?.lii ?? 0) / 100) * maxAlt,
+      energia: energiaSamples[i]?.energia ?? 0,
+      energiaScaled: ((energiaSamples[i]?.energia ?? 0) / 10) * maxAlt,
     }));
-  }, [altitudeSamples, liiSamples, maxAlt]);
+  }, [altitudeSamples, liiSamples, energiaSamples, maxAlt]);
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
 
@@ -194,10 +217,43 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
             </div>
           )}
 
+          {/* Energia Attesa Card */}
+          {currentEnergia && (
+            <div className="bg-accent/30 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Energia Attesa</span>
+                <span className="text-lg">{currentEnergia.emoji}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${currentEnergia.score * 10}%`,
+                        background: currentEnergia.score > 7.5 ? 'hsl(280 70% 55%)' :
+                                   currentEnergia.score > 5 ? 'hsl(340 70% 55%)' :
+                                   currentEnergia.score > 3 ? 'hsl(200 70% 55%)' :
+                                   'hsl(var(--muted-foreground))',
+                      }}
+                    />
+                  </div>
+                </div>
+                <span className="text-lg font-bold">{currentEnergia.score}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground capitalize">Livello: {currentEnergia.level}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {format(new Date(), 'HH:mm')} — ora attuale
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Altitude Chart */}
           {combinedSamples.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Altitudine & LII nel giorno</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Altitudine, LII & Energia</p>
               <div className="h-36 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={combinedSamples} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
@@ -229,9 +285,12 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                     <Tooltip
                       formatter={(v: number, name: string) => {
                         if (name === 'liiScaled') {
-                          // Show original LII value, not scaled
                           const original = Math.round((v / maxAlt) * 100);
                           return [`${original}`, 'LII'];
+                        }
+                        if (name === 'energiaScaled') {
+                          const original = Math.round((v / maxAlt) * 100) / 10;
+                          return [`${original}`, 'Energia'];
                         }
                         return [`${v}°`, 'Altitudine'];
                       }}
@@ -253,12 +312,21 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                       dot={false}
                       strokeDasharray="4 2"
                     />
+                    <Line
+                      type="monotone"
+                      dataKey="energiaScaled"
+                      stroke="hsl(280 70% 55%)"
+                      strokeWidth={2}
+                      dot={false}
+                      strokeDasharray="2 2"
+                    />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
               <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
                 <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block rounded" /> Altitudine</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block rounded" style={{ background: 'hsl(30 90% 55%)' }} /> LII</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block rounded" style={{ background: 'hsl(280 70% 55%)' }} /> Energia</span>
               </div>
             </div>
           )}

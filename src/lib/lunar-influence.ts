@@ -125,6 +125,95 @@ export function calculateLII(input: LIIInput): LIIResult {
   return { base, extended, score, level, emoji };
 }
 
+// ── Energia Attesa (Expected Energy) 0–10 ──
+
+// Tunable parameters
+const ENERGY_LII_THRESHOLD = 33;   // logistic midpoint
+const ENERGY_SLOPE = 0.09;         // logistic steepness
+const EVENING_BOOST = 0.25;        // evening flow multiplier
+const EVENING_CENTER = 23;         // peak hour
+const EVENING_WIDTH = 2.5;         // gaussian sigma (hours)
+const EDGE_RISE_BOOST = 1.2;       // energy boost near moonrise
+const EDGE_SET_DRAG = 1.6;         // energy drag near moonset
+const EDGE_RHO = 1.8;              // edge gaussian width (hours)
+
+export interface EnergiaAttesaInput {
+  /** LII score 0–100 */
+  lii: number;
+  /** Current hour as fraction of day (0–24) */
+  currentHour: number;
+  /** Moonrise hour (0–24), null if no rise */
+  riseHour: number | null;
+  /** Moonset hour (0–24), null if no set */
+  setHour: number | null;
+}
+
+export interface EnergiaAttesaResult {
+  /** Raw value (may exceed 0–10 before clamping) */
+  raw: number;
+  /** Clamped 0–10 score */
+  score: number;
+  /** Human-readable level */
+  level: 'minima' | 'bassa' | 'moderata' | 'alta' | 'massima';
+  /** Emoji */
+  emoji: string;
+}
+
+export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
+  const { lii, currentHour, riseHour, setHour } = input;
+
+  // 1) Base lunare — logistic curve
+  const baseLunare = 10 / (1 + Math.exp(-ENERGY_SLOPE * (lii - ENERGY_LII_THRESHOLD)));
+
+  // 2) Boost serale — gaussian bell centered at EVENING_CENTER
+  const eveningFactor = 1 + EVENING_BOOST * Math.exp(
+    -Math.pow(currentHour - EVENING_CENTER, 2) / Math.pow(EVENING_WIDTH, 2)
+  );
+
+  // 3) Edge effects — circular distance in hours
+  const deltaRise = riseHour !== null ? circularDeltaHours(currentHour, riseHour) : null;
+  const deltaSet = setHour !== null ? circularDeltaHours(currentHour, setHour) : null;
+
+  const riseEffect = deltaRise !== null
+    ? EDGE_RISE_BOOST * Math.exp(-Math.pow(deltaRise / EDGE_RHO, 2))
+    : 0;
+  const setEffect = deltaSet !== null
+    ? EDGE_SET_DRAG * Math.exp(-Math.pow(deltaSet / EDGE_RHO, 2))
+    : 0;
+
+  // 4) Combine and clamp
+  const raw = baseLunare * eveningFactor + riseEffect - setEffect;
+  const score = Math.round(Math.max(0, Math.min(10, raw)) * 10) / 10;
+
+  let level: EnergiaAttesaResult['level'];
+  let emoji: string;
+  if (score <= 1) { level = 'minima'; emoji = '😴'; }
+  else if (score <= 3) { level = 'bassa'; emoji = '🧘'; }
+  else if (score <= 5) { level = 'moderata'; emoji = '⚡'; }
+  else if (score <= 7.5) { level = 'alta'; emoji = '🔥'; }
+  else { level = 'massima'; emoji = '🚀'; }
+
+  return { raw, score, level, emoji };
+}
+
+/**
+ * Calculate Energia Attesa samples throughout a day (every 30 min) for charting.
+ */
+export function getEnergiaDaySamples(
+  riseHour: number | null,
+  setHour: number | null,
+  getLIIAtHour: (hour: number) => number
+): { hour: number; energia: number }[] {
+  const result: { hour: number; energia: number }[] = [];
+  for (let minutes = 0; minutes <= 1440; minutes += 30) {
+    const h = minutes / 60;
+    const lii = getLIIAtHour(h);
+    const e = calculateEnergiaAttesa({ lii, currentHour: h, riseHour, setHour });
+    result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
+  }
+  return result;
+}
+
 /**
  * Calculate LII samples throughout a day (every 30 min) for charting.
  * Accepts precomputed rise/set/transit to avoid redundant calculations.

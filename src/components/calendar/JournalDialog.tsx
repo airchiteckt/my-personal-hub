@@ -139,7 +139,7 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
         hoursToFullMoon,
         moonAge: phase.age,
         illuminationFrac: phase.illumination / 100,
-        dLIIScore: 0,
+        dLIIExt: 0,
         transitHour,
         riseHour,
       });

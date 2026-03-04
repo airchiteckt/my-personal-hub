@@ -129,16 +129,17 @@ export function calculateLII(input: LIIInput): LIIResult {
 // Anti-saturation model: linear combination → single sigmoid → 0–10
 
 // Weights
-const W0 = -2.2;   // intercept (bias)
+const W0 = -1.6;    // intercept (bias) — raised from -2.2
 const W_L = 3.0;    // LII weight (expects LII_ext in 0–1)
-const W_MR = 1.2;   // moonrise boost weight
+const W_MR = 1.6;   // moonrise boost weight (raised from 1.2)
 const W_F = 1.2;    // full moon proximity boost
-const W_C = 0.5;    // post-full-moon crash weight (ridotto da 1.4)
+const W_C = 0.5;    // post-full-moon crash weight (modulated by D)
 const W_D = 0.9;    // daytime baseline weight
 const W_W = 1.0;    // waxing drive weight
-const W_T = 0.9;    // LII trend weight
+const W_T = 0.9;    // LII trend weight (now uses LII_ext continuous)
 const W_A = 0.6;    // ascent factor weight
-const LAMBDA = 1.0;  // sigmoid temperature (0.8=soft, 1.0=default, 1.2=reactive)
+const LAMBDA = 1.0;  // sigmoid temperature
+const HYSTERESIS_LAMBDA = 0.2; // smoothing factor (0.2 = 80% inertia)
 
 // Shape parameters
 const MOONRISE_TAU = 2.8;  // moonrise boost decay (hours)
@@ -149,8 +150,8 @@ const DAYTIME_CENTER = 13;
 const DAYTIME_WIDTH = 4;
 const DAYTIME_AMP = 0.8;
 const WAXING_EXP = 1.2;
-const TREND_SCALE = 25;            // LII score points/hour for full ±1
-const ASCENT_STEEPNESS = 2.0;      // sigmoid steepness for ascent
+const TREND_SCALE = 0.25;          // LII_ext units/hour for full ±1 (continuous scale)
+const ASCENT_STEEPNESS = 2.0;
 
 export interface EnergiaAttesaInput {
   /** LII_ext continuous value in [0,1] (NOT the 0–100 score) */
@@ -165,8 +166,8 @@ export interface EnergiaAttesaInput {
   moonAge: number;
   /** Illumination fraction 0–1 */
   illuminationFrac: number;
-  /** LII score delta over 1h (LII_score_now - LII_score_1h_ago), raw 0-100 scale */
-  dLIIScore: number;
+  /** LII_ext delta over 1h (continuous 0–1 scale) */
+  dLIIExt: number;
   /** Transit/culmination hour (0–24), null if unknown */
   transitHour: number | null;
   /** Moonrise hour (0–24), null if unknown */
@@ -189,16 +190,13 @@ function sigmoid(x: number): number {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour, riseHour } = input;
+  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIExt, transitHour, riseHour } = input;
 
   // Moonrise Boost: MR(t) = exp(-((Δrise)/τr)²)
-  // Δrise = signed hours since moonrise (circular)
   let MR = 0;
   if (riseHour != null) {
-    // Signed delta: positive = after moonrise, negative = before
     const diff = ((currentHour - riseHour) % 24 + 24) % 24;
     const deltaRise = diff <= 12 ? diff : diff - 24;
-    // Only boost after moonrise (deltaRise >= 0), decays with τ
     if (deltaRise >= 0) {
       MR = Math.exp(-Math.pow(deltaRise / MOONRISE_TAU, 2));
     }
@@ -211,16 +209,17 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   const deltaFAbs = hoursToFullMoon !== null ? hoursToFullMoon : 999;
   const FMP = Math.exp(-Math.pow(deltaFAbs / FULLMOON_SIGMA, 2));
 
-  // Post-full-moon crash (asymmetric: only AFTER the full moon)
+  // Post-full-moon crash — modulated by D (only active during daytime)
   const deltaPost = hoursPostFullMoon !== null ? hoursPostFullMoon : 999;
-  const crash = Math.exp(-Math.pow((deltaPost - CRASH_CENTER) / CRASH_SIGMA, 2));
+  const crashRaw = Math.exp(-Math.pow((deltaPost - CRASH_CENTER) / CRASH_SIGMA, 2));
+  const crash = crashRaw * (D / DAYTIME_AMP); // scale by normalized daytime factor
 
   // Waxing Drive: W(age) · f^p
   const W = moonAge <= 14.76 ? 1 : -1;
   const WD = W * Math.pow(illuminationFrac, WAXING_EXP);
 
-  // LII Trend: normalized to [-1, +1]
-  const liiTrend = Math.max(-1, Math.min(1, dLIIScore / TREND_SCALE));
+  // LII Trend: continuous LII_ext delta, normalized to [-1, +1]
+  const liiTrend = Math.max(-1, Math.min(1, dLIIExt / TREND_SCALE));
 
   // Ascent factor: ~1 before culmination, ~0 after (soft sigmoid)
   let ascentSoft = 0;
@@ -261,15 +260,22 @@ export function getEnergiaDaySamples(
   riseHour?: number | null
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
-  let prevScore = getLIIScoreAtHour(0);
+  let prevExt = getLIIExtAtHour(0);
+  let smoothedScore: number | null = null;
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const liiExt = getLIIExtAtHour(h);
-    const liiScore = getLIIScoreAtHour(h);
-    const dLIIScore = (liiScore - prevScore) * 2;
-    prevScore = liiScore;
-    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour, riseHour });
-    result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
+    // dLIIExt: continuous delta over ~30min step, scaled to per-hour
+    const dLIIExt = (liiExt - prevExt) * 2;
+    prevExt = liiExt;
+    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIExt, transitHour, riseHour });
+    // Apply hysteresis smoothing
+    if (smoothedScore === null) {
+      smoothedScore = e.score;
+    } else {
+      smoothedScore = (1 - HYSTERESIS_LAMBDA) * smoothedScore + HYSTERESIS_LAMBDA * e.score;
+    }
+    result.push({ hour: Math.round(h * 10) / 10, energia: Math.round(smoothedScore * 10) / 10 });
   }
   return result;
 }

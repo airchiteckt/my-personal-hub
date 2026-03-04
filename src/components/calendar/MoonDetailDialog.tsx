@@ -103,7 +103,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       currentHour: hourAgo, riseHour, setHour, transitHour,
       illumination: dataAgo.illumination, altitude: dataAgo.altitude,
     });
-    const dLIIScore = (currentLII.score - liiAgo.score); // per-hour (1h delta)
+    const dLIIExt = currentLII.extended - liiAgo.extended; // per-hour (1h delta, continuous)
     return calculateEnergiaAttesa({
       liiExt: currentLII.extended,
       currentHour,
@@ -111,7 +111,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       hoursToFullMoon,
       moonAge: phase.age,
       illuminationFrac: phase.illumination / 100,
-      dLIIScore,
+      dLIIExt,
       transitHour,
       riseHour,
     });
@@ -186,7 +186,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       const energia = calculateEnergiaAttesa({
         liiExt: lii.extended, currentHour: centerHour,
         hoursPostFullMoon, hoursToFullMoon, moonAge: phase.age,
-        illuminationFrac: phase.illumination / 100, dLIIScore: 0, transitHour, riseHour,
+        illuminationFrac: phase.illumination / 100, dLIIExt: 0, transitHour, riseHour,
       });
       return { slot: slot.key, predicted: energia.score, liiScore: lii.score };
     });

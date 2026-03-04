@@ -128,8 +128,8 @@ export function calculateLII(input: LIIInput): LIIResult {
 // ── Energia Attesa (Expected Energy) 0–10 ──
 
 // Tunable parameters
-const ENERGY_LII_THRESHOLD = 33;   // logistic midpoint
-const ENERGY_SLOPE = 0.09;         // logistic steepness
+const ENERGY_LII_THRESHOLD = 35;   // logistic midpoint
+const ENERGY_SLOPE = 0.07;         // logistic steepness
 const EVENING_BOOST = 0.25;        // evening flow multiplier
 const EVENING_CENTER = 23;         // peak hour
 const EVENING_WIDTH = 2.5;         // gaussian sigma (hours)

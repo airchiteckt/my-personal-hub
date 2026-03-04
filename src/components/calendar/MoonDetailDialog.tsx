@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour, type MoonTimes as MoonTimesType } from '@/lib/moon-utils';
-import { computeStateAt, getDaySamples, calculateEnergiaAttesa, type LIIResult, type EnergiaAttesaResult, type DaySample } from '@/lib/lunar-influence';
+import { calculateLII, getLIIDaySamples, calculateEnergiaAttesa, getEnergiaDaySamples, type LIIResult, type EnergiaAttesaResult } from '@/lib/lunar-influence';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
@@ -59,77 +59,111 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   const setHour = times ? parseTime(times.set) : null;
   const transitHour = times ? parseTime(times.transit) : null;
 
-  // Unified pipeline: current state
-  const currentState = useMemo(() => {
+  // LII: current value
+  const currentLII = useMemo<LIIResult | null>(() => {
     if (!location || !times) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
     const data = getMoonDataAtHour(date, currentHour, location.lat, location.lon, times);
-    // Get prev LII for trend
-    const hourAgo = ((currentHour - 1) + 24) % 24;
-    const dataAgo = getMoonDataAtHour(date, hourAgo, location.lat, location.lon, times);
-    const prevState = computeStateAt({
-      hour: hourAgo, riseHour, setHour, transitHour,
-      illumination: dataAgo.illumination, moonAge: phase.age,
-      hoursToFullMoon: null, hoursPostFullMoon: null,
-      altitude: dataAgo.altitude,
+    return calculateLII({
+      currentHour,
+      riseHour,
+      setHour,
+      transitHour,
+      illumination: data.illumination,
+      altitude: data.altitude,
     });
-    // Full moon timing
+  }, [date, location, times, riseHour, setHour, transitHour]);
+
+  // Full moon timing: nearest (for proximity boost) and post (for crash)
+  const { hoursToFullMoon, hoursPostFullMoon } = useMemo(() => {
+    const now = new Date();
     const hoursToNext = (nextEvents.nextFull.getTime() - now.getTime()) / (1000 * 60 * 60);
+    // Previous full moon: ~synodic month before the next one
     const prevFull = new Date(nextEvents.nextFull.getTime() - 29.53059 * 24 * 60 * 60 * 1000);
     const hoursSincePrev = (now.getTime() - prevFull.getTime()) / (1000 * 60 * 60);
+    // Nearest (absolute) for proximity boost
     const hoursToFullMoon = Math.min(Math.abs(hoursToNext), Math.abs(hoursSincePrev));
-    const hoursPostFullMoon = hoursToNext > 0 ? hoursSincePrev : Math.abs(hoursToNext);
+    // Post: hours since the most recent full moon (always ≥ 0)
+    const hoursPostFullMoon = hoursToNext > 0
+      ? hoursSincePrev  // next is in the future → prev is the most recent
+      : Math.abs(hoursToNext); // next is in the past (shouldn't happen, but safe)
+    return { hoursToFullMoon, hoursPostFullMoon };
+  }, [nextEvents.nextFull]);
 
-    return {
-      state: computeStateAt({
-        hour: currentHour, riseHour, setHour, transitHour,
-        illumination: data.illumination, moonAge: phase.age,
-        hoursToFullMoon, hoursPostFullMoon,
-        altitude: data.altitude, prevLIIExt: prevState.liiExt,
-      }),
-      hoursToFullMoon,
+  // Energia Attesa: current value (with LII derivative)
+  const currentEnergia = useMemo<EnergiaAttesaResult | null>(() => {
+    if (!currentLII || !location || !times) return null;
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    // Compute LII 1h ago for derivative
+    const hourAgo = ((currentHour - 1) + 24) % 24;
+    const dataAgo = getMoonDataAtHour(date, hourAgo, location.lat, location.lon, times);
+    const liiAgo = calculateLII({
+      currentHour: hourAgo, riseHour, setHour, transitHour,
+      illumination: dataAgo.illumination, altitude: dataAgo.altitude,
+    });
+    const dLIIExt = currentLII.extended - liiAgo.extended; // per-hour (1h delta, continuous)
+    return calculateEnergiaAttesa({
+      liiExt: currentLII.extended,
+      currentHour,
       hoursPostFullMoon,
-    };
-  }, [date, location, times, riseHour, setHour, transitHour, phase, nextEvents.nextFull]);
+      hoursToFullMoon,
+      moonAge: phase.age,
+      illuminationFrac: phase.illumination / 100,
+      dLIIExt,
+      transitHour,
+      riseHour,
+    });
+  }, [currentLII, location, times, date, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination]);
 
-  // Unified day samples for chart
-  const daySamples = useMemo<DaySample[]>(() => {
-    if (!location || !times || !currentState) return [];
+  // LII: day samples for chart
+  const liiSamples = useMemo(() => {
+    if (!location || !times) return [];
+    const illum = phase.illumination;
     const getAlt = (hour: number) => {
       const data = getMoonDataAtHour(date, hour, location.lat, location.lon, times);
       return data.altitude;
     };
-    return getDaySamples(
-      riseHour, setHour, transitHour, phase.illumination, phase.age,
-      currentState.hoursToFullMoon, currentState.hoursPostFullMoon, getAlt
-    );
-  }, [date, location, times, phase.illumination, phase.age, riseHour, setHour, transitHour, currentState]);
+    return getLIIDaySamples(illum, riseHour, setHour, transitHour, getAlt);
+  }, [date, location, times, phase.illumination, riseHour, setHour, transitHour]);
+
+  // Energia Attesa: day samples for chart (uses LII_ext continuous, not score)
+  const energiaSamples = useMemo(() => {
+    if (!location || !times) return [];
+    const illum = phase.illumination;
+    const computeLII = (hour: number) => {
+      const data = getMoonDataAtHour(date, hour, location.lat, location.lon, times);
+      return calculateLII({
+        currentHour: hour,
+        riseHour, setHour, transitHour,
+        illumination: illum,
+        altitude: data.altitude,
+      });
+    };
+    const getLIIExtAtHour = (hour: number) => computeLII(hour).extended;
+    const getLIIScoreAtHour = (hour: number) => computeLII(hour).score;
+    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, transitHour, getLIIScoreAtHour, getLIIExtAtHour, riseHour);
+  }, [date, location, times, phase.illumination, phase.age, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {
-    if (daySamples.length === 0) return 90;
-    return Math.max(10, ...daySamples.map(s => Math.abs(s.altitude)));
-  }, [daySamples]);
+    if (altitudeSamples.length === 0) return 90;
+    return Math.max(10, ...altitudeSamples.map(s => Math.abs(s.altitude)));
+  }, [altitudeSamples]);
 
-  // Combined samples for chart (using unified pipeline)
+  // Merge altitude + LII + Energia for combined chart, scaling to altitude range
   const combinedSamples = useMemo(() => {
-    return daySamples.map(s => ({
+    if (altitudeSamples.length === 0) return [];
+    return altitudeSamples.map((s, i) => ({
       hour: s.hour,
       altitude: s.altitude,
-      lii: s.lii,
-      liiScaled: (s.lii / 100) * maxAlt,
-      energia: s.energia,
-      energiaScaled: (s.energia / 10) * maxAlt,
-      // Debug fields
-      liiBase: s.liiBase,
-      liiR: s.liiR,
-      liiS: s.liiS,
-      isUp: s.isUp,
-      culmTerm: s.culmTerm,
-      eRaw: s.eRaw,
+      lii: liiSamples[i]?.lii ?? 0,
+      liiScaled: ((liiSamples[i]?.lii ?? 0) / 100) * maxAlt,
+      energia: energiaSamples[i]?.energia ?? 0,
+      energiaScaled: ((energiaSamples[i]?.energia ?? 0) / 10) * maxAlt,
     }));
-  }, [daySamples, maxAlt]);
+  }, [altitudeSamples, liiSamples, energiaSamples, maxAlt]);
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
   const dateStr = format(date, 'yyyy-MM-dd');
@@ -138,22 +172,25 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   const { getJournalForDate } = usePrp();
   const journalEntry = getJournalForDate(dateStr);
 
-  // Slot predictions for correlation (using unified pipeline)
+  // Slot predictions for correlation
   const slotPredictions = useMemo(() => {
-    if (!location || !times || !currentState) return [];
+    if (!location || !times) return [];
+    const lat = location.lat, lon = location.lon;
     return TIME_SLOTS.map(slot => {
       const centerHour = slot.hours[Math.floor(slot.hours.length / 2)];
-      const moonData = getMoonDataAtHour(date, centerHour, location.lat, location.lon, times);
-      const state = computeStateAt({
-        hour: centerHour, riseHour, setHour, transitHour,
-        illumination: moonData.illumination, moonAge: phase.age,
-        hoursToFullMoon: currentState.hoursToFullMoon,
-        hoursPostFullMoon: currentState.hoursPostFullMoon,
-        altitude: moonData.altitude,
+      const moonData = getMoonDataAtHour(date, centerHour, lat, lon, times);
+      const lii = calculateLII({
+        currentHour: centerHour, riseHour, setHour, transitHour,
+        illumination: moonData.illumination, altitude: moonData.altitude,
       });
-      return { slot: slot.key, predicted: state.energy, liiScore: state.liiScore };
+      const energia = calculateEnergiaAttesa({
+        liiExt: lii.extended, currentHour: centerHour,
+        hoursPostFullMoon, hoursToFullMoon, moonAge: phase.age,
+        illuminationFrac: phase.illumination / 100, dLIIExt: 0, transitHour, riseHour,
+      });
+      return { slot: slot.key, predicted: energia.score, liiScore: lii.score };
     });
-  }, [date, location, times, riseHour, setHour, transitHour, currentState, phase]);
+  }, [date, location, times, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase]);
 
   // Accuracy computation
   const correlationAccuracy = useMemo(() => {
@@ -230,11 +267,11 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
           )}
 
           {/* LII Card */}
-          {currentState && (
+          {currentLII && (
             <div className="bg-accent/30 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lunar Influence Index</span>
-                <span className="text-lg">{currentState.state.liiScore > 75 ? '🔴' : currentState.state.liiScore > 50 ? '🟠' : currentState.state.liiScore > 25 ? '🟡' : currentState.state.liiScore > 0 ? '🔵' : '⚫'}</span>
+                <span className="text-lg">{currentLII.emoji}</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
@@ -242,34 +279,32 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: `${currentState.state.liiScore}%`,
-                        background: currentState.state.liiScore > 75 ? 'hsl(var(--destructive))' :
-                                   currentState.state.liiScore > 50 ? 'hsl(30 90% 55%)' :
-                                   currentState.state.liiScore > 25 ? 'hsl(45 90% 55%)' :
+                        width: `${currentLII.score}%`,
+                        background: currentLII.score > 75 ? 'hsl(var(--destructive))' :
+                                   currentLII.score > 50 ? 'hsl(30 90% 55%)' :
+                                   currentLII.score > 25 ? 'hsl(45 90% 55%)' :
                                    'hsl(var(--primary))',
                       }}
                     />
                   </div>
                 </div>
-                <span className="text-lg font-bold">{currentState.state.liiScore}</span>
+                <span className="text-lg font-bold">{currentLII.score}</span>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  base: {(currentState.state.liiBase * 100).toFixed(0)} | R: {(currentState.state.liiR * 100).toFixed(0)} S: {(currentState.state.lliS * 100).toFixed(0)} | c: {(currentState.state.culmTerm * 100).toFixed(0)} | {currentState.state.isUp ? 'UP' : 'DOWN'}
-                </p>
+                <p className="text-xs text-muted-foreground capitalize">Influenza: {currentLII.level}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {format(new Date(), 'HH:mm')}
+                  {format(new Date(), 'HH:mm')} — ora attuale
                 </p>
               </div>
             </div>
           )}
 
           {/* Energia Attesa Card */}
-          {currentState && (
+          {currentEnergia && (
             <div className="bg-accent/30 rounded-xl p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Energia Attesa</span>
-                <span className="text-lg">{currentState.state.energyEmoji}</span>
+                <span className="text-lg">{currentEnergia.emoji}</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
@@ -277,21 +312,21 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                     <div
                       className="h-full rounded-full transition-all"
                       style={{
-                        width: `${currentState.state.energy * 10}%`,
-                        background: currentState.state.energy > 7.5 ? 'hsl(280 70% 55%)' :
-                                   currentState.state.energy > 5 ? 'hsl(340 70% 55%)' :
-                                   currentState.state.energy > 3 ? 'hsl(200 70% 55%)' :
+                        width: `${currentEnergia.score * 10}%`,
+                        background: currentEnergia.score > 7.5 ? 'hsl(280 70% 55%)' :
+                                   currentEnergia.score > 5 ? 'hsl(340 70% 55%)' :
+                                   currentEnergia.score > 3 ? 'hsl(200 70% 55%)' :
                                    'hsl(var(--muted-foreground))',
                       }}
                     />
                   </div>
                 </div>
-                <span className="text-lg font-bold">{currentState.state.energy}</span>
+                <span className="text-lg font-bold">{currentEnergia.score}</span>
               </div>
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground capitalize">Livello: {currentState.state.energyLevel} | Eraw: {currentState.state.eRaw}</p>
+                <p className="text-xs text-muted-foreground capitalize">Livello: {currentEnergia.level}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {format(new Date(), 'HH:mm')}
+                  {format(new Date(), 'HH:mm')} — ora attuale
                 </p>
               </div>
             </div>
@@ -318,8 +353,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                       dataKey="hour"
                       tick={{ fontSize: 9 }}
                       tickFormatter={(v: number) => `${Math.floor(v)}h`}
-                      ticks={[0, 6, 12, 18, 23]}
-                      domain={[0, 23.5]}
+                      ticks={[0, 6, 12, 18, 24]}
                       stroke="hsl(var(--muted-foreground))"
                       strokeOpacity={0.3}
                     />
@@ -331,21 +365,19 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                     />
                     <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
                     <Tooltip
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const d = payload[0]?.payload;
-                        if (!d) return null;
-                        const hh = Math.floor(label as number);
-                        const mm = String(Math.round(((label as number) % 1) * 60)).padStart(2, '0');
-                        return (
-                          <div className="bg-popover border border-border rounded-lg p-2 text-[10px] space-y-0.5 shadow-md">
-                            <p className="font-medium">{hh}:{mm}</p>
-                            <p>Alt: {d.altitude?.toFixed(1)}° | {d.isUp ? '🟢 UP' : '⚫ DOWN'}</p>
-                            <p>LII: {d.lii} (base:{(d.liiBase * 100).toFixed(0)} R:{(d.liiR * 100).toFixed(0)} S:{(d.liiS * 100).toFixed(0)} c:{(d.culmTerm * 100).toFixed(0)})</p>
-                            <p>Energia: {d.energia} (raw:{d.eRaw})</p>
-                          </div>
-                        );
+                      formatter={(v: number, name: string) => {
+                        if (name === 'liiScaled') {
+                          const original = Math.round((v / maxAlt) * 100);
+                          return [`${original}`, 'LII'];
+                        }
+                        if (name === 'energiaScaled') {
+                          const original = Math.round((v / maxAlt) * 100) / 10;
+                          return [`${original}`, 'Energia'];
+                        }
+                        return [`${v}°`, 'Altitudine'];
                       }}
+                      labelFormatter={(v: number) => `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`}
+                      contentStyle={{ fontSize: 11, borderRadius: 8, background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
                     />
                     <Area
                       type="monotone"

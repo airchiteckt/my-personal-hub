@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonZodiac } from '@/lib/moon-utils';
+import { getMoonPhase, getMoonTimes, getNextMoonEvents } from '@/lib/moon-utils';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
@@ -33,7 +33,6 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   }, [open, location]);
 
   const phase = getMoonPhase(date);
-  const zodiac = getMoonZodiac(date);
   const nextEvents = getNextMoonEvents(date);
   const times = location ? getMoonTimes(date, location.lat, location.lon) : null;
 
@@ -73,14 +72,6 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
             <p className="text-xs text-muted-foreground">Illuminazione</p>
           </div>
 
-          {/* Zodiac */}
-          <div className="flex items-center gap-3 px-1">
-            <span className="text-2xl">{zodiac.emoji}</span>
-            <div>
-              <p className="text-sm font-medium">Luna in {zodiac.signIt}</p>
-              <p className="text-xs text-muted-foreground">Segno zodiacale lunare</p>
-            </div>
-          </div>
 
           {/* Rise / Set / Transit */}
           {times ? (

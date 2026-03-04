@@ -84,11 +84,19 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     return { hoursToFullMoon, hoursPostFullMoon };
   }, [nextEvents.nextFull]);
 
-  // Energia Attesa: current value
+  // Energia Attesa: current value (with LII derivative)
   const currentEnergia = useMemo<EnergiaAttesaResult | null>(() => {
-    if (!currentLII) return null;
+    if (!currentLII || !location || !times) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
+    // Compute LII 1h ago for derivative
+    const hourAgo = ((currentHour - 1) + 24) % 24;
+    const dataAgo = getMoonDataAtHour(date, hourAgo, location.lat, location.lon, times);
+    const liiAgo = calculateLII({
+      currentHour: hourAgo, riseHour, setHour, transitHour,
+      illumination: dataAgo.illumination, altitude: dataAgo.altitude,
+    });
+    const dLII = currentLII.extended - liiAgo.extended;
     return calculateEnergiaAttesa({
       liiExt: currentLII.extended,
       currentHour,
@@ -96,8 +104,9 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       hoursToFullMoon,
       moonAge: phase.age,
       illuminationFrac: phase.illumination / 100,
+      dLII,
     });
-  }, [currentLII, hoursToFullMoon, hoursPostFullMoon]);
+  }, [currentLII, location, times, date, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination]);
 
   // LII: day samples for chart
   const liiSamples = useMemo(() => {

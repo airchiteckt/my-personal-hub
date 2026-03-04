@@ -229,6 +229,48 @@ export function getMoonAltitudeSamples(date: Date, latitude: number, longitude: 
 }
 
 /**
+ * Get moon data at a specific hour of a given day (used by LII calculator).
+ */
+export function getMoonDataAtHour(
+  date: Date, hour: number, lat: number, lon: number
+): {
+  altitude: number;
+  illumination: number;
+  transitHour: number | null;
+  riseHour: number | null;
+  setHour: number | null;
+} {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const minutes = hour * 60;
+  const sampleDate = new Date(year, month, day, 0, minutes, 0);
+  const jd = toJulianDay(sampleDate);
+  const pos = moonPosition(jd);
+  const siderealTime = gmst(jd) + lon;
+  const ha = hourAngle(pos.ra, siderealTime);
+  const alt = altitude(ha, pos.dec, lat);
+
+  const phase = getMoonPhase(sampleDate);
+
+  // Get rise/set/transit for the day
+  const times = getMoonTimes(date, lat, lon);
+  const parseTime = (t: string | null): number | null => {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h + m / 60;
+  };
+
+  return {
+    altitude: alt,
+    illumination: phase.illumination,
+    transitHour: parseTime(times.transit),
+    riseHour: parseTime(times.rise),
+    setHour: parseTime(times.set),
+  };
+}
+
+/**
  * Get next major moon events (next full moon, next new moon)
  */
 export function getNextMoonEvents(date: Date): { nextFull: Date; nextNew: Date } {

@@ -1,0 +1,1 @@
+DROP POLICY "Admins can read voice settings" ON public.ai_voice_settings;

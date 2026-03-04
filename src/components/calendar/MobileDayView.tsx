@@ -19,6 +19,7 @@ import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
 import { JournalDialog } from './JournalDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
+import { MoonDetailDialog } from './MoonDetailDialog';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -37,6 +38,7 @@ export function MobileDayView() {
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
   const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
+  const [moonDate, setMoonDate] = useState<Date | null>(null);
   const dayAppts = getAppointmentsForDate(dateStr);
   const dayReminders = getRemindersForDate(dateStr);
 
@@ -88,10 +90,10 @@ export function MobileDayView() {
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="cursor-default">{getMoonPhase(selectedDate).emoji}</span>
+                  <span className="cursor-pointer" onClick={() => setMoonDate(selectedDate)}>{getMoonPhase(selectedDate).emoji}</span>
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="text-xs">
-                  {getMoonPhase(selectedDate).nameIt}
+                  {getMoonPhase(selectedDate).nameIt} — tocca per dettagli
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -545,6 +547,14 @@ export function MobileDayView() {
           open={!!followUpTask}
           onOpenChange={(open) => !open && setFollowUpTask(null)}
           task={followUpTask}
+        />
+      )}
+
+      {moonDate && (
+        <MoonDetailDialog
+          open={!!moonDate}
+          onOpenChange={(open) => !open && setMoonDate(null)}
+          date={moonDate}
         />
       )}
     </div>

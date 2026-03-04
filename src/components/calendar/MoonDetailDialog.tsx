@@ -1,10 +1,11 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples } from '@/lib/moon-utils';
+import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour } from '@/lib/moon-utils';
+import { calculateLII, getLIIDaySamples, type LIIResult } from '@/lib/lunar-influence';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine, Tooltip, ComposedChart, Line } from 'recharts';
 
 interface Props {
   open: boolean;
@@ -40,6 +41,35 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     () => location ? getMoonAltitudeSamples(date, location.lat, location.lon) : [],
     [date, location]
   );
+
+  // LII: current value
+  const currentLII = useMemo<LIIResult | null>(() => {
+    if (!location || !times) return null;
+    const now = new Date();
+    const currentHour = now.getHours() + now.getMinutes() / 60;
+    const data = getMoonDataAtHour(date, currentHour, location.lat, location.lon);
+    const isAboveHorizon = data.altitude > -0.833;
+    const hoursFromTransit = data.transitHour !== null ? Math.abs(currentHour - data.transitHour) : 12;
+    const hoursFromRise = data.riseHour !== null ? Math.abs(currentHour - data.riseHour) : null;
+    const hoursFromSet = data.setHour !== null ? Math.abs(currentHour - data.setHour) : null;
+    return calculateLII({ illumination: data.illumination, altitude: data.altitude, isAboveHorizon, hoursFromTransit, hoursFromRise, hoursFromSet });
+  }, [date, location, times]);
+
+  // LII: day samples for chart
+  const liiSamples = useMemo(
+    () => location ? getLIIDaySamples(date, location.lat, location.lon, getMoonDataAtHour) : [],
+    [date, location]
+  );
+
+  // Merge altitude + LII for combined chart
+  const combinedSamples = useMemo(() => {
+    if (altitudeSamples.length === 0) return [];
+    return altitudeSamples.map((s, i) => ({
+      hour: s.hour,
+      altitude: s.altitude,
+      lii: liiSamples[i]?.lii ?? 0,
+    }));
+  }, [altitudeSamples, liiSamples]);
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
 
@@ -106,17 +136,54 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
             </div>
           )}
 
+          {/* LII Card */}
+          {currentLII && (
+            <div className="bg-accent/30 rounded-xl p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Lunar Influence Index</span>
+                <span className="text-lg">{currentLII.emoji}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-2.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${currentLII.score}%`,
+                        background: currentLII.score > 75 ? 'hsl(var(--destructive))' :
+                                   currentLII.score > 50 ? 'hsl(30 90% 55%)' :
+                                   currentLII.score > 25 ? 'hsl(45 90% 55%)' :
+                                   'hsl(var(--primary))',
+                      }}
+                    />
+                  </div>
+                </div>
+                <span className="text-lg font-bold">{currentLII.score}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground capitalize">Influenza: {currentLII.level}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {format(new Date(), 'HH:mm')} — ora attuale
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Altitude Chart */}
-          {altitudeSamples.length > 0 && (
+          {combinedSamples.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Altitudine nel giorno</p>
-              <div className="h-28 w-full">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Altitudine & LII nel giorno</p>
+              <div className="h-36 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={altitudeSamples} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                  <ComposedChart data={combinedSamples} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                     <defs>
                       <linearGradient id="moonAltGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
                         <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="liiGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(30 90% 55%)" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="hsl(30 90% 55%)" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <XAxis
@@ -128,28 +195,52 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
                       strokeOpacity={0.3}
                     />
                     <YAxis
+                      yAxisId="alt"
                       tick={{ fontSize: 9 }}
                       tickFormatter={(v: number) => `${v}°`}
                       stroke="hsl(var(--muted-foreground))"
                       strokeOpacity={0.3}
                     />
-                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
+                    <YAxis
+                      yAxisId="lii"
+                      orientation="right"
+                      domain={[0, 100]}
+                      tick={{ fontSize: 9 }}
+                      hide
+                    />
+                    <ReferenceLine yAxisId="alt" y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
                     <Tooltip
-                      formatter={(v: number) => [`${v}°`, 'Altitudine']}
+                      formatter={(v: number, name: string) => [
+                        name === 'altitude' ? `${v}°` : `${v}`,
+                        name === 'altitude' ? 'Altitudine' : 'LII'
+                      ]}
                       labelFormatter={(v: number) => `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`}
                       contentStyle={{ fontSize: 11, borderRadius: 8, background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
                     />
                     <Area
+                      yAxisId="alt"
                       type="monotone"
                       dataKey="altitude"
                       stroke="hsl(var(--primary))"
                       strokeWidth={2}
                       fill="url(#moonAltGrad)"
                     />
-                  </AreaChart>
+                    <Line
+                      yAxisId="lii"
+                      type="monotone"
+                      dataKey="lii"
+                      stroke="hsl(30 90% 55%)"
+                      strokeWidth={2}
+                      dot={false}
+                      strokeDasharray="4 2"
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-[10px] text-muted-foreground text-center">Sopra 0° = luna visibile sopra l'orizzonte</p>
+              <div className="flex items-center justify-center gap-4 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block rounded" /> Altitudine</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-0.5 inline-block rounded" style={{ background: 'hsl(30 90% 55%)' }} /> LII</span>
+              </div>
             </div>
           )}
 

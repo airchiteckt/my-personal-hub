@@ -128,14 +128,16 @@ export function calculateLII(input: LIIInput): LIIResult {
 // ── Energia Attesa (Expected Energy) 0–10 ──
 
 // Tunable parameters
-const ENERGY_LII_THRESHOLD = 35;   // logistic midpoint
-const ENERGY_SLOPE = 0.07;         // logistic steepness
+const ENERGY_LII_THRESHOLD = 33;   // logistic midpoint
+const ENERGY_SLOPE = 0.09;         // logistic steepness
 const EVENING_BOOST = 0.25;        // evening flow multiplier
 const EVENING_CENTER = 23;         // peak hour
 const EVENING_WIDTH = 2.5;         // gaussian sigma (hours)
 const EDGE_RISE_BOOST = 1.2;       // energy boost near moonrise
 const EDGE_SET_DRAG = 1.6;         // energy drag near moonset
 const EDGE_RHO = 1.8;              // edge gaussian width (hours)
+const FULLMOON_BOOST = 2.0;        // boost near full moon
+const FULLMOON_SIGMA = 16;         // full moon bell width (hours)
 
 export interface EnergiaAttesaInput {
   /** LII score 0–100 */
@@ -146,6 +148,8 @@ export interface EnergiaAttesaInput {
   riseHour: number | null;
   /** Moonset hour (0–24), null if no set */
   setHour: number | null;
+  /** Hours distance to nearest full moon (absolute), null if unknown */
+  hoursToFullMoon: number | null;
 }
 
 export interface EnergiaAttesaResult {
@@ -160,7 +164,7 @@ export interface EnergiaAttesaResult {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { lii, currentHour, riseHour, setHour } = input;
+  const { lii, currentHour, riseHour, setHour, hoursToFullMoon } = input;
 
   // 1) Base lunare — logistic curve
   const baseLunare = 10 / (1 + Math.exp(-ENERGY_SLOPE * (lii - ENERGY_LII_THRESHOLD)));
@@ -181,8 +185,13 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
     ? EDGE_SET_DRAG * Math.exp(-Math.pow(deltaSet / EDGE_RHO, 2))
     : 0;
 
-  // 4) Combine and clamp
-  const raw = baseLunare * eveningFactor + riseEffect - setEffect;
+  // 4) Full moon proximity boost — gaussian on absolute hours distance
+  const fullMoonEffect = hoursToFullMoon !== null
+    ? FULLMOON_BOOST * Math.exp(-Math.pow(hoursToFullMoon / FULLMOON_SIGMA, 2))
+    : 0;
+
+  // 5) Combine and clamp
+  const raw = baseLunare * eveningFactor + riseEffect - setEffect + fullMoonEffect;
   const score = Math.round(Math.max(0, Math.min(10, raw)) * 10) / 10;
 
   let level: EnergiaAttesaResult['level'];
@@ -202,13 +211,14 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
 export function getEnergiaDaySamples(
   riseHour: number | null,
   setHour: number | null,
+  hoursToFullMoon: number | null,
   getLIIAtHour: (hour: number) => number
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const lii = getLIIAtHour(h);
-    const e = calculateEnergiaAttesa({ lii, currentHour: h, riseHour, setHour });
+    const e = calculateEnergiaAttesa({ lii, currentHour: h, riseHour, setHour, hoursToFullMoon });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

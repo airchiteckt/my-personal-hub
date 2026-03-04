@@ -136,6 +136,7 @@ const W_F = 1.2;    // full moon proximity boost
 const W_C = 1.4;    // post-full-moon crash weight
 const W_D = 0.9;    // daytime baseline weight
 const W_W = 1.0;    // waxing drive weight
+const W_T = 1.1;    // LII trend (derivative) weight
 
 // Shape parameters
 const EVENING_CENTER = 23;
@@ -161,6 +162,8 @@ export interface EnergiaAttesaInput {
   moonAge: number;
   /** Illumination fraction 0–1 */
   illuminationFrac: number;
+  /** LII derivative: LII_ext(now) - LII_ext(1h ago), in [-1,1] range */
+  dLII: number;
 }
 
 export interface EnergiaAttesaResult {
@@ -200,8 +203,11 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   const W = moonAge <= 14.76 ? 1 : -1;
   const WD = W * Math.pow(illuminationFrac, WAXING_EXP);
 
+  // LII trend (derivative): positive = LII rising → energy boost
+  const trend = input.dLII;
+
   // Linear combination → single sigmoid
-  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash + W_W * WD;
+  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash + W_W * WD + W_T * trend;
 
   const raw = x;
   const score = Math.round(10 * sigmoid(x) * 10) / 10;
@@ -228,10 +234,14 @@ export function getEnergiaDaySamples(
   getLIIExtAtHour: (hour: number) => number
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
+  let prevLII = getLIIExtAtHour(0); // seed with hour 0
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const liiExt = getLIIExtAtHour(h);
-    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac });
+    // dLII: difference over 1h (2 samples back = 1h at 30min steps)
+    const dLII = liiExt - prevLII;
+    prevLII = liiExt;
+    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLII });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

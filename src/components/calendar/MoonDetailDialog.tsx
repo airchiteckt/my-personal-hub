@@ -113,6 +113,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       illuminationFrac: phase.illumination / 100,
       dLIIScore,
       transitHour,
+      riseHour,
     });
   }, [currentLII, location, times, date, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination]);
 
@@ -142,7 +143,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     };
     const getLIIExtAtHour = (hour: number) => computeLII(hour).extended;
     const getLIIScoreAtHour = (hour: number) => computeLII(hour).score;
-    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, transitHour, getLIIScoreAtHour, getLIIExtAtHour);
+    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, transitHour, getLIIScoreAtHour, getLIIExtAtHour, riseHour);
   }, [date, location, times, phase.illumination, phase.age, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
@@ -185,7 +186,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       const energia = calculateEnergiaAttesa({
         liiExt: lii.extended, currentHour: centerHour,
         hoursPostFullMoon, hoursToFullMoon, moonAge: phase.age,
-        illuminationFrac: phase.illumination / 100, dLIIScore: 0, transitHour,
+        illuminationFrac: phase.illumination / 100, dLIIScore: 0, transitHour, riseHour,
       });
       return { slot: slot.key, predicted: energia.score, liiScore: lii.score };
     });

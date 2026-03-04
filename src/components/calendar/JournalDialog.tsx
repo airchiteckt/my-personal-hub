@@ -139,8 +139,9 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
         hoursToFullMoon,
         moonAge: phase.age,
         illuminationFrac: phase.illumination / 100,
-        dLIIScore: 0, // no trend for prediction
+        dLIIScore: 0,
         transitHour,
+        riseHour,
       });
 
       return { slot: slot.key, predicted: energia.score, liiScore: lii.score };

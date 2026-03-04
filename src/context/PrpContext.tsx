@@ -101,7 +101,7 @@ interface PrpContextType {
   deleteRitualCompletion: (completionId: string) => Promise<void>;
   journalEntries: JournalEntry[];
   getJournalForDate: (date: string) => JournalEntry | null;
-  saveJournalEntry: (date: string, content: string, mood?: string, energyLevel?: number) => Promise<void>;
+  saveJournalEntry: (date: string, content: string, mood?: string, energyLevel?: number, energyMorning?: number, energyAfternoon?: number, energyEvening?: number, lunarData?: any) => Promise<void>;
   deleteJournalEntry: (id: string) => Promise<void>;
   // Reminders
   reminders: Reminder[];
@@ -270,7 +270,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (teRes.data) setTimeEntries(teRes.data.map(dbToTimeEntry));
       if (rRes.data) setRituals(rRes.data as RitualData[]);
       if (rcRes.data) setRitualCompletions(rcRes.data as RitualCompletion[]);
-      if (jRes.data) setJournalEntries(jRes.data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, energyLevel: r.energy_level, createdAt: r.created_at, updatedAt: r.updated_at })));
+      if (jRes.data) setJournalEntries(jRes.data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, energyLevel: r.energy_level, energyMorning: r.energy_morning, energyAfternoon: r.energy_afternoon, energyEvening: r.energy_evening, lunarData: r.lunar_data, createdAt: r.created_at, updatedAt: r.updated_at })));
       if (remRes.data) setReminders(remRes.data.map(dbToReminder));
 
       if (sRes.data) {
@@ -331,7 +331,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
       supabase.channel('journal-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'journal_entries', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('journal_entries').select('*').eq('user_id', userId).order('entry_date', { ascending: false }).then(({ data }) => {
-          if (data) setJournalEntries(data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, energyLevel: r.energy_level, createdAt: r.created_at, updatedAt: r.updated_at })));
+          if (data) setJournalEntries(data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, energyLevel: r.energy_level, energyMorning: r.energy_morning, energyAfternoon: r.energy_afternoon, energyEvening: r.energy_evening, lunarData: r.lunar_data, createdAt: r.created_at, updatedAt: r.updated_at })));
         });
       }).subscribe(),
       supabase.channel('reminders-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${userId}` }, () => {
@@ -768,18 +768,27 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     return journalEntries.find(j => j.entryDate === date) || null;
   }, [journalEntries]);
 
-  const saveJournalEntry = useCallback(async (date: string, content: string, mood?: string, energyLevel?: number) => {
+  const saveJournalEntry = useCallback(async (date: string, content: string, mood?: string, energyLevel?: number, energyMorning?: number, energyAfternoon?: number, energyEvening?: number, lunarData?: any) => {
     if (!userId) return;
     const existing = journalEntries.find(j => j.entryDate === date);
+    const dbPayload: any = {
+      content,
+      mood: mood ?? null,
+      energy_level: energyLevel ?? null,
+      energy_morning: energyMorning ?? null,
+      energy_afternoon: energyAfternoon ?? null,
+      energy_evening: energyEvening ?? null,
+      lunar_data: lunarData ?? null,
+    };
     if (existing) {
-      setJournalEntries(prev => prev.map(j => j.id === existing.id ? { ...j, content, mood, energyLevel } : j));
-      await supabase.from('journal_entries').update({ content, mood: mood ?? null, energy_level: energyLevel ?? null }).eq('id', existing.id);
+      setJournalEntries(prev => prev.map(j => j.id === existing.id ? { ...j, content, mood, energyLevel, energyMorning, energyAfternoon, energyEvening, lunarData } : j));
+      await supabase.from('journal_entries').update(dbPayload).eq('id', existing.id);
     } else {
       const { data, error } = await supabase.from('journal_entries').insert({
-        user_id: userId, entry_date: date, content, mood: mood ?? null, energy_level: energyLevel ?? null,
+        user_id: userId, entry_date: date, ...dbPayload,
       }).select().single();
       if (!error && data) {
-        setJournalEntries(prev => [{ id: data.id, entryDate: data.entry_date, content: data.content, mood: data.mood, energyLevel: data.energy_level, createdAt: data.created_at, updatedAt: data.updated_at }, ...prev]);
+        setJournalEntries(prev => [{ id: data.id, entryDate: data.entry_date, content: data.content, mood: data.mood, energyLevel: data.energy_level, energyMorning: data.energy_morning, energyAfternoon: data.energy_afternoon, energyEvening: data.energy_evening, lunarData: data.lunar_data as any, createdAt: data.created_at, updatedAt: data.updated_at }, ...prev]);
       }
     }
   }, [userId, journalEntries]);

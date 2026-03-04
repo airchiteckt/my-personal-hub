@@ -334,9 +334,13 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          energy_afternoon: number | null
+          energy_evening: number | null
           energy_level: number | null
+          energy_morning: number | null
           entry_date: string
           id: string
+          lunar_data: Json | null
           mood: string | null
           updated_at: string
           user_id: string
@@ -344,9 +348,13 @@ export type Database = {
         Insert: {
           content?: string
           created_at?: string
+          energy_afternoon?: number | null
+          energy_evening?: number | null
           energy_level?: number | null
+          energy_morning?: number | null
           entry_date: string
           id?: string
+          lunar_data?: Json | null
           mood?: string | null
           updated_at?: string
           user_id: string
@@ -354,9 +362,13 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          energy_afternoon?: number | null
+          energy_evening?: number | null
           energy_level?: number | null
+          energy_morning?: number | null
           entry_date?: string
           id?: string
+          lunar_data?: Json | null
           mood?: string | null
           updated_at?: string
           user_id?: string

@@ -138,6 +138,7 @@ const W_D = 0.9;    // daytime baseline weight
 const W_W = 1.0;    // waxing drive weight
 const W_T = 0.9;    // LII trend weight
 const W_A = 0.6;    // ascent factor weight
+const LAMBDA = 1.0;  // sigmoid temperature (0.8=soft, 1.0=default, 1.2=reactive)
 
 // Shape parameters
 const EVENING_CENTER = 23;
@@ -211,21 +212,19 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   const liiTrend = Math.max(-1, Math.min(1, dLIIScore / TREND_SCALE));
 
   // Ascent factor: ~1 before culmination, ~0 after (soft sigmoid)
+  // hoursToTransit > 0 means transit is ahead (ascending), < 0 means past
   let ascentSoft = 0;
   if (transitHour !== null) {
-    const hoursToTransit = circularDeltaHours(transitHour, currentHour);
-    // Positive when before transit (transit is ahead), negative when after
-    const signed = ((transitHour - currentHour + 24) % 24) <= 12
-      ? circularDeltaHours(currentHour, transitHour)
-      : -circularDeltaHours(currentHour, transitHour);
-    ascentSoft = sigmoid(ASCENT_STEEPNESS * signed);
+    const diff = ((transitHour - currentHour) % 24 + 24) % 24;
+    const hoursToTransit = diff <= 12 ? diff : diff - 24;
+    ascentSoft = sigmoid(ASCENT_STEEPNESS * hoursToTransit);
   }
 
-  // Linear combination → single sigmoid
+  // Linear combination → single sigmoid with temperature λ
   const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash + W_W * WD + W_T * liiTrend + W_A * ascentSoft;
 
   const raw = x;
-  const score = Math.round(10 * sigmoid(x) * 10) / 10;
+  const score = Math.round(10 * sigmoid(LAMBDA * x) * 10) / 10;
 
   let level: EnergiaAttesaResult['level'];
   let emoji: string;

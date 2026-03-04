@@ -134,17 +134,19 @@ const W_L = 3.0;    // LII weight (expects LII_ext in 0–1)
 const W_B = 0.9;    // evening boost weight
 const W_F = 1.2;    // full moon proximity boost
 const W_C = 1.4;    // post-full-moon crash weight
-const W_D = 1.0;    // daytime baseline weight
+const W_D = 0.9;    // daytime baseline weight
+const W_W = 1.0;    // waxing drive weight
 
 // Shape parameters
 const EVENING_CENTER = 23;
 const EVENING_WIDTH = 2.5;
-const FULLMOON_SIGMA = 16;         // full moon boost bell width (hours)
-const CRASH_CENTER = 18;           // crash bell centered 18h after full moon
-const CRASH_SIGMA = 8;             // crash bell width (hours)
-const DAYTIME_CENTER = 13;         // circadian peak hour
-const DAYTIME_WIDTH = 4;           // circadian bell width (hours)
-const DAYTIME_AMP = 0.8;           // circadian amplitude
+const FULLMOON_SIGMA = 16;
+const CRASH_CENTER = 18;
+const CRASH_SIGMA = 8;
+const DAYTIME_CENTER = 13;
+const DAYTIME_WIDTH = 4;
+const DAYTIME_AMP = 0.8;
+const WAXING_EXP = 1.2;            // exponent for waxing drive
 
 export interface EnergiaAttesaInput {
   /** LII_ext continuous value in [0,1] (NOT the 0–100 score) */
@@ -155,6 +157,10 @@ export interface EnergiaAttesaInput {
   hoursPostFullMoon: number | null;
   /** Hours to nearest full moon (absolute, for proximity boost), null if unknown */
   hoursToFullMoon: number | null;
+  /** Moon age in days (0–29.53, 0=new moon) */
+  moonAge: number;
+  /** Illumination fraction 0–1 */
+  illuminationFrac: number;
 }
 
 export interface EnergiaAttesaResult {
@@ -173,7 +179,7 @@ function sigmoid(x: number): number {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon } = input;
+  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac } = input;
 
   // Evening boost bell
   const B = Math.exp(-Math.pow((currentHour - EVENING_CENTER) / EVENING_WIDTH, 2));
@@ -181,7 +187,7 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   // Daytime baseline (circadian)
   const D = DAYTIME_AMP * Math.exp(-Math.pow((currentHour - DAYTIME_CENTER) / DAYTIME_WIDTH, 2));
 
-  // Full moon proximity boost (symmetric, uses absolute distance to nearest)
+  // Full moon proximity boost (symmetric)
   const deltaFAbs = hoursToFullMoon !== null ? hoursToFullMoon : 999;
   const FMP = Math.exp(-Math.pow(deltaFAbs / FULLMOON_SIGMA, 2));
 
@@ -189,9 +195,13 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   const deltaPost = hoursPostFullMoon !== null ? hoursPostFullMoon : 999;
   const crash = Math.exp(-Math.pow((deltaPost - CRASH_CENTER) / CRASH_SIGMA, 2));
 
+  // Waxing Drive: W(age) · f^p
+  // waxing (+1) if age ≤ half synodic month, waning (-1) otherwise
+  const W = moonAge <= 14.76 ? 1 : -1;
+  const WD = W * Math.pow(illuminationFrac, WAXING_EXP);
+
   // Linear combination → single sigmoid
-  // liiExt is already in [0,1], no division needed
-  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash;
+  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash + W_W * WD;
 
   const raw = x;
   const score = Math.round(10 * sigmoid(x) * 10) / 10;
@@ -213,13 +223,15 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
 export function getEnergiaDaySamples(
   hoursToFullMoon: number | null,
   hoursPostFullMoon: number | null,
+  moonAge: number,
+  illuminationFrac: number,
   getLIIExtAtHour: (hour: number) => number
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const liiExt = getLIIExtAtHour(h);
-    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon });
+    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

@@ -6,6 +6,13 @@ import { it } from 'date-fns/locale';
 import { useState, useEffect, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine, Tooltip, ComposedChart, Line } from 'recharts';
+import { usePrp } from '@/context/PrpContext';
+
+const TIME_SLOTS = [
+  { key: 'morning' as const, label: 'Mattina', icon: '🌅', hours: [8, 9, 10, 11] },
+  { key: 'afternoon' as const, label: 'Pomeriggio', icon: '☀️', hours: [13, 14, 15, 16] },
+  { key: 'evening' as const, label: 'Sera', icon: '🌙', hours: [20, 21, 22, 23] },
+];
 
 interface Props {
   open: boolean;
@@ -158,6 +165,42 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   }, [altitudeSamples, liiSamples, energiaSamples, maxAlt]);
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
+  const dateStr = format(date, 'yyyy-MM-dd');
+
+  // Journal entry for this date
+  const { getJournalForDate } = usePrp();
+  const journalEntry = getJournalForDate(dateStr);
+
+  // Slot predictions for correlation
+  const slotPredictions = useMemo(() => {
+    if (!location || !times) return [];
+    const lat = location.lat, lon = location.lon;
+    return TIME_SLOTS.map(slot => {
+      const centerHour = slot.hours[Math.floor(slot.hours.length / 2)];
+      const moonData = getMoonDataAtHour(date, centerHour, lat, lon, times);
+      const lii = calculateLII({
+        currentHour: centerHour, riseHour, setHour, transitHour,
+        illumination: moonData.illumination, altitude: moonData.altitude,
+      });
+      const energia = calculateEnergiaAttesa({
+        liiExt: lii.extended, currentHour: centerHour,
+        hoursPostFullMoon, hoursToFullMoon, moonAge: phase.age,
+        illuminationFrac: phase.illumination / 100, dLIIScore: 0, transitHour,
+      });
+      return { slot: slot.key, predicted: energia.score, liiScore: lii.score };
+    });
+  }, [date, location, times, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase]);
+
+  // Accuracy computation
+  const correlationAccuracy = useMemo(() => {
+    if (!journalEntry) return null;
+    const actual = [journalEntry.energyMorning, journalEntry.energyAfternoon, journalEntry.energyEvening];
+    const predicted = slotPredictions.map(p => p.predicted);
+    const pairs = actual.map((a, i) => a != null ? { actual: a, predicted: predicted[i] } : null).filter(Boolean) as { actual: number; predicted: number }[];
+    if (pairs.length === 0) return null;
+    const mae = pairs.reduce((s, p) => s + Math.abs(p.actual - p.predicted), 0) / pairs.length;
+    return { mae: Math.round(mae * 10) / 10, count: pairs.length };
+  }, [journalEntry, slotPredictions]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -374,6 +417,50 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
             <MapPin className="h-3 w-3" />
             <span>{locationName}</span>
           </div>
+
+          {/* Journal Energy Correlation */}
+          {journalEntry && (journalEntry.energyMorning || journalEntry.energyAfternoon || journalEntry.energyEvening) && (
+            <div className="border-t border-border/50 pt-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Energia reale vs prevista</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                {TIME_SLOTS.map((slot, i) => {
+                  const actual = [journalEntry.energyMorning, journalEntry.energyAfternoon, journalEntry.energyEvening][i];
+                  const predicted = slotPredictions[i]?.predicted ?? null;
+                  const delta = actual !== undefined && actual !== null && predicted !== null ? actual - predicted : null;
+                  return (
+                    <div key={slot.key} className="bg-accent/30 rounded-lg p-2 space-y-0.5">
+                      <p className="text-[10px] text-muted-foreground">{slot.icon} {slot.label}</p>
+                      {predicted !== null && (
+                        <>
+                          <p className="text-sm font-bold">{predicted}</p>
+                          <p className="text-[9px] text-muted-foreground">prevista</p>
+                        </>
+                      )}
+                      {actual !== undefined && actual !== null && (
+                        <p className={`text-[10px] font-semibold ${
+                          delta !== null && Math.abs(delta) <= 1.5 ? 'text-green-500' :
+                          delta !== null && delta > 0 ? 'text-blue-500' : 'text-orange-500'
+                        }`}>
+                          {actual}/10 reale {delta !== null && `(${delta > 0 ? '+' : ''}${delta.toFixed(1)})`}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {correlationAccuracy && (
+                <div className={`text-[10px] font-medium text-center rounded px-2 py-1 ${
+                  correlationAccuracy.mae <= 1.5 ? 'bg-green-500/10 text-green-600' :
+                  correlationAccuracy.mae <= 2.5 ? 'bg-yellow-500/10 text-yellow-600' :
+                  'bg-orange-500/10 text-orange-600'
+                }`}>
+                  {correlationAccuracy.mae <= 1.5 ? '✅ Modello accurato' :
+                   correlationAccuracy.mae <= 2.5 ? '⚠️ Modello approssimato' :
+                   '🔧 Modello da calibrare'} — MAE: {correlationAccuracy.mae} ({correlationAccuracy.count} misure)
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Next events */}
           <div className="border-t border-border/50 pt-3 space-y-1.5">

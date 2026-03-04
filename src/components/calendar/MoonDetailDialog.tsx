@@ -83,8 +83,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     if (!currentLII) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
-    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, riseHour, setHour, hoursToFullMoon });
-  }, [currentLII, riseHour, setHour, hoursToFullMoon]);
+    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, hoursToFullMoon });
+  }, [currentLII, hoursToFullMoon]);
 
   // LII: day samples for chart
   const liiSamples = useMemo(() => {
@@ -106,8 +106,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       );
       return closest.lii;
     };
-    return getEnergiaDaySamples(riseHour, setHour, hoursToFullMoon, getLIIAtHour);
-  }, [liiSamples, riseHour, setHour, hoursToFullMoon]);
+    return getEnergiaDaySamples(hoursToFullMoon, getLIIAtHour);
+  }, [liiSamples, hoursToFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {

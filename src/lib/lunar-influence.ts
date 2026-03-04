@@ -129,29 +129,25 @@ export function calculateLII(input: LIIInput): LIIResult {
 // Anti-saturation model: linear combination → single sigmoid → 0–10
 
 // Weights
-const W0 = -2.0;   // intercept (bias)
-const W_L = 3.2;    // LII weight
+const W0 = -2.2;   // intercept (bias)
+const W_L = 3.0;    // LII weight
 const W_B = 0.9;    // evening boost weight
-const W_R = 0.7;    // moonrise proximity weight
-const W_S = 1.0;    // moonset proximity weight (drag)
-const W_F = 1.1;    // full moon proximity weight
+const W_F = 1.2;    // full moon proximity boost
+const W_C = 1.4;    // post-full-moon crash weight
 
 // Shape parameters
-const EVENING_CENTER = 23;         // peak hour
-const EVENING_WIDTH = 2.5;         // gaussian sigma (hours)
-const EDGE_RHO = 1.8;              // rise/set gaussian width (hours)
-const FULLMOON_SIGMA = 16;         // full moon bell width (hours)
+const EVENING_CENTER = 23;
+const EVENING_WIDTH = 2.5;
+const FULLMOON_SIGMA = 16;         // full moon boost bell width (hours)
+const CRASH_CENTER = 18;           // crash bell centered 18h after full moon
+const CRASH_SIGMA = 8;             // crash bell width (hours)
 
 export interface EnergiaAttesaInput {
   /** LII score 0–100 */
   lii: number;
   /** Current hour as fraction of day (0–24) */
   currentHour: number;
-  /** Moonrise hour (0–24), null if no rise */
-  riseHour: number | null;
-  /** Moonset hour (0–24), null if no set */
-  setHour: number | null;
-  /** Hours distance to nearest full moon (absolute), null if unknown */
+  /** Hours distance to nearest full moon (signed: negative=past, positive=future), null if unknown */
   hoursToFullMoon: number | null;
 }
 
@@ -171,22 +167,20 @@ function sigmoid(x: number): number {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { lii, currentHour, riseHour, setHour, hoursToFullMoon } = input;
+  const { lii, currentHour, hoursToFullMoon } = input;
 
   // Evening boost bell
   const B = Math.exp(-Math.pow((currentHour - EVENING_CENTER) / EVENING_WIDTH, 2));
 
-  // Rise/set edge bells (circular delta)
-  const deltaRise = riseHour !== null ? circularDeltaHours(currentHour, riseHour) : null;
-  const deltaSet = setHour !== null ? circularDeltaHours(currentHour, setHour) : null;
-  const R = deltaRise !== null ? Math.exp(-Math.pow(deltaRise / EDGE_RHO, 2)) : 0;
-  const S = deltaSet !== null ? Math.exp(-Math.pow(deltaSet / EDGE_RHO, 2)) : 0;
+  // Full moon proximity boost (absolute Δf)
+  const deltaF = hoursToFullMoon !== null ? Math.abs(hoursToFullMoon) : 999;
+  const FMP = Math.exp(-Math.pow(deltaF / FULLMOON_SIGMA, 2));
 
-  // Full moon proximity (absolute hours, no wrap)
-  const FMP = hoursToFullMoon !== null ? Math.exp(-Math.pow(hoursToFullMoon / FULLMOON_SIGMA, 2)) : 0;
+  // Post-full-moon crash bell centered at CRASH_CENTER hours after full moon
+  const crash = Math.exp(-Math.pow((deltaF - CRASH_CENTER) / CRASH_SIGMA, 2));
 
-  // Linear combination
-  const x = W0 + W_L * (lii / 100) + W_B * B + W_R * R - W_S * S + W_F * FMP;
+  // Linear combination → single sigmoid
+  const x = W0 + W_L * (lii / 100) + W_B * B + W_F * FMP - W_C * crash;
 
   // Single sigmoid → 0–10
   const raw = x;
@@ -207,8 +201,6 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
  * Calculate Energia Attesa samples throughout a day (every 30 min) for charting.
  */
 export function getEnergiaDaySamples(
-  riseHour: number | null,
-  setHour: number | null,
   hoursToFullMoon: number | null,
   getLIIAtHour: (hour: number) => number
 ): { hour: number; energia: number }[] {
@@ -216,7 +208,7 @@ export function getEnergiaDaySamples(
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const lii = getLIIAtHour(h);
-    const e = calculateEnergiaAttesa({ lii, currentHour: h, riseHour, setHour, hoursToFullMoon });
+    const e = calculateEnergiaAttesa({ lii, currentHour: h, hoursToFullMoon });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

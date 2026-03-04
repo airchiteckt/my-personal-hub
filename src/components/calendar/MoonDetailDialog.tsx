@@ -96,7 +96,7 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       currentHour: hourAgo, riseHour, setHour, transitHour,
       illumination: dataAgo.illumination, altitude: dataAgo.altitude,
     });
-    const dLII = currentLII.extended - liiAgo.extended;
+    const dLIIScore = (currentLII.score - liiAgo.score); // per-hour (1h delta)
     return calculateEnergiaAttesa({
       liiExt: currentLII.extended,
       currentHour,
@@ -104,7 +104,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       hoursToFullMoon,
       moonAge: phase.age,
       illuminationFrac: phase.illumination / 100,
-      dLII,
+      dLIIScore,
+      transitHour,
     });
   }, [currentLII, location, times, date, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination]);
 
@@ -123,17 +124,18 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   const energiaSamples = useMemo(() => {
     if (!location || !times) return [];
     const illum = phase.illumination;
-    const getLIIExtAtHour = (hour: number) => {
+    const computeLII = (hour: number) => {
       const data = getMoonDataAtHour(date, hour, location.lat, location.lon, times);
-      const lii = calculateLII({
+      return calculateLII({
         currentHour: hour,
         riseHour, setHour, transitHour,
         illumination: illum,
         altitude: data.altitude,
       });
-      return lii.extended;
     };
-    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, getLIIExtAtHour);
+    const getLIIExtAtHour = (hour: number) => computeLII(hour).extended;
+    const getLIIScoreAtHour = (hour: number) => computeLII(hour).score;
+    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, transitHour, getLIIScoreAtHour, getLIIExtAtHour);
   }, [date, location, times, phase.illumination, phase.age, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis

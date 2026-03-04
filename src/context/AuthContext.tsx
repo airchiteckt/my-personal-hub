@@ -75,8 +75,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
+    const redirectUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('lovable.app')
+      ? `${window.location.origin}/reset-password`
+      : 'https://www.flydeck.app/reset-password';
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: redirectUrl,
     });
     return { error: error?.message ?? null };
   };

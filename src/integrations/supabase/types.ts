@@ -274,6 +274,7 @@ export type Database = {
         Row: {
           content: string
           created_at: string
+          energy_level: number | null
           entry_date: string
           id: string
           mood: string | null
@@ -283,6 +284,7 @@ export type Database = {
         Insert: {
           content?: string
           created_at?: string
+          energy_level?: number | null
           entry_date: string
           id?: string
           mood?: string | null
@@ -292,6 +294,7 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string
+          energy_level?: number | null
           entry_date?: string
           id?: string
           mood?: string | null

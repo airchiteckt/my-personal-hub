@@ -517,11 +517,18 @@ export default function Rituals() {
             </div>
 
             {/* KPI bar */}
-            <div className="flex items-center gap-4 mb-3 text-[11px] text-muted-foreground">
-              <span>Settimana: <strong className={weeklyRate >= 70 ? 'text-primary' : 'text-foreground'}>{weeklyRate}%</strong></span>
-              <span>Mese: <strong>{thisMonthEntries}</strong> voci</span>
-              <span>Totale: <strong>{totalEntries}</strong></span>
-            </div>
+            {(() => {
+              const energyEntries = journalEntries.filter(e => e.energyLevel);
+              const avgEnergy = energyEntries.length > 0 ? (energyEntries.reduce((s, e) => s + (e.energyLevel || 0), 0) / energyEntries.length).toFixed(1) : null;
+              return (
+                <div className="flex items-center gap-4 mb-3 text-[11px] text-muted-foreground">
+                  <span>Settimana: <strong className={weeklyRate >= 70 ? 'text-primary' : 'text-foreground'}>{weeklyRate}%</strong></span>
+                  {avgEnergy && <span>⚡ Energia media: <strong className="text-foreground">{avgEnergy}/10</strong></span>}
+                  <span>Mese: <strong>{thisMonthEntries}</strong> voci</span>
+                  <span>Totale: <strong>{totalEntries}</strong></span>
+                </div>
+              );
+            })()}
             <Progress value={weeklyRate} className="h-1.5 mb-3" />
 
             {/* Collapsible entries */}
@@ -551,6 +558,9 @@ export default function Rituals() {
                             <span className="text-[10px] text-muted-foreground capitalize">{dateLabel}</span>
                           </div>
                           <p className="text-sm text-foreground/80 line-clamp-2 flex-1">{entry.content || <span className="text-muted-foreground italic">Solo mood</span>}</p>
+                          {entry.energyLevel && (
+                            <span className="text-[10px] shrink-0 bg-muted px-1.5 py-0.5 rounded font-medium">⚡{entry.energyLevel}</span>
+                          )}
                         </div>
                       );
                     })}

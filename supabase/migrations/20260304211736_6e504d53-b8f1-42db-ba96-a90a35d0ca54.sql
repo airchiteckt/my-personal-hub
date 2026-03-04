@@ -1,0 +1,1 @@
+ALTER TABLE public.journal_entries ADD COLUMN energy_level smallint CHECK (energy_level >= 1 AND energy_level <= 10);

@@ -1,5 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour } from '@/lib/moon-utils';
+import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour, type MoonTimes as MoonTimesType } from '@/lib/moon-utils';
 import { calculateLII, getLIIDaySamples, type LIIResult } from '@/lib/lunar-influence';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -42,24 +42,42 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     [date, location]
   );
 
+  // Parse times to hours
+  const parseTime = (t: string | null): number | null => {
+    if (!t) return null;
+    const [h, m] = t.split(':').map(Number);
+    return h + m / 60;
+  };
+  const riseHour = times ? parseTime(times.rise) : null;
+  const setHour = times ? parseTime(times.set) : null;
+  const transitHour = times ? parseTime(times.transit) : null;
+
   // LII: current value
   const currentLII = useMemo<LIIResult | null>(() => {
     if (!location || !times) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
     const data = getMoonDataAtHour(date, currentHour, location.lat, location.lon, times);
-    const isAboveHorizon = data.altitude > -0.833;
-    const hoursFromTransit = data.transitHour !== null ? Math.abs(currentHour - data.transitHour) : 12;
-    const hoursFromRise = data.riseHour !== null ? Math.abs(currentHour - data.riseHour) : null;
-    const hoursFromSet = data.setHour !== null ? Math.abs(currentHour - data.setHour) : null;
-    return calculateLII({ illumination: data.illumination, altitude: data.altitude, isAboveHorizon, hoursFromTransit, hoursFromRise, hoursFromSet });
-  }, [date, location, times]);
+    return calculateLII({
+      currentHour,
+      riseHour,
+      setHour,
+      transitHour,
+      illumination: data.illumination,
+      altitude: data.altitude,
+    });
+  }, [date, location, times, riseHour, setHour, transitHour]);
 
   // LII: day samples for chart
-  const liiSamples = useMemo(
-    () => (location && times) ? getLIIDaySamples(date, location.lat, location.lon, getMoonDataAtHour, times) : [],
-    [date, location, times]
-  );
+  const liiSamples = useMemo(() => {
+    if (!location || !times) return [];
+    const illum = phase.illumination;
+    const getAlt = (hour: number) => {
+      const data = getMoonDataAtHour(date, hour, location.lat, location.lon, times);
+      return data.altitude;
+    };
+    return getLIIDaySamples(illum, riseHour, setHour, transitHour, getAlt);
+  }, [date, location, times, phase.illumination, riseHour, setHour, transitHour]);
 
   // Merge altitude + LII for combined chart
   const combinedSamples = useMemo(() => {

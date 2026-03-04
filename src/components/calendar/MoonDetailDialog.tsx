@@ -68,13 +68,20 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     });
   }, [date, location, times, riseHour, setHour, transitHour]);
 
+  // Hours to nearest full moon (past or future)
+  const hoursToFullMoon = useMemo(() => {
+    const now = new Date();
+    const diffMs = Math.abs(nextEvents.nextFull.getTime() - now.getTime());
+    return diffMs / (1000 * 60 * 60);
+  }, [nextEvents.nextFull]);
+
   // Energia Attesa: current value
   const currentEnergia = useMemo<EnergiaAttesaResult | null>(() => {
     if (!currentLII) return null;
     const now = new Date();
     const currentHour = now.getHours() + now.getMinutes() / 60;
-    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, riseHour, setHour });
-  }, [currentLII, riseHour, setHour]);
+    return calculateEnergiaAttesa({ lii: currentLII.score, currentHour, riseHour, setHour, hoursToFullMoon });
+  }, [currentLII, riseHour, setHour, hoursToFullMoon]);
 
   // LII: day samples for chart
   const liiSamples = useMemo(() => {
@@ -91,14 +98,13 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   const energiaSamples = useMemo(() => {
     if (liiSamples.length === 0) return [];
     const getLIIAtHour = (hour: number) => {
-      // Find closest sample
       const closest = liiSamples.reduce((prev, curr) =>
         Math.abs(curr.hour - hour) < Math.abs(prev.hour - hour) ? curr : prev
       );
       return closest.lii;
     };
-    return getEnergiaDaySamples(riseHour, setHour, getLIIAtHour);
-  }, [liiSamples, riseHour, setHour]);
+    return getEnergiaDaySamples(riseHour, setHour, hoursToFullMoon, getLIIAtHour);
+  }, [liiSamples, riseHour, setHour, hoursToFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {

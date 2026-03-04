@@ -259,44 +259,159 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   return { raw: x, score, level, emoji };
 }
 
-/**
- * Calculate Energia Attesa samples throughout a day (every 30 min) for charting.
- */
+// ── Unified Pipeline: computeStateAt ──
+// Single source of truth for both card and chart
+
+export interface LunarStateInput {
+  hour: number;
+  riseHour: number | null;
+  setHour: number | null;
+  transitHour: number | null;
+  illumination: number; // 0–100
+  moonAge: number;
+  hoursToFullMoon: number | null;
+  hoursPostFullMoon: number | null;
+  altitude: number;
+  prevLIIExt?: number | null;
+}
+
+export interface LunarState {
+  liiExt: number;
+  liiScore: number;
+  liiBase: number;
+  liiR: number;
+  lliS: number;
+  isUp: boolean;
+  culmTerm: number;
+  eRaw: number;
+  energy: number;
+  energyLevel: EnergiaAttesaResult['level'];
+  energyEmoji: string;
+}
+
+export function computeStateAt(input: LunarStateInput): LunarState {
+  const { riseHour, setHour, transitHour, illumination, altitude, moonAge, hoursToFullMoon, hoursPostFullMoon, prevLIIExt } = input;
+  const h = Math.min(input.hour, 23 + 59 / 60);
+
+  const f = illumination / 100;
+  const isUp = (riseHour !== null && setHour !== null)
+    ? computeIsUp(h, riseHour, setHour)
+    : altitude > -0.833;
+  const isUpGate = isUp ? 1 : 0;
+  const a = Math.max(0, Math.sin((Math.PI / 180) * Math.max(0, altitude)));
+  const deltaTransit = transitHour !== null ? circularDeltaHours(h, transitHour) : 12;
+  const culmTerm = gaussian(deltaTransit, SIGMA);
+  const liiBase = isUpGate * Math.pow(f, ALPHA) * Math.pow(a, BETA) * Math.pow(culmTerm, GAMMA);
+  const deltaRise = riseHour !== null ? circularDeltaHours(h, riseHour) : null;
+  const deltaSet = setHour !== null ? circularDeltaHours(h, setHour) : null;
+  const liiR = deltaRise !== null ? gaussian(deltaRise, RHO) : 0;
+  const liiS = deltaSet !== null ? gaussian(deltaSet, RHO) : 0;
+  const liiExt = Math.max(0, liiBase + K_RISE * liiR - K_SET * liiS);
+  const liiScore = Math.round(Math.min(1, liiExt) * 100);
+
+  const dLIIExt = prevLIIExt != null ? (liiExt - prevLIIExt) : 0;
+
+  const energia = calculateEnergiaAttesa({
+    liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon,
+    moonAge, illuminationFrac: f, dLIIExt, transitHour, riseHour,
+  });
+
+  return {
+    liiExt, liiScore, liiBase, liiR, lliS: liiS, isUp, culmTerm,
+    eRaw: Math.round(10 * sigmoid(LAMBDA * energia.raw) * 10) / 10,
+    energy: energia.score,
+    energyLevel: energia.level,
+    energyEmoji: energia.emoji,
+  };
+}
+
+export interface DaySample {
+  hour: number;
+  altitude: number;
+  lii: number;
+  liiExt: number;
+  energia: number;
+  eRaw: number;
+  liiBase: number;
+  liiR: number;
+  liiS: number;
+  isUp: boolean;
+  culmTerm: number;
+}
+
+export function getDaySamples(
+  riseHour: number | null,
+  setHour: number | null,
+  transitHour: number | null,
+  illumination: number,
+  moonAge: number,
+  hoursToFullMoon: number | null,
+  hoursPostFullMoon: number | null,
+  getAltitudeAtHour: (hour: number) => number
+): DaySample[] {
+  const result: DaySample[] = [];
+  let prevExt: number | null = null;
+  let smoothedEnergy: number | null = null;
+
+  for (let minutes = 0; minutes < 1440; minutes += 30) {
+    const h = minutes / 60;
+    const alt = getAltitudeAtHour(h);
+    const state = computeStateAt({
+      hour: h, riseHour, setHour, transitHour,
+      illumination, moonAge, hoursToFullMoon, hoursPostFullMoon,
+      altitude: alt, prevLIIExt: prevExt,
+    });
+    prevExt = state.liiExt;
+
+    if (smoothedEnergy === null) {
+      smoothedEnergy = state.energy;
+    } else {
+      smoothedEnergy = (1 - HYSTERESIS_LAMBDA) * smoothedEnergy + HYSTERESIS_LAMBDA * state.energy;
+    }
+
+    result.push({
+      hour: Math.round(h * 10) / 10,
+      altitude: alt,
+      lii: state.liiScore,
+      liiExt: state.liiExt,
+      energia: Math.round(smoothedEnergy * 10) / 10,
+      eRaw: state.eRaw,
+      liiBase: state.liiBase,
+      liiR: state.liiR,
+      liiS: state.lliS,
+      isUp: state.isUp,
+      culmTerm: state.culmTerm,
+    });
+  }
+  return result;
+}
+
+// Legacy wrappers kept for JournalDialog compatibility
 export function getEnergiaDaySamples(
   hoursToFullMoon: number | null,
   hoursPostFullMoon: number | null,
   moonAge: number,
   illuminationFrac: number,
   transitHour: number | null,
-  getLIIScoreAtHour: (hour: number) => number,
+  _getLIIScoreAtHour: (hour: number) => number,
   getLIIExtAtHour: (hour: number) => number,
   riseHour?: number | null
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
   let prevExt = getLIIExtAtHour(0);
-  let smoothedScore: number | null = null;
-  for (let minutes = 0; minutes <= 1440; minutes += 30) {
+  let smoothed: number | null = null;
+  for (let minutes = 0; minutes < 1440; minutes += 30) {
     const h = minutes / 60;
     const liiExt = getLIIExtAtHour(h);
-    // dLIIExt: continuous delta over ~30min step, scaled to per-hour
     const dLIIExt = (liiExt - prevExt) * 2;
     prevExt = liiExt;
     const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIExt, transitHour, riseHour });
-    // Apply hysteresis smoothing
-    if (smoothedScore === null) {
-      smoothedScore = e.score;
-    } else {
-      smoothedScore = (1 - HYSTERESIS_LAMBDA) * smoothedScore + HYSTERESIS_LAMBDA * e.score;
-    }
-    result.push({ hour: Math.round(h * 10) / 10, energia: Math.round(smoothedScore * 10) / 10 });
+    if (smoothed === null) { smoothed = e.score; } else { smoothed = (1 - HYSTERESIS_LAMBDA) * smoothed + HYSTERESIS_LAMBDA * e.score; }
+    result.push({ hour: Math.round(h * 10) / 10, energia: Math.round(smoothed * 10) / 10 });
   }
   return result;
 }
 
-/**
- * Calculate LII samples throughout a day (every 30 min) for charting.
- * Accepts precomputed rise/set/transit to avoid redundant calculations.
- */
 export function getLIIDaySamples(
   illumination: number,
   riseHour: number | null,
@@ -305,22 +420,11 @@ export function getLIIDaySamples(
   getAltitudeAtHour: (hour: number) => number
 ): { hour: number; lii: number }[] {
   const result: { hour: number; lii: number }[] = [];
-
-  for (let minutes = 0; minutes <= 1440; minutes += 30) {
+  for (let minutes = 0; minutes < 1440; minutes += 30) {
     const h = minutes / 60;
     const alt = getAltitudeAtHour(h);
-
-    const lii = calculateLII({
-      currentHour: h,
-      riseHour,
-      setHour,
-      transitHour,
-      illumination,
-      altitude: alt,
-    });
-
+    const lii = calculateLII({ currentHour: h, riseHour, setHour, transitHour, illumination, altitude: alt });
     result.push({ hour: Math.round(h * 10) / 10, lii: lii.score });
   }
-
   return result;
 }

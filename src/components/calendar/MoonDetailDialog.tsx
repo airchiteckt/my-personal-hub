@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { getMoonPhase, getMoonTimes, getNextMoonEvents } from '@/lib/moon-utils';
+import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples } from '@/lib/moon-utils';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine, Tooltip } from 'recharts';
 
 interface Props {
   open: boolean;
@@ -35,6 +36,10 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
   const phase = getMoonPhase(date);
   const nextEvents = getNextMoonEvents(date);
   const times = location ? getMoonTimes(date, location.lat, location.lon) : null;
+  const altitudeSamples = useMemo(
+    () => location ? getMoonAltitudeSamples(date, location.lat, location.lon) : [],
+    [date, location]
+  );
 
   const dateLabel = format(date, 'EEEE d MMMM yyyy', { locale: it });
 
@@ -98,6 +103,53 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
           ) : (
             <div className="text-center py-3">
               <div className="animate-pulse text-sm text-muted-foreground">Calcolo posizione...</div>
+            </div>
+          )}
+
+          {/* Altitude Chart */}
+          {altitudeSamples.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Altitudine nel giorno</p>
+              <div className="h-28 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={altitudeSamples} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <defs>
+                      <linearGradient id="moonAltGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="hour"
+                      tick={{ fontSize: 9 }}
+                      tickFormatter={(v: number) => `${Math.floor(v)}h`}
+                      ticks={[0, 6, 12, 18, 24]}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeOpacity={0.3}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 9 }}
+                      tickFormatter={(v: number) => `${v}°`}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeOpacity={0.3}
+                    />
+                    <ReferenceLine y={0} stroke="hsl(var(--muted-foreground))" strokeOpacity={0.5} strokeDasharray="3 3" />
+                    <Tooltip
+                      formatter={(v: number) => [`${v}°`, 'Altitudine']}
+                      labelFormatter={(v: number) => `${Math.floor(v)}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`}
+                      contentStyle={{ fontSize: 11, borderRadius: 8, background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))' }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="altitude"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      fill="url(#moonAltGrad)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[10px] text-muted-foreground text-center">Sopra 0° = luna visibile sopra l'orizzonte</p>
             </div>
           )}
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { BookOpen, Zap, Moon, ChevronDown, ChevronUp } from 'lucide-react';
+import { BookOpen, Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonDataAtHour } from '@/lib/moon-utils';
 import { calculateLII, calculateEnergiaAttesa } from '@/lib/lunar-influence';
 
@@ -33,10 +33,10 @@ const MOODS = [
   { emoji: '😤', label: 'Stressato', value: 'stressed' },
 ];
 
-const TIME_SLOTS = [
-  { key: 'morning' as const, label: 'Mattina', icon: '🌅', hours: [8, 9, 10, 11] },
-  { key: 'afternoon' as const, label: 'Pomeriggio', icon: '☀️', hours: [13, 14, 15, 16] },
-  { key: 'evening' as const, label: 'Sera', icon: '🌙', hours: [20, 21, 22, 23] },
+const TIME_SLOTS_HOURS = [
+  { key: 'morning', hours: [8, 9, 10, 11] },
+  { key: 'afternoon', hours: [13, 14, 15, 16] },
+  { key: 'evening', hours: [20, 21, 22, 23] },
 ];
 
 interface Props {
@@ -117,7 +117,7 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
     const transitHour = parseTime(times.transit);
 
     // Compute predicted energy for each time slot
-    const predictions = TIME_SLOTS.map(slot => {
+    const predictions = TIME_SLOTS_HOURS.map(slot => {
       const centerHour = slot.hours[Math.floor(slot.hours.length / 2)];
       const moonData = getMoonDataAtHour(d, centerHour, lat, lon, times);
       const lii = calculateLII({
@@ -164,15 +164,6 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
     };
   }, [date]);
 
-  // Compute accuracy if user has entered granular energy
-  const accuracy = useMemo(() => {
-    const actual = [energyMorning, energyAfternoon, energyEvening];
-    const predicted = lunarCorrelation.predictions.map(p => p.predicted);
-    const pairs = actual.map((a, i) => a !== undefined ? { actual: a, predicted: predicted[i] } : null).filter(Boolean) as { actual: number; predicted: number }[];
-    if (pairs.length === 0) return null;
-    const mae = pairs.reduce((s, p) => s + Math.abs(p.actual - p.predicted), 0) / pairs.length;
-    return { mae: Math.round(mae * 10) / 10, count: pairs.length };
-  }, [energyMorning, energyAfternoon, energyEvening, lunarCorrelation]);
 
   const handleSave = () => {
     if (!content.trim() && !mood && !energyLevel && !energyMorning && !energyAfternoon && !energyEvening) return;
@@ -266,66 +257,17 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
               className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/50 transition-colors"
             >
               <span className="flex items-center gap-1.5">
-                <Moon className="h-3.5 w-3.5" />
-                Tracciamento avanzato energia + correlazione lunare
+                <Zap className="h-3.5 w-3.5" />
+                Tracciamento avanzato energia
               </span>
               {showAdvanced ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
             </button>
 
             {showAdvanced && (
               <div className="px-3 pb-3 space-y-3 border-t border-border/50 pt-3">
-                {/* Granular energy */}
                 <EnergyRow label="Mattina" icon="🌅" value={energyMorning} onChange={setEnergyMorning} />
                 <EnergyRow label="Pomeriggio" icon="☀️" value={energyAfternoon} onChange={setEnergyAfternoon} />
                 <EnergyRow label="Sera" icon="🌙" value={energyEvening} onChange={setEnergyEvening} />
-
-                {/* Lunar correlation */}
-                <div className="mt-3 bg-accent/30 rounded-lg p-3 space-y-2">
-                  <p className="text-xs font-medium flex items-center gap-1.5">
-                    <span className="text-base">{lunarCorrelation.phase.emoji}</span>
-                    Previsione Energia Lunare
-                  </p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    {lunarCorrelation.predictions.map((p, i) => {
-                      const actual = [energyMorning, energyAfternoon, energyEvening][i];
-                      const delta = actual !== undefined ? actual - p.predicted : null;
-                      return (
-                        <div key={p.slot} className="space-y-0.5">
-                          <p className="text-[10px] text-muted-foreground">{TIME_SLOTS[i].icon} {TIME_SLOTS[i].label}</p>
-                          <p className="text-sm font-bold">{p.predicted}</p>
-                          <p className="text-[9px] text-muted-foreground">prevista</p>
-                          {actual !== undefined && (
-                            <p className={`text-[10px] font-semibold ${
-                              delta !== null && Math.abs(delta) <= 1.5 ? 'text-green-500' :
-                              delta !== null && delta > 0 ? 'text-blue-500' : 'text-orange-500'
-                            }`}>
-                              {actual}/10 reale {delta !== null && `(${delta > 0 ? '+' : ''}${delta.toFixed(1)})`}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Info row */}
-                  <div className="flex items-center justify-between text-[9px] text-muted-foreground pt-1 border-t border-border/30">
-                    <span>{lunarCorrelation.phase.nameIt} — {lunarCorrelation.phase.illumination}%</span>
-                    <span>LII medio: {lunarCorrelation.avgLII}</span>
-                  </div>
-
-                  {/* Accuracy feedback */}
-                  {accuracy && (
-                    <div className={`text-[10px] font-medium text-center rounded px-2 py-1 ${
-                      accuracy.mae <= 1.5 ? 'bg-green-500/10 text-green-600' :
-                      accuracy.mae <= 2.5 ? 'bg-yellow-500/10 text-yellow-600' :
-                      'bg-orange-500/10 text-orange-600'
-                    }`}>
-                      {accuracy.mae <= 1.5 ? '✅ Modello accurato' :
-                       accuracy.mae <= 2.5 ? '⚠️ Modello approssimato' :
-                       '🔧 Modello da calibrare'} — MAE: {accuracy.mae} ({accuracy.count} misure)
-                    </div>
-                  )}
-                </div>
               </div>
             )}
           </div>

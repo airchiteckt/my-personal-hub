@@ -2,12 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { format, addDays, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
-import { Task, Appointment } from '@/types/prp';
+import { Task, Appointment, Reminder } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks, BookOpen, Bell } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -34,8 +34,9 @@ export function MobileDayView() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
   const dayAppts = getAppointmentsForDate(dateStr);
+  const dayReminders = getRemindersForDate(dateStr);
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && (t.status === 'scheduled' || t.status === 'done'));
   const backlogTasks = getSortedBacklogTasks();
@@ -171,6 +172,11 @@ export function MobileDayView() {
               const ss = timeToSlot(ritual.suggested_time || '07:00');
               allTimeInfos.push({ id: `ritual-${ritual.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
             });
+            // Reminders
+            dayReminders.forEach(rem => {
+              const ss = timeToSlot(rem.reminderTime || '09:00');
+              allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
+            });
 
             const uLayout = computeOverlapLayout(allTimeInfos);
             const uLS = (itemId: string) => {
@@ -291,6 +297,36 @@ export function MobileDayView() {
                         <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color})` }}>
                           <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
                           Rituale
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Reminder blocks */}
+                {dayReminders.map(rem => {
+                  const time = rem.reminderTime || '09:00';
+                  const ss = timeToSlot(time);
+                  const top = ss * MOBILE_SLOT_HEIGHT;
+                  const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
+                  const color = rem.color || ent?.color || '45 90% 50%';
+                  const sty = uLS(`rem-${rem.id}`);
+                  return (
+                    <div
+                      key={`rem-${rem.id}`}
+                      className="absolute rounded-xl overflow-hidden z-10 border-2 cursor-pointer"
+                      style={{
+                        top,
+                        height: MOBILE_SLOT_HEIGHT - 4,
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.12)`,
+                        borderColor: `hsl(${color} / 0.5)`,
+                        borderStyle: 'solid',
+                      }}
+                    >
+                      <div className="p-2 h-full flex flex-col justify-center">
+                        <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                          <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {rem.isFollowUp ? '🔔 ' : ''}{rem.title}
                         </p>
                       </div>
                     </div>

@@ -3,12 +3,14 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
+import { EditReminderDialog } from '@/components/EditReminderDialog';
+import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
-import type { Task, Appointment } from '@/types/prp';
+import type { Task, Appointment, Reminder } from '@/types/prp';
 import { supabase } from '@/integrations/supabase/client';
 import type { RitualCompletion } from '@/lib/ritual-utils';
 import {
@@ -113,14 +115,16 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
+  const [showCreateReminder, setShowCreateReminder] = useState(false);
   const [showChoice, setShowChoice] = useState(false);
   const [apptDefaults, setApptDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
   const [journalDate, setJournalDate] = useState<string | null>(null);
 
@@ -210,6 +214,10 @@ export function DesktopWeekView() {
           <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
             <CalendarClock className="h-4 w-4 mr-1" />
             Appuntamento
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
+            <Bell className="h-4 w-4 mr-1" />
+            Promemoria
           </Button>
           <Button variant="outline" size="icon" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-4 w-4" />
@@ -343,6 +351,7 @@ export function DesktopWeekView() {
                 const dayDate = format(day, 'yyyy-MM-dd');
                 const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
                 const dayAppts = getAppointmentsForDate(dayDate);
+                const dayReminders = getRemindersForDate(dayDate);
                 const isCurrent = isToday(day);
 
                 return (
@@ -450,6 +459,11 @@ export function DesktopWeekView() {
                         flexRituals.push({ ritual, comp });
                         const ss = timeToSlot(comp.completed_time!);
                         allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
+                      });
+                      // Reminders
+                      dayReminders.forEach(rem => {
+                        const ss = timeToSlot(rem.reminderTime || '09:00');
+                        allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
                       });
 
                       const uLayout = computeOverlapLayout(allTimeInfos);
@@ -589,6 +603,42 @@ export function DesktopWeekView() {
                               />
                             );
                           })}
+                          {/* Reminder cards */}
+                          {dayReminders.map(rem => {
+                            const time = rem.reminderTime || '09:00';
+                            const ss = timeToSlot(time);
+                            const topPos = ss * DESKTOP_SLOT_HEIGHT;
+                            const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
+                            const color = rem.color || ent?.color || '45 90% 50%';
+                            const sty = uLS(`rem-${rem.id}`);
+                            return (
+                              <div
+                                key={`rem-${rem.id}`}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); setEditingReminder(rem); }}
+                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-pointer group"
+                                style={{
+                                  top: topPos + 1,
+                                  height: Math.max(DESKTOP_SLOT_HEIGHT - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  ...sty,
+                                  backgroundColor: `hsl(${color} / 0.12)`,
+                                  borderColor: `hsl(${color} / 0.5)`,
+                                  borderStyle: 'solid',
+                                }}
+                              >
+                                <div className="p-1.5 h-full flex flex-col justify-center">
+                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                    <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                                    {rem.isFollowUp ? '🔔 ' : ''}
+                                    {rem.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                    {time}{ent ? ` · ${ent.name}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </>
                       );
                     })()}
@@ -673,6 +723,19 @@ export function DesktopWeekView() {
           entry={getJournalForDate(journalDate)}
           onSave={saveJournalEntry}
           onDelete={deleteJournalEntry}
+        />
+      )}
+
+      <CreateReminderDialog
+        open={showCreateReminder}
+        onOpenChange={setShowCreateReminder}
+      />
+
+      {editingReminder && (
+        <EditReminderDialog
+          open={!!editingReminder}
+          onOpenChange={(open) => !open && setEditingReminder(null)}
+          reminder={editingReminder}
         />
       )}
     </div>

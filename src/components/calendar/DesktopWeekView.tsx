@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
@@ -23,6 +23,7 @@ import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon, type RitualData } from '@/lib/ritual-utils';
 import { DESKTOP_SLOT_HEIGHT as SH } from '@/lib/calendar-utils';
+import { JournalDialog } from './JournalDialog';
 
 interface RitualCalendarCardProps {
   ritual: RitualData;
@@ -112,7 +113,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -121,6 +122,7 @@ export function DesktopWeekView() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
+  const [journalDate, setJournalDate] = useState<string | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -297,6 +299,18 @@ export function DesktopWeekView() {
                   {totalMins > 0 && (
                     <p className="text-[10px] text-muted-foreground">{formatMinutes(totalMins)}</p>
                   )}
+                  <button
+                    onClick={() => setJournalDate(dayDate)}
+                    className={`mt-0.5 text-[10px] flex items-center gap-0.5 mx-auto rounded px-1 py-0.5 transition-colors ${
+                      getJournalForDate(dayDate)
+                        ? 'text-primary font-medium hover:bg-primary/10'
+                        : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-accent'
+                    }`}
+                    title="Journal"
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    {getJournalForDate(dayDate) ? 'Journal ✍️' : 'Journal'}
+                  </button>
                 </div>
               );
             })}
@@ -648,6 +662,17 @@ export function DesktopWeekView() {
             }
             setEditingRitual(null);
           }}
+        />
+      )}
+
+      {journalDate && (
+        <JournalDialog
+          open={!!journalDate}
+          onOpenChange={(open) => !open && setJournalDate(null)}
+          date={journalDate}
+          entry={getJournalForDate(journalDate)}
+          onSave={saveJournalEntry}
+          onDelete={deleteJournalEntry}
         />
       )}
     </div>

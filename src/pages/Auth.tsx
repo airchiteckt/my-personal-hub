@@ -8,8 +8,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
 const Auth = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, resetPassword } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -19,6 +20,17 @@ const Auth = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    if (isForgotPassword) {
+      const { error } = await resetPassword(email);
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success('Email di recupero inviata! Controlla la tua casella di posta.');
+      }
+      setLoading(false);
+      return;
+    }
 
     if (isLogin) {
       const { error } = await signIn(email, password, rememberMe);
@@ -39,11 +51,13 @@ const Auth = () => {
       <Card className="w-full max-w-sm p-6 space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">PRP</h1>
-          <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">Personal Resource Planning</p>
+          <p className="text-xs text-muted-foreground uppercase tracking-widest mt-1">
+            {isForgotPassword ? 'Recupera password' : 'Personal Resource Planning'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {!isLogin && (
+          {!isLogin && !isForgotPassword && (
             <div className="space-y-2">
               <Label htmlFor="displayName">Nome</Label>
               <Input
@@ -65,43 +79,70 @@ const Auth = () => {
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-            />
-          </div>
-          {isLogin && (
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="rememberMe"
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked === true)}
+          {!isForgotPassword && (
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                minLength={6}
               />
-              <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
-                Resta connesso
-              </Label>
+            </div>
+          )}
+          {isLogin && !isForgotPassword && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={(checked) => setRememberMe(checked === true)}
+                />
+                <Label htmlFor="rememberMe" className="text-sm font-normal cursor-pointer">
+                  Resta connesso
+                </Label>
+              </div>
+              <button
+                type="button"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() => setIsForgotPassword(true)}
+              >
+                Password dimenticata?
+              </button>
             </div>
           )}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Caricamento...' : isLogin ? 'Accedi' : 'Registrati'}
+            {loading
+              ? 'Caricamento...'
+              : isForgotPassword
+                ? 'Invia link di recupero'
+                : isLogin
+                  ? 'Accedi'
+                  : 'Registrati'}
           </Button>
         </form>
 
         <div className="text-center">
-          <button
-            type="button"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            onClick={() => setIsLogin(!isLogin)}
-          >
-            {isLogin ? 'Non hai un account? Registrati' : 'Hai già un account? Accedi'}
-          </button>
+          {isForgotPassword ? (
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setIsForgotPassword(false)}
+            >
+              ← Torna al login
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setIsLogin(!isLogin)}
+            >
+              {isLogin ? 'Non hai un account? Registrati' : 'Hai già un account? Accedi'}
+            </button>
+          )}
         </div>
       </Card>
     </div>

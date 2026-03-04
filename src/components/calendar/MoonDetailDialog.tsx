@@ -68,11 +68,14 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     });
   }, [date, location, times, riseHour, setHour, transitHour]);
 
-  // Hours to nearest full moon (past or future)
+  // Hours to nearest full moon (past or future) — absolute, no wrap
   const hoursToFullMoon = useMemo(() => {
     const now = new Date();
-    const diffMs = Math.abs(nextEvents.nextFull.getTime() - now.getTime());
-    return diffMs / (1000 * 60 * 60);
+    const hoursToNext = Math.abs(nextEvents.nextFull.getTime() - now.getTime()) / (1000 * 60 * 60);
+    // Previous full moon: ~synodic month before the next one
+    const prevFull = new Date(nextEvents.nextFull.getTime() - 29.53059 * 24 * 60 * 60 * 1000);
+    const hoursToPrev = Math.abs(now.getTime() - prevFull.getTime()) / (1000 * 60 * 60);
+    return Math.min(hoursToNext, hoursToPrev);
   }, [nextEvents.nextFull]);
 
   // Energia Attesa: current value

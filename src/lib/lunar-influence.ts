@@ -131,7 +131,7 @@ export function calculateLII(input: LIIInput): LIIResult {
 // Weights
 const W0 = -2.2;   // intercept (bias)
 const W_L = 3.0;    // LII weight (expects LII_ext in 0–1)
-const W_B = 0.9;    // evening boost weight
+const W_MR = 1.2;   // moonrise boost weight
 const W_F = 1.2;    // full moon proximity boost
 const W_C = 1.4;    // post-full-moon crash weight
 const W_D = 0.9;    // daytime baseline weight
@@ -141,8 +141,7 @@ const W_A = 0.6;    // ascent factor weight
 const LAMBDA = 1.0;  // sigmoid temperature (0.8=soft, 1.0=default, 1.2=reactive)
 
 // Shape parameters
-const EVENING_CENTER = 23;
-const EVENING_WIDTH = 2.5;
+const MOONRISE_TAU = 2.8;  // moonrise boost decay (hours)
 const FULLMOON_SIGMA = 16;
 const CRASH_CENTER = 18;
 const CRASH_SIGMA = 8;
@@ -170,6 +169,8 @@ export interface EnergiaAttesaInput {
   dLIIScore: number;
   /** Transit/culmination hour (0–24), null if unknown */
   transitHour: number | null;
+  /** Moonrise hour (0–24), null if unknown */
+  riseHour?: number | null;
 }
 
 export interface EnergiaAttesaResult {
@@ -188,10 +189,20 @@ function sigmoid(x: number): number {
 }
 
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
-  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour } = input;
+  const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour, riseHour } = input;
 
-  // Evening boost bell
-  const B = Math.exp(-Math.pow((currentHour - EVENING_CENTER) / EVENING_WIDTH, 2));
+  // Moonrise Boost: MR(t) = exp(-((Δrise)/τr)²)
+  // Δrise = signed hours since moonrise (circular)
+  let MR = 0;
+  if (riseHour != null) {
+    // Signed delta: positive = after moonrise, negative = before
+    const diff = ((currentHour - riseHour) % 24 + 24) % 24;
+    const deltaRise = diff <= 12 ? diff : diff - 24;
+    // Only boost after moonrise (deltaRise >= 0), decays with τ
+    if (deltaRise >= 0) {
+      MR = Math.exp(-Math.pow(deltaRise / MOONRISE_TAU, 2));
+    }
+  }
 
   // Daytime baseline (circadian)
   const D = DAYTIME_AMP * Math.exp(-Math.pow((currentHour - DAYTIME_CENTER) / DAYTIME_WIDTH, 2));
@@ -212,7 +223,6 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   const liiTrend = Math.max(-1, Math.min(1, dLIIScore / TREND_SCALE));
 
   // Ascent factor: ~1 before culmination, ~0 after (soft sigmoid)
-  // hoursToTransit > 0 means transit is ahead (ascending), < 0 means past
   let ascentSoft = 0;
   if (transitHour !== null) {
     const diff = ((transitHour - currentHour) % 24 + 24) % 24;
@@ -221,7 +231,7 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   }
 
   // Linear combination → single sigmoid with temperature λ
-  const x = W0 + W_L * liiExt + W_B * B + W_D * D + W_F * FMP - W_C * crash + W_W * WD + W_T * liiTrend + W_A * ascentSoft;
+  const x = W0 + W_L * liiExt + W_MR * MR + W_D * D + W_F * FMP - W_C * crash + W_W * WD + W_T * liiTrend + W_A * ascentSoft;
 
   const raw = x;
   const score = Math.round(10 * sigmoid(LAMBDA * x) * 10) / 10;
@@ -247,19 +257,18 @@ export function getEnergiaDaySamples(
   illuminationFrac: number,
   transitHour: number | null,
   getLIIScoreAtHour: (hour: number) => number,
-  getLIIExtAtHour: (hour: number) => number
+  getLIIExtAtHour: (hour: number) => number,
+  riseHour?: number | null
 ): { hour: number; energia: number }[] {
   const result: { hour: number; energia: number }[] = [];
-  // Seed: LII score 1h before first sample
   let prevScore = getLIIScoreAtHour(0);
   for (let minutes = 0; minutes <= 1440; minutes += 30) {
     const h = minutes / 60;
     const liiExt = getLIIExtAtHour(h);
     const liiScore = getLIIScoreAtHour(h);
-    // dLIIScore: score delta over ~30min step (scaled to per-hour in TREND_SCALE)
-    const dLIIScore = (liiScore - prevScore) * 2; // *2 to convert 30min delta to per-hour
+    const dLIIScore = (liiScore - prevScore) * 2;
     prevScore = liiScore;
-    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour });
+    const e = calculateEnergiaAttesa({ liiExt, currentHour: h, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIScore, transitHour, riseHour });
     result.push({ hour: Math.round(h * 10) / 10, energia: e.score });
   }
   return result;

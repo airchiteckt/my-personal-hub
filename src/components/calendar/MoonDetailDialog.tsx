@@ -94,6 +94,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       currentHour,
       hoursPostFullMoon,
       hoursToFullMoon,
+      moonAge: phase.age,
+      illuminationFrac: phase.illumination / 100,
     });
   }, [currentLII, hoursToFullMoon, hoursPostFullMoon]);
 
@@ -122,8 +124,8 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
       });
       return lii.extended;
     };
-    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, getLIIExtAtHour);
-  }, [date, location, times, phase.illumination, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
+    return getEnergiaDaySamples(hoursToFullMoon, hoursPostFullMoon, phase.age, phase.illumination / 100, getLIIExtAtHour);
+  }, [date, location, times, phase.illumination, phase.age, riseHour, setHour, transitHour, hoursToFullMoon, hoursPostFullMoon]);
 
   // Compute max altitude to scale LII onto the same axis
   const maxAlt = useMemo(() => {

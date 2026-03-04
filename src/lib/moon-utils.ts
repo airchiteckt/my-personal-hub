@@ -206,6 +206,29 @@ export function getMoonTimes(date: Date, latitude: number, longitude: number): M
 }
 
 /**
+ * Get moon altitude samples throughout the day (every 30 min) for charting.
+ */
+export function getMoonAltitudeSamples(date: Date, latitude: number, longitude: number): { hour: number; altitude: number }[] {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const result: { hour: number; altitude: number }[] = [];
+
+  for (let minutes = 0; minutes <= 1440; minutes += 30) {
+    const h = minutes / 60;
+    const sampleDate = new Date(year, month, day, 0, minutes, 0);
+    const jd = toJulianDay(sampleDate);
+    const pos = moonPosition(jd);
+    const siderealTime = gmst(jd) + longitude;
+    const ha = hourAngle(pos.ra, siderealTime);
+    const alt = altitude(ha, pos.dec, latitude);
+    result.push({ hour: Math.round(h * 10) / 10, altitude: Math.round(alt * 10) / 10 });
+  }
+
+  return result;
+}
+
+/**
  * Get next major moon events (next full moon, next new moon)
  */
 export function getNextMoonEvents(date: Date): { nextFull: Date; nextNew: Date } {

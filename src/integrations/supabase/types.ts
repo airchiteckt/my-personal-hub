@@ -86,6 +86,66 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_voice_settings: {
+        Row: {
+          created_at: string
+          id: string
+          llm_max_tokens: number
+          llm_model: string
+          llm_system_prompt: string
+          llm_temperature: number
+          stt_diarize: boolean
+          stt_language_code: string
+          stt_model: string
+          tts_model: string
+          tts_similarity_boost: number
+          tts_speed: number
+          tts_stability: number
+          tts_style: number
+          tts_use_speaker_boost: boolean
+          tts_voice_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          llm_max_tokens?: number
+          llm_model?: string
+          llm_system_prompt?: string
+          llm_temperature?: number
+          stt_diarize?: boolean
+          stt_language_code?: string
+          stt_model?: string
+          tts_model?: string
+          tts_similarity_boost?: number
+          tts_speed?: number
+          tts_stability?: number
+          tts_style?: number
+          tts_use_speaker_boost?: boolean
+          tts_voice_id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          llm_max_tokens?: number
+          llm_model?: string
+          llm_system_prompt?: string
+          llm_temperature?: number
+          stt_diarize?: boolean
+          stt_language_code?: string
+          stt_model?: string
+          tts_model?: string
+          tts_similarity_boost?: number
+          tts_speed?: number
+          tts_stability?: number
+          tts_style?: number
+          tts_use_speaker_boost?: boolean
+          tts_voice_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       appointments: {
         Row: {
           color: string | null
@@ -916,14 +976,39 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "user"
       enterprise_status: "active" | "development" | "paused"
       project_type: "strategic" | "operational" | "maintenance"
       task_priority: "high" | "medium" | "low"
@@ -1055,6 +1140,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       enterprise_status: ["active", "development", "paused"],
       project_type: ["strategic", "operational", "maintenance"],
       task_priority: ["high", "medium", "low"],

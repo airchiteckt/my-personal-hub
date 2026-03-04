@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import {
   Brain, Shield, Cog, Plus, Repeat, Clock, Building2, Check,
-  MoreHorizontal, Trash2, Pencil, CalendarDays, Pin, Shuffle,
+  MoreHorizontal, Trash2, Pencil, CalendarDays, Pin, Shuffle, BookOpen,
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -19,6 +19,7 @@ import { it } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { CreateRitualDialog } from '@/components/rituals/CreateRitualDialog';
 import { EditRitualDialog } from '@/components/rituals/EditRitualDialog';
+import { JournalDialog, type JournalEntry } from '@/components/calendar/JournalDialog';
 
 interface Ritual {
   id: string;
@@ -86,13 +87,15 @@ function shouldCompleteOnDate(ritual: Ritual, date: Date): boolean {
 
 export default function Rituals() {
   const { user } = useAuth();
-  const { enterprises } = usePrp();
+  const { enterprises, journalEntries, getJournalForDate, saveJournalEntry, deleteJournalEntry } = usePrp();
   const [rituals, setRituals] = useState<Ritual[]>([]);
   const [completions, setCompletions] = useState<RitualCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
   const [editingRitual, setEditingRitual] = useState<Ritual | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [journalDate, setJournalDate] = useState<string | null>(null);
+  const [showAllJournals, setShowAllJournals] = useState(false);
 
   const today = useMemo(() => new Date(), []);
   const weekStart = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
@@ -465,11 +468,61 @@ export default function Rituals() {
         </Card>
       )}
 
+      {/* Journal Section */}
+      <Card className="p-4 mt-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Journal — Diario quotidiano
+            </span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setJournalDate(format(new Date(), 'yyyy-MM-dd'))} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" /> Oggi
+          </Button>
+        </div>
+
+        {journalEntries.length === 0 ? (
+          <div className="text-center py-8">
+            <BookOpen className="h-10 w-10 text-muted-foreground/20 mx-auto mb-3" />
+            <p className="text-muted-foreground text-sm">Nessuna voce nel journal</p>
+            <p className="text-muted-foreground text-xs mt-1">Inizia a scrivere il tuo diario quotidiano dal calendario o da qui</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {(showAllJournals ? journalEntries : journalEntries.slice(0, 7)).map(entry => {
+              const moodEmoji = { great: '😊', good: '🙂', neutral: '😐', tough: '😟', stressed: '😤' }[entry.mood || ''] || '';
+              const dateLabel = new Date(entry.entryDate + 'T00:00:00').toLocaleDateString('it-IT', {
+                weekday: 'short', day: 'numeric', month: 'short',
+              });
+              return (
+                <div
+                  key={entry.id}
+                  className="flex items-start gap-3 py-2.5 border-t border-border/50 group cursor-pointer hover:bg-accent/30 rounded-md px-2 -mx-2 transition-colors"
+                  onClick={() => setJournalDate(entry.entryDate)}
+                >
+                  <div className="flex flex-col items-center shrink-0 w-12 pt-0.5">
+                    {moodEmoji && <span className="text-lg">{moodEmoji}</span>}
+                    <span className="text-[10px] text-muted-foreground capitalize">{dateLabel}</span>
+                  </div>
+                  <p className="text-sm text-foreground/80 line-clamp-2 flex-1">{entry.content || <span className="text-muted-foreground italic">Solo mood registrato</span>}</p>
+                </div>
+              );
+            })}
+            {journalEntries.length > 7 && !showAllJournals && (
+              <Button variant="ghost" size="sm" className="w-full text-muted-foreground" onClick={() => setShowAllJournals(true)}>
+                Mostra tutti ({journalEntries.length} voci)
+              </Button>
+            )}
+          </div>
+        )}
+      </Card>
+
       {/* Info card */}
       <Card className="p-4 bg-muted/50 border-dashed mt-4">
         <p className="text-xs text-muted-foreground leading-relaxed">
           <strong>🧠 Imprese vs Rituali:</strong> Le Imprese guidano la direzione (cosa costruisci).
-          I Rituali garantiscono coerenza nel tempo (come ti comporti). Non sono task isolate — sono sistemi strutturali.
+          I Rituali garantiscono coerenza nel tempo (come ti comporti). Il journaling è un rituale di riflessione quotidiana.
         </p>
       </Card>
 
@@ -487,6 +540,17 @@ export default function Rituals() {
         ritual={editingRitual}
         onSubmit={handleEdit}
       />
+
+      {journalDate && (
+        <JournalDialog
+          open={!!journalDate}
+          onOpenChange={(open) => !open && setJournalDate(null)}
+          date={journalDate}
+          entry={getJournalForDate(journalDate)}
+          onSave={saveJournalEntry}
+          onDelete={deleteJournalEntry}
+        />
+      )}
     </div>
   );
 }

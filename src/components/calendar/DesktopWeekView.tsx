@@ -11,6 +11,7 @@ import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { EditReminderDialog } from '@/components/EditReminderDialog';
 import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
+import { MoonDetailDialog } from './MoonDetailDialog';
 import type { Task, Appointment, Reminder } from '@/types/prp';
 import { supabase } from '@/integrations/supabase/client';
 import type { RitualCompletion } from '@/lib/ritual-utils';
@@ -129,6 +130,7 @@ export function DesktopWeekView() {
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
   const [journalDate, setJournalDate] = useState<string | null>(null);
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
+  const [moonDate, setMoonDate] = useState<Date | null>(null);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -298,10 +300,15 @@ export function DesktopWeekView() {
                     <TooltipProvider delayDuration={200}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="ml-1 text-xs opacity-60 cursor-default">{getMoonPhase(day).emoji}</span>
+                          <span
+                            className="ml-1 text-xs opacity-60 cursor-pointer hover:opacity-100 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); setMoonDate(day); }}
+                          >
+                            {getMoonPhase(day).emoji}
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="text-xs">
-                          {getMoonPhase(day).nameIt}
+                          {getMoonPhase(day).nameIt} — clicca per dettagli
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -747,6 +754,14 @@ export function DesktopWeekView() {
           open={!!editingReminder}
           onOpenChange={(open) => !open && setEditingReminder(null)}
           reminder={editingReminder}
+        />
+      )}
+
+      {moonDate && (
+        <MoonDetailDialog
+          open={!!moonDate}
+          onOpenChange={(open) => !open && setMoonDate(null)}
+          date={moonDate}
         />
       )}
     </div>

@@ -189,6 +189,16 @@ function sigmoid(x: number): number {
   return 1 / (1 + Math.exp(-x));
 }
 
+/** Personal energy mapping: dead zone below T, power curve above */
+function mapEnergyToYou(Eraw: number): number {
+  const T = 2.5;    // dead zone threshold
+  const eta = 1.3;  // curve steepness (>1 = steeper)
+  if (Eraw <= T) return Math.round(10) / 10; // floor at 1
+  const u = (Eraw - T) / (10 - T);
+  const Ey = 1 + 9 * Math.pow(u, eta);
+  return Math.round(Math.max(1, Math.min(10, Ey)) * 10) / 10;
+}
+
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
   const { liiExt, currentHour, hoursPostFullMoon, hoursToFullMoon, moonAge, illuminationFrac, dLIIExt, transitHour, riseHour } = input;
 
@@ -232,8 +242,11 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   // Linear combination → single sigmoid with temperature λ
   const x = W0 + W_L * liiExt + W_MR * MR + W_D * D + W_F * FMP - W_C * crash + W_W * WD + W_T * liiTrend + W_A * ascentSoft;
 
-  const raw = x;
-  const score = Math.round(10 * sigmoid(LAMBDA * x) * 10) / 10;
+  // Raw sigmoid score
+  const Eraw = Math.round(10 * sigmoid(LAMBDA * x) * 10) / 10;
+
+  // Personal energy mapping: compresses low values, expands high range
+  const score = mapEnergyToYou(Eraw);
 
   let level: EnergiaAttesaResult['level'];
   let emoji: string;
@@ -243,7 +256,7 @@ export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesa
   else if (score <= 7.5) { level = 'alta'; emoji = '🔥'; }
   else { level = 'massima'; emoji = '🚀'; }
 
-  return { raw, score, level, emoji };
+  return { raw: x, score, level, emoji };
 }
 
 /**

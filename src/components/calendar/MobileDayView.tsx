@@ -18,6 +18,7 @@ import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
 import { JournalDialog } from './JournalDialog';
+import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -34,7 +35,8 @@ export function MobileDayView() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
+  const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const dayAppts = getAppointmentsForDate(dateStr);
   const dayReminders = getRemindersForDate(dateStr);
 
@@ -439,12 +441,27 @@ export function MobileDayView() {
           </SheetHeader>
           {selectedTask && (
             <div className="space-y-2 mt-4">
-              <Button
-                className="w-full justify-start"
-                onClick={() => { completeTask(selectedTask.id); setSelectedTask(null); }}
-              >
-                <Check className="mr-2 h-4 w-4" /> Completa
-              </Button>
+              {selectedTask.status === 'done' ? (
+                <Button
+                  className="w-full justify-start"
+                  variant="outline"
+                  onClick={() => { uncompleteTask(selectedTask.id); setSelectedTask(null); }}
+                >
+                  ↩️ Riapri Task
+                </Button>
+              ) : (
+                <Button
+                  className="w-full justify-start"
+                  onClick={() => { 
+                    completeTask(selectedTask.id); 
+                    const t = selectedTask;
+                    setSelectedTask(null); 
+                    setTimeout(() => setFollowUpTask(t), 300);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4" /> Completa
+                </Button>
+              )}
 
               <div className="flex gap-2">
                 <Button
@@ -522,6 +539,14 @@ export function MobileDayView() {
         onSave={saveJournalEntry}
         onDelete={deleteJournalEntry}
       />
+
+      {followUpTask && (
+        <TaskFollowUpDialog
+          open={!!followUpTask}
+          onOpenChange={(open) => !open && setFollowUpTask(null)}
+          task={followUpTask}
+        />
+      )}
     </div>
   );
 }

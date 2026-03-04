@@ -8,16 +8,16 @@ import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect } from 'react';
 import { Archive, Bell } from 'lucide-react';
-import { TaskFollowUpDialog } from './TaskFollowUpDialog';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task: Task;
+  onCompleted?: (task: Task) => void;
 }
 
-export function EditTaskDialog({ open, onOpenChange, task }: Props) {
-  const { updateTask, deleteTask, completeTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask } = usePrp();
+export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props) {
+  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask } = usePrp();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task.estimatedMinutes);
@@ -26,7 +26,6 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
   const [impact, setImpact] = useState(task.impact || 2);
   const [effort, setEffort] = useState(task.effort || 2);
   const [projectId, setProjectId] = useState(task.projectId);
-  const [showFollowUp, setShowFollowUp] = useState(false);
 
   const projects = getProjectsForEnterprise(task.enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
@@ -64,8 +63,12 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
   const handleComplete = () => {
     completeTask(task.id);
     onOpenChange(false);
-    // Show follow-up dialog after a brief delay
-    setTimeout(() => setShowFollowUp(true), 300);
+    onCompleted?.(task);
+  };
+
+  const handleUncomplete = () => {
+    uncompleteTask(task.id);
+    onOpenChange(false);
   };
 
   const handleBacklog = () => {
@@ -74,128 +77,119 @@ export function EditTaskDialog({ open, onOpenChange, task }: Props) {
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Modifica Task</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>Titolo</Label>
-              <Input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} />
-            </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Modifica Task</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <Label>Titolo</Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} />
+          </div>
 
-            <div className="space-y-2">
-              <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
-              <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
-            </div>
+          <div className="space-y-2">
+            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
+          </div>
 
-            {/* Move to different project */}
+          <div className="space-y-2">
+            <Label>Progetto</Label>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Progetto</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
+              <Label>Durata (min)</Label>
+              <Input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(Number(e.target.value))} min={5} step={5} />
+            </div>
+            <div className="space-y-2">
+              <Label>Priorità</Label>
+              <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
+                  <SelectItem value="high">🔴 Alta</SelectItem>
+                  <SelectItem value="medium">🟡 Media</SelectItem>
+                  <SelectItem value="low">⚪ Bassa</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+          </div>
 
+          <div className="space-y-2">
+            <Label>Deadline (opzionale)</Label>
+            <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
+          </div>
+
+          {prioritySettings.impactEffortEnabled && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Durata (min)</Label>
-                <Input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(Number(e.target.value))} min={5} step={5} />
-              </div>
-              <div className="space-y-2">
-                <Label>Priorità</Label>
-                <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
+                <Label>Impatto (1-3)</Label>
+                <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="high">🔴 Alta</SelectItem>
-                    <SelectItem value="medium">🟡 Media</SelectItem>
-                    <SelectItem value="low">⚪ Bassa</SelectItem>
+                    <SelectItem value="1">1 – Basso</SelectItem>
+                    <SelectItem value="2">2 – Medio</SelectItem>
+                    <SelectItem value="3">3 – Alto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Sforzo (1-3)</Label>
+                <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 – Basso</SelectItem>
+                    <SelectItem value="2">2 – Medio</SelectItem>
+                    <SelectItem value="3">3 – Alto</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label>Deadline (opzionale)</Label>
-              <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
-            </div>
-
-            {prioritySettings.impactEffortEnabled && (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Impatto (1-3)</Label>
-                  <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 – Basso</SelectItem>
-                      <SelectItem value="2">2 – Medio</SelectItem>
-                      <SelectItem value="3">3 – Alto</SelectItem>
-                    </SelectContent>
-                  </Select>
+          {taskReminders.length > 0 && (
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Promemoria collegati</Label>
+              {taskReminders.map(rem => (
+                <div key={rem.id} className="text-xs bg-accent/50 rounded-md p-2 flex items-center gap-2">
+                  <span>🔔</span>
+                  <span className="font-medium">{rem.title}</span>
+                  <span className="text-muted-foreground">{rem.reminderDate}{rem.reminderTime ? ` · ${rem.reminderTime}` : ''}</span>
                 </div>
-                <div className="space-y-2">
-                  <Label>Sforzo (1-3)</Label>
-                  <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 – Basso</SelectItem>
-                      <SelectItem value="2">2 – Medio</SelectItem>
-                      <SelectItem value="3">3 – Alto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-
-            {/* Linked reminders */}
-            {taskReminders.length > 0 && (
-              <div className="space-y-1">
-                <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Promemoria collegati</Label>
-                {taskReminders.map(rem => (
-                  <div key={rem.id} className="text-xs bg-accent/50 rounded-md p-2 flex items-center gap-2">
-                    <span>🔔</span>
-                    <span className="font-medium">{rem.title}</span>
-                    <span className="text-muted-foreground">{rem.reminderDate}{rem.reminderTime ? ` · ${rem.reminderTime}` : ''}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="flex gap-2">
-              <Button onClick={handleSave} className="flex-1" disabled={!title.trim()}>Salva</Button>
-              {task.status !== 'done' && (
-                <Button variant="outline" onClick={handleComplete} className="gap-1.5">
-                  ✅ Completa
-                </Button>
-              )}
-              {task.status === 'scheduled' && (
-                <Button variant="outline" onClick={handleBacklog} className="gap-1.5">
-                  <Archive className="h-3.5 w-3.5" /> Backlog
-                </Button>
-              )}
+              ))}
             </div>
-            <Button variant="destructive" onClick={handleDelete} className="w-full">
-              Elimina Task
-            </Button>
+          )}
+
+          <div className="flex gap-2">
+            <Button onClick={handleSave} className="flex-1" disabled={!title.trim()}>Salva</Button>
+            {task.status === 'done' ? (
+              <Button variant="outline" onClick={handleUncomplete} className="gap-1.5">
+                ↩️ Riapri
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={handleComplete} className="gap-1.5">
+                ✅ Completa
+              </Button>
+            )}
+            {task.status === 'scheduled' && (
+              <Button variant="outline" onClick={handleBacklog} className="gap-1.5">
+                <Archive className="h-3.5 w-3.5" /> Backlog
+              </Button>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {showFollowUp && (
-        <TaskFollowUpDialog
-          open={showFollowUp}
-          onOpenChange={setShowFollowUp}
-          task={task}
-        />
-      )}
-    </>
+          <Button variant="destructive" onClick={handleDelete} className="w-full">
+            Elimina Task
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

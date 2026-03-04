@@ -126,17 +126,20 @@ export function calculateLII(input: LIIInput): LIIResult {
 }
 
 // ── Energia Attesa (Expected Energy) 0–10 ──
+// Anti-saturation model: linear combination → single sigmoid → 0–10
 
-// Tunable parameters
-const ENERGY_LII_THRESHOLD = 33;   // logistic midpoint
-const ENERGY_SLOPE = 0.09;         // logistic steepness
-const EVENING_BOOST = 0.25;        // evening flow multiplier
+// Weights
+const W0 = -2.0;   // intercept (bias)
+const W_L = 3.2;    // LII weight
+const W_B = 0.9;    // evening boost weight
+const W_R = 0.7;    // moonrise proximity weight
+const W_S = 1.0;    // moonset proximity weight (drag)
+const W_F = 1.1;    // full moon proximity weight
+
+// Shape parameters
 const EVENING_CENTER = 23;         // peak hour
 const EVENING_WIDTH = 2.5;         // gaussian sigma (hours)
-const EDGE_RISE_BOOST = 1.2;       // energy boost near moonrise
-const EDGE_SET_DRAG = 1.6;         // energy drag near moonset
-const EDGE_RHO = 1.8;              // edge gaussian width (hours)
-const FULLMOON_BOOST = 2.0;        // boost near full moon
+const EDGE_RHO = 1.8;              // rise/set gaussian width (hours)
 const FULLMOON_SIGMA = 16;         // full moon bell width (hours)
 
 export interface EnergiaAttesaInput {
@@ -153,7 +156,7 @@ export interface EnergiaAttesaInput {
 }
 
 export interface EnergiaAttesaResult {
-  /** Raw value (may exceed 0–10 before clamping) */
+  /** Raw logit x(t) before sigmoid */
   raw: number;
   /** Clamped 0–10 score */
   score: number;
@@ -163,36 +166,31 @@ export interface EnergiaAttesaResult {
   emoji: string;
 }
 
+function sigmoid(x: number): number {
+  return 1 / (1 + Math.exp(-x));
+}
+
 export function calculateEnergiaAttesa(input: EnergiaAttesaInput): EnergiaAttesaResult {
   const { lii, currentHour, riseHour, setHour, hoursToFullMoon } = input;
 
-  // 1) Base lunare — logistic curve
-  const baseLunare = 10 / (1 + Math.exp(-ENERGY_SLOPE * (lii - ENERGY_LII_THRESHOLD)));
+  // Evening boost bell
+  const B = Math.exp(-Math.pow((currentHour - EVENING_CENTER) / EVENING_WIDTH, 2));
 
-  // 2) Boost serale — gaussian bell centered at EVENING_CENTER
-  const eveningFactor = 1 + EVENING_BOOST * Math.exp(
-    -Math.pow(currentHour - EVENING_CENTER, 2) / Math.pow(EVENING_WIDTH, 2)
-  );
-
-  // 3) Edge effects — circular distance in hours
+  // Rise/set edge bells (circular delta)
   const deltaRise = riseHour !== null ? circularDeltaHours(currentHour, riseHour) : null;
   const deltaSet = setHour !== null ? circularDeltaHours(currentHour, setHour) : null;
+  const R = deltaRise !== null ? Math.exp(-Math.pow(deltaRise / EDGE_RHO, 2)) : 0;
+  const S = deltaSet !== null ? Math.exp(-Math.pow(deltaSet / EDGE_RHO, 2)) : 0;
 
-  const riseEffect = deltaRise !== null
-    ? EDGE_RISE_BOOST * Math.exp(-Math.pow(deltaRise / EDGE_RHO, 2))
-    : 0;
-  const setEffect = deltaSet !== null
-    ? EDGE_SET_DRAG * Math.exp(-Math.pow(deltaSet / EDGE_RHO, 2))
-    : 0;
+  // Full moon proximity (absolute hours, no wrap)
+  const FMP = hoursToFullMoon !== null ? Math.exp(-Math.pow(hoursToFullMoon / FULLMOON_SIGMA, 2)) : 0;
 
-  // 4) Full moon proximity boost — gaussian on absolute hours distance
-  const fullMoonEffect = hoursToFullMoon !== null
-    ? FULLMOON_BOOST * Math.exp(-Math.pow(hoursToFullMoon / FULLMOON_SIGMA, 2))
-    : 0;
+  // Linear combination
+  const x = W0 + W_L * (lii / 100) + W_B * B + W_R * R - W_S * S + W_F * FMP;
 
-  // 5) Combine and clamp
-  const raw = baseLunare * eveningFactor + riseEffect - setEffect + fullMoonEffect;
-  const score = Math.round(Math.max(0, Math.min(10, raw)) * 10) / 10;
+  // Single sigmoid → 0–10
+  const raw = x;
+  const score = Math.round(10 * sigmoid(x) * 10) / 10;
 
   let level: EnergiaAttesaResult['level'];
   let emoji: string;

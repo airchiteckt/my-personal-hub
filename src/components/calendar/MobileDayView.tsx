@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks, BookOpen } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -17,6 +17,7 @@ import { getMoonPhase } from '@/lib/moon-utils';
 import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
+import { JournalDialog } from './JournalDialog';
 
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -29,10 +30,11 @@ export function MobileDayView() {
   const [apptTime, setApptTime] = useState<string>();
   const [taskDate, setTaskDate] = useState<string>();
   const [taskTime, setTaskTime] = useState<string>();
+  const [showJournal, setShowJournal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry } = usePrp();
   const dayAppts = getAppointmentsForDate(dateStr);
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && (t.status === 'scheduled' || t.status === 'done'));
@@ -91,9 +93,22 @@ export function MobileDayView() {
               </Tooltip>
             </TooltipProvider>
           </button>
-          <p className="text-xs text-muted-foreground">
-            {dayTasks.length} task · {formatMinutes(totalMinutes)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {dayTasks.length} task · {formatMinutes(totalMinutes)}
+            </p>
+            <button
+              onClick={() => setShowJournal(true)}
+              className={`text-xs flex items-center gap-0.5 rounded px-1.5 py-0.5 transition-colors ${
+                getJournalForDate(dateStr)
+                  ? 'text-primary font-medium bg-primary/10'
+                  : 'text-muted-foreground/60 hover:text-muted-foreground'
+              }`}
+            >
+              <BookOpen className="h-3 w-3" />
+              {getJournalForDate(dateStr) ? '✍️' : ''}
+            </button>
+          </div>
         </div>
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSelectedDate(d => addDays(d, 1))}>
           <ChevronRight className="h-5 w-5" />
@@ -461,6 +476,15 @@ export function MobileDayView() {
         onOpenChange={setShowCreateTask}
         defaultDate={taskDate}
         defaultTime={taskTime}
+      />
+
+      <JournalDialog
+        open={showJournal}
+        onOpenChange={setShowJournal}
+        date={dateStr}
+        entry={getJournalForDate(dateStr)}
+        onSave={saveJournalEntry}
+        onDelete={deleteJournalEntry}
       />
     </div>
   );

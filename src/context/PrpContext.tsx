@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { RitualData, RitualCompletion, shouldCompleteOnDate } from '@/lib/ritual-utils';
+import type { JournalEntry } from '@/components/calendar/JournalDialog';
 
 export interface ActivityLog {
   id: string;
@@ -97,6 +98,10 @@ interface PrpContextType {
   completeRitualOnDate: (ritualId: string, date: string) => Promise<void>;
   skipRitualOnDate: (ritualId: string, date: string) => Promise<void>;
   deleteRitualCompletion: (completionId: string) => Promise<void>;
+  journalEntries: JournalEntry[];
+  getJournalForDate: (date: string) => JournalEntry | null;
+  saveJournalEntry: (date: string, content: string, mood?: string) => Promise<void>;
+  deleteJournalEntry: (id: string) => Promise<void>;
 }
 
 const PrpContext = createContext<PrpContextType | null>(null);
@@ -211,6 +216,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [rituals, setRituals] = useState<RitualData[]>([]);
   const [ritualCompletions, setRitualCompletions] = useState<RitualCompletion[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
 
   const userId = user?.id;
 
@@ -219,7 +225,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
@@ -232,6 +238,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
         supabase.from('time_entries').select('*').eq('user_id', userId).order('started_at', { ascending: false }),
         supabase.from('rituals').select('*').eq('user_id', userId).eq('is_active', true).order('created_at'),
         supabase.from('ritual_completions').select('id, ritual_id, completed_date, completed_time, status').eq('user_id', userId),
+        supabase.from('journal_entries').select('*').eq('user_id', userId).order('entry_date', { ascending: false }),
       ]);
       if (eRes.data) setEnterprises(eRes.data.map(dbToEnterprise));
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
@@ -244,6 +251,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (teRes.data) setTimeEntries(teRes.data.map(dbToTimeEntry));
       if (rRes.data) setRituals(rRes.data as RitualData[]);
       if (rcRes.data) setRitualCompletions(rcRes.data as RitualCompletion[]);
+      if (jRes.data) setJournalEntries(jRes.data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, createdAt: r.created_at, updatedAt: r.updated_at })));
 
       if (sRes.data) {
         setPrioritySettingsState(dbToSettings(sRes.data));
@@ -300,6 +308,11 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
       supabase.channel('ritual-completions-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'ritual_completions', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('ritual_completions').select('id, ritual_id, completed_date, completed_time, status').eq('user_id', userId).then(({ data }) => { if (data) setRitualCompletions(data as RitualCompletion[]); });
+      }).subscribe(),
+      supabase.channel('journal-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'journal_entries', filter: `user_id=eq.${userId}` }, () => {
+        supabase.from('journal_entries').select('*').eq('user_id', userId).order('entry_date', { ascending: false }).then(({ data }) => {
+          if (data) setJournalEntries(data.map((r: any) => ({ id: r.id, entryDate: r.entry_date, content: r.content, mood: r.mood, createdAt: r.created_at, updatedAt: r.updated_at })));
+        });
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
@@ -722,6 +735,32 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // --- Journal CRUD ---
+  const getJournalForDate = useCallback((date: string): JournalEntry | null => {
+    return journalEntries.find(j => j.entryDate === date) || null;
+  }, [journalEntries]);
+
+  const saveJournalEntry = useCallback(async (date: string, content: string, mood?: string) => {
+    if (!userId) return;
+    const existing = journalEntries.find(j => j.entryDate === date);
+    if (existing) {
+      setJournalEntries(prev => prev.map(j => j.id === existing.id ? { ...j, content, mood } : j));
+      await supabase.from('journal_entries').update({ content, mood: mood ?? null }).eq('id', existing.id);
+    } else {
+      const { data, error } = await supabase.from('journal_entries').insert({
+        user_id: userId, entry_date: date, content, mood: mood ?? null,
+      }).select().single();
+      if (!error && data) {
+        setJournalEntries(prev => [{ id: data.id, entryDate: data.entry_date, content: data.content, mood: data.mood, createdAt: data.created_at, updatedAt: data.updated_at }, ...prev]);
+      }
+    }
+  }, [userId, journalEntries]);
+
+  const deleteJournalEntry = useCallback(async (id: string) => {
+    setJournalEntries(prev => prev.filter(j => j.id !== id));
+    await supabase.from('journal_entries').delete().eq('id', id);
+  }, []);
+
   return (
     <PrpContext.Provider value={{
       enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
@@ -742,6 +781,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       addTimeEntry, updateTimeEntry, deleteTimeEntry,
       getActivityLogsForEnterprise, getTimeEntriesForTask, getTimeEntriesForProject, getTimeEntriesForEnterprise,
       rituals, ritualCompletions, getRitualsForDate, isRitualCompleted, isRitualPlanned, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion,
+      journalEntries, getJournalForDate, saveJournalEntry, deleteJournalEntry,
     }}>
       {children}
     </PrpContext.Provider>

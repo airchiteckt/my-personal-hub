@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { BookOpen, Zap, ChevronDown, ChevronUp } from 'lucide-react';
@@ -193,15 +196,9 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
     return 'bg-primary text-primary-foreground';
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Journal — {dateLabel}
-          </DialogTitle>
-        </DialogHeader>
+  const isMobile = useIsMobile();
+
+  const journalContent = (
         <div className="space-y-4 pt-2">
           {/* Mood selector */}
           <div className="space-y-2">
@@ -292,7 +289,37 @@ export function JournalDialog({ open, onOpenChange, date, entry, onSave, onDelet
               </Button>
             )}
           </div>
-        </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="pb-0">
+            <DrawerTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Journal — {dateLabel}
+            </DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="flex-1 overflow-y-auto px-4 pb-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+            {journalContent}
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BookOpen className="h-5 w-5" />
+            Journal — {dateLabel}
+          </DialogTitle>
+        </DialogHeader>
+        {journalContent}
       </DialogContent>
     </Dialog>
   );

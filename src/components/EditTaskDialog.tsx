@@ -7,7 +7,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect, useCallback } from 'react';
-import { Archive, Bell } from 'lucide-react';
+import { Archive, Bell, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+function OptionalSection({ label, hasValue, children }: { label: string; hasValue: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(hasValue);
+  useEffect(() => { setOpen(hasValue); }, [hasValue]);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button type="button" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors w-full py-1">
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? '' : '-rotate-90'}`} />
+          {label}
+          {!open && hasValue && <span className="ml-auto text-xs text-primary">•</span>}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="pt-1 space-y-2">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
 
 interface Props {
   open: boolean;
@@ -112,10 +132,9 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             <Input value={title} onChange={e => setTitle(e.target.value)} />
           </div>
 
-          <div className="space-y-2">
-            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+          <OptionalSection label="Descrizione" hasValue={!!description}>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
-          </div>
+          </OptionalSection>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -165,46 +184,50 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Deadline (opzionale)</Label>
+          <OptionalSection label="Deadline" hasValue={!!deadline}>
             <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
-          </div>
+          </OptionalSection>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Data pianificata</Label>
-              <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Ora pianificata</Label>
-              <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} step={1800} />
-            </div>
-          </div>
-          {prioritySettings.impactEffortEnabled && (
+          <OptionalSection label="Pianificazione" hasValue={!!scheduledDate || !!scheduledTime}>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label>Impatto (1-3)</Label>
-                <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 – Basso</SelectItem>
-                    <SelectItem value="2">2 – Medio</SelectItem>
-                    <SelectItem value="3">3 – Alto</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Data</Label>
+                <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Sforzo (1-3)</Label>
-                <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 – Basso</SelectItem>
-                    <SelectItem value="2">2 – Medio</SelectItem>
-                    <SelectItem value="3">3 – Alto</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label>Ora</Label>
+                <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} step={1800} />
               </div>
             </div>
+          </OptionalSection>
+
+          {prioritySettings.impactEffortEnabled && (
+            <OptionalSection label="Impatto & Sforzo" hasValue={task.impact !== null || task.effort !== null}>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Impatto (1-3)</Label>
+                  <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 – Basso</SelectItem>
+                      <SelectItem value="2">2 – Medio</SelectItem>
+                      <SelectItem value="3">3 – Alto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Sforzo (1-3)</Label>
+                  <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 – Basso</SelectItem>
+                      <SelectItem value="2">2 – Medio</SelectItem>
+                      <SelectItem value="3">3 – Alto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </OptionalSection>
           )}
 
           {taskReminders.length > 0 && (

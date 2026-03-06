@@ -462,6 +462,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.effort !== undefined) dbUpdates.effort = updates.effort ?? null;
     if (updates.isRecurring !== undefined) dbUpdates.is_recurring = updates.isRecurring;
     if (updates.completedAt !== undefined) dbUpdates.completed_at = updates.completedAt ?? null;
+    if (updates.enterpriseId !== undefined) dbUpdates.enterprise_id = updates.enterpriseId;
+    if (updates.projectId !== undefined) dbUpdates.project_id = updates.projectId;
     await supabase.from('tasks').update(dbUpdates).eq('id', id);
   }, []);
 

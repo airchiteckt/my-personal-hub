@@ -205,6 +205,7 @@ export function DesktopWeekView() {
   const handleColumnDrop = (e: React.DragEvent, dayDate: string) => {
     e.preventDefault();
     e.currentTarget.classList.remove('bg-accent/30');
+    handleDragEnd(); // reset drag state on drop
     
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
@@ -226,6 +227,7 @@ export function DesktopWeekView() {
 
   const handleBacklogDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    handleDragEnd(); // reset drag state on drop
     const payload = e.dataTransfer.getData('text/plain');
     if (payload.startsWith('task:')) {
       const taskId = payload.slice(5);
@@ -311,30 +313,30 @@ export function DesktopWeekView() {
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 gap-3 relative">
-        {/* Drag edge zones for week navigation */}
-        {isDraggingItem && (
-          <>
-            <div
-              className="absolute left-0 top-0 bottom-0 w-10 z-50 flex items-center justify-center bg-primary/10 border-r-2 border-primary/30 animate-pulse"
-              onDragOver={e => { e.preventDefault(); handleEdgeHover('prev'); }}
-              onDragLeave={handleEdgeLeave}
-              onDrop={e => { e.preventDefault(); handleEdgeLeave(); }}
-            >
-              <ChevronLeft className="h-6 w-6 text-primary" />
-            </div>
-            <div
-              className="absolute right-0 top-0 bottom-0 w-10 z-50 flex items-center justify-center bg-primary/10 border-l-2 border-primary/30 animate-pulse"
-              onDragOver={e => { e.preventDefault(); handleEdgeHover('next'); }}
-              onDragLeave={handleEdgeLeave}
-              onDrop={e => { e.preventDefault(); handleEdgeLeave(); }}
-            >
-              <ChevronRight className="h-6 w-6 text-primary" />
-            </div>
-          </>
-        )}
+      <div className="flex flex-1 min-h-0 gap-3">
         {/* Main grid */}
-        <div className="flex-1 border rounded-xl bg-card overflow-hidden flex flex-col">
+        <div className="flex-1 border rounded-xl bg-card overflow-hidden flex flex-col relative">
+          {/* Drag edge zones for week navigation */}
+          {isDraggingItem && (
+            <>
+              <div
+                className="absolute left-0 top-0 bottom-0 w-10 z-50 flex items-center justify-center bg-primary/10 border-r-2 border-primary/30 animate-pulse"
+                onDragOver={e => { e.preventDefault(); handleEdgeHover('prev'); }}
+                onDragLeave={handleEdgeLeave}
+                onDrop={e => { e.preventDefault(); handleEdgeLeave(); handleDragEnd(); }}
+              >
+                <ChevronLeft className="h-6 w-6 text-primary" />
+              </div>
+              <div
+                className="absolute right-0 top-0 bottom-0 w-10 z-50 flex items-center justify-center bg-primary/10 border-l-2 border-primary/30 animate-pulse"
+                onDragOver={e => { e.preventDefault(); handleEdgeHover('next'); }}
+                onDragLeave={handleEdgeLeave}
+                onDrop={e => { e.preventDefault(); handleEdgeLeave(); handleDragEnd(); }}
+              >
+                <ChevronRight className="h-6 w-6 text-primary" />
+              </div>
+            </>
+          )}
           {/* Day headers - sticky */}
           <div
             className="grid border-b shrink-0 bg-card"

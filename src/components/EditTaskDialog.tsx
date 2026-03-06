@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
-import { useState, useEffect } from 'react';
-import { Archive, Bell } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Archive, Bell, Check } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -30,10 +30,14 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
   const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
 
+  const [saved, setSaved] = useState(false);
+  const isInitRef = useRef(true);
+
   const projects = getProjectsForEnterprise(enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
 
   useEffect(() => {
+    isInitRef.current = true;
     setTitle(task.title);
     setDescription(task.description || '');
     setEstimatedMinutes(task.estimatedMinutes);
@@ -45,6 +49,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     setProjectId(task.projectId);
     setScheduledDate(task.scheduledDate || '');
     setScheduledTime(task.scheduledTime || '');
+    // Allow init flag to clear after state settles
+    setTimeout(() => { isInitRef.current = false; }, 50);
   }, [task]);
 
   // Auto-select first project when enterprise changes
@@ -54,7 +60,10 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     }
   }, [enterpriseId, projects]);
 
-  const handleSave = () => {
+  // Debounced auto-save
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doSave = useCallback(() => {
     if (!title.trim()) return;
     const newStatus = scheduledDate ? 'scheduled' as const : 'backlog' as const;
     updateTask(task.id, {
@@ -70,8 +79,16 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       status: task.status === 'done' ? task.status : newStatus,
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
-    onOpenChange(false);
-  };
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }, [title, description, estimatedMinutes, priority, deadline, enterpriseId, projectId, scheduledDate, scheduledTime, impact, effort, task.id, task.status, prioritySettings.impactEffortEnabled, updateTask]);
+
+  useEffect(() => {
+    if (isInitRef.current) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(doSave, 800);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, [title, description, estimatedMinutes, priority, deadline, enterpriseId, projectId, scheduledDate, scheduledTime, impact, effort, doSave]);
 
   const handleDelete = () => {
     deleteTask(task.id);
@@ -103,7 +120,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
             <Label>Titolo</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} />
+            <Input value={title} onChange={e => setTitle(e.target.value)} />
           </div>
 
           <div className="space-y-2">
@@ -214,14 +231,19 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </div>
           )}
 
+          {saved && (
+            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground animate-in fade-in">
+              <Check className="h-3.5 w-3.5 text-green-500" /> Salvato automaticamente
+            </div>
+          )}
+
           <div className="flex gap-2">
-            <Button onClick={handleSave} className="flex-1" disabled={!title.trim()}>Salva</Button>
             {task.status === 'done' ? (
-              <Button variant="outline" onClick={handleUncomplete} className="gap-1.5">
+              <Button variant="outline" onClick={handleUncomplete} className="flex-1 gap-1.5">
                 ↩️ Riapri
               </Button>
             ) : (
-              <Button variant="outline" onClick={handleComplete} className="gap-1.5">
+              <Button variant="outline" onClick={handleComplete} className="flex-1 gap-1.5">
                 ✅ Completa
               </Button>
             )}

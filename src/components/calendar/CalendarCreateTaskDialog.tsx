@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority } from '@/types/prp';
@@ -18,6 +19,7 @@ interface Props {
 export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defaultTime, defaultEndTime }: Props) {
   const { enterprises, projects, addTask, scheduleTask } = usePrp();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [enterpriseId, setEnterpriseId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
@@ -84,6 +86,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
 
     addTask({
       title: title.trim(),
+      description: description.trim() || undefined,
       estimatedMinutes,
       priority,
       enterpriseId,
@@ -94,6 +97,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
     });
 
     setTitle('');
+    setDescription('');
     setEstimatedMinutes(30);
     setPriority('medium');
     onOpenChange(false);
@@ -120,6 +124,11 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
               onKeyDown={e => e.key === 'Enter' && handleCreateAndSchedule()}
               autoFocus
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

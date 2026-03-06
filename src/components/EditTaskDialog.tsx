@@ -17,7 +17,7 @@ interface Props {
 }
 
 export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props) {
-  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask } = usePrp();
+  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask, enterprises } = usePrp();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task.estimatedMinutes);
@@ -25,11 +25,12 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [deadline, setDeadline] = useState(task.deadline || '');
   const [impact, setImpact] = useState(task.impact || 2);
   const [effort, setEffort] = useState(task.effort || 2);
+  const [enterpriseId, setEnterpriseId] = useState(task.enterpriseId);
   const [projectId, setProjectId] = useState(task.projectId);
   const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
   const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
 
-  const projects = getProjectsForEnterprise(task.enterpriseId);
+  const projects = getProjectsForEnterprise(enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
 
   useEffect(() => {
@@ -40,10 +41,18 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     setDeadline(task.deadline || '');
     setImpact(task.impact || 2);
     setEffort(task.effort || 2);
+    setEnterpriseId(task.enterpriseId);
     setProjectId(task.projectId);
     setScheduledDate(task.scheduledDate || '');
     setScheduledTime(task.scheduledTime || '');
   }, [task]);
+
+  // Auto-select first project when enterprise changes
+  useEffect(() => {
+    if (projects.length > 0 && !projects.find(p => p.id === projectId)) {
+      setProjectId(projects[0].id);
+    }
+  }, [enterpriseId, projects]);
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -54,6 +63,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       estimatedMinutes,
       priority,
       deadline: deadline || undefined,
+      enterpriseId,
       projectId,
       scheduledDate: scheduledDate || undefined,
       scheduledTime: scheduledTime || undefined,
@@ -101,16 +111,34 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </div>
 
-          <div className="space-y-2">
-            <Label>Progetto</Label>
-            <Select value={projectId} onValueChange={setProjectId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Impresa</Label>
+              <Select value={enterpriseId} onValueChange={setEnterpriseId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {enterprises.filter(e => e.status !== 'paused').map(e => (
+                    <SelectItem key={e.id} value={e.id}>
+                      <span className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(${e.color})` }} />
+                        {e.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Progetto</Label>
+              <Select value={projectId} onValueChange={setProjectId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

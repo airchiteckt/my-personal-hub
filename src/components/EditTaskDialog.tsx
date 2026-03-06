@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Archive, Bell, Check } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Archive, Bell } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -30,14 +30,10 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
   const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
 
-  const [saved, setSaved] = useState(false);
-  const isInitRef = useRef(true);
-
   const projects = getProjectsForEnterprise(enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
 
   useEffect(() => {
-    isInitRef.current = true;
     setTitle(task.title);
     setDescription(task.description || '');
     setEstimatedMinutes(task.estimatedMinutes);
@@ -49,8 +45,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     setProjectId(task.projectId);
     setScheduledDate(task.scheduledDate || '');
     setScheduledTime(task.scheduledTime || '');
-    // Allow init flag to clear after state settles
-    setTimeout(() => { isInitRef.current = false; }, 50);
   }, [task]);
 
   // Auto-select first project when enterprise changes
@@ -59,9 +53,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       setProjectId(projects[0].id);
     }
   }, [enterpriseId, projects]);
-
-  // Debounced auto-save
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doSave = useCallback(() => {
     if (!title.trim()) return;
@@ -79,16 +70,14 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       status: task.status === 'done' ? task.status : newStatus,
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
   }, [title, description, estimatedMinutes, priority, deadline, enterpriseId, projectId, scheduledDate, scheduledTime, impact, effort, task.id, task.status, prioritySettings.impactEffortEnabled, updateTask]);
 
-  useEffect(() => {
-    if (isInitRef.current) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(doSave, 800);
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, [title, description, estimatedMinutes, priority, deadline, enterpriseId, projectId, scheduledDate, scheduledTime, impact, effort, doSave]);
+  const handleClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      doSave();
+    }
+    onOpenChange(isOpen);
+  };
 
   const handleDelete = () => {
     deleteTask(task.id);
@@ -112,7 +101,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Modifica Task</DialogTitle>
@@ -228,12 +217,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
                   <span className="text-muted-foreground">{rem.reminderDate}{rem.reminderTime ? ` · ${rem.reminderTime}` : ''}</span>
                 </div>
               ))}
-            </div>
-          )}
-
-          {saved && (
-            <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground animate-in fade-in">
-              <Check className="h-3.5 w-3.5 text-green-500" /> Salvato automaticamente
             </div>
           )}
 

@@ -26,6 +26,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [impact, setImpact] = useState(task.impact || 2);
   const [effort, setEffort] = useState(task.effort || 2);
   const [projectId, setProjectId] = useState(task.projectId);
+  const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
+  const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
 
   const projects = getProjectsForEnterprise(task.enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
@@ -39,10 +41,13 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     setImpact(task.impact || 2);
     setEffort(task.effort || 2);
     setProjectId(task.projectId);
+    setScheduledDate(task.scheduledDate || '');
+    setScheduledTime(task.scheduledTime || '');
   }, [task]);
 
   const handleSave = () => {
     if (!title.trim()) return;
+    const newStatus = scheduledDate ? 'scheduled' as const : 'backlog' as const;
     updateTask(task.id, {
       title: title.trim(),
       description: description.trim() || undefined,
@@ -50,6 +55,9 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       priority,
       deadline: deadline || undefined,
       projectId,
+      scheduledDate: scheduledDate || undefined,
+      scheduledTime: scheduledTime || undefined,
+      status: task.status === 'done' ? task.status : newStatus,
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
     onOpenChange(false);
@@ -128,6 +136,16 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Data pianificata</Label>
+              <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Ora pianificata</Label>
+              <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} step={1800} />
+            </div>
+          </div>
           {prioritySettings.impactEffortEnabled && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">

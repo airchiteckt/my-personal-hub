@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
-import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks, BookOpen, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, ArrowRight, Clock, Plus, Minus, X, CalendarClock, Repeat, ListChecks, BookOpen, Bell, CalendarDays } from 'lucide-react';
 import {
   TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
@@ -489,6 +489,23 @@ export function MobileDayView() {
                 >
                   <Minus className="mr-1 h-4 w-4" /> 30 min
                 </Button>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground">Sposta a data:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm"
+                    defaultValue={format(addDays(selectedDate, 1), 'yyyy-MM-dd')}
+                    onChange={e => {
+                      if (e.target.value && selectedTask) {
+                        scheduleTask(selectedTask.id, e.target.value, selectedTask.scheduledTime);
+                        setSelectedTask(null);
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
               <Button

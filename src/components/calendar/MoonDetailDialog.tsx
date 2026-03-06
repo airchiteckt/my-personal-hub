@@ -1,4 +1,6 @@
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { getMoonPhase, getMoonTimes, getNextMoonEvents, getMoonAltitudeSamples, getMoonDataAtHour, type MoonTimes as MoonTimesType } from '@/lib/moon-utils';
 import { calculateLII, getLIIDaySamples, calculateEnergiaAttesa, getEnergiaDaySamples, type LIIResult, type EnergiaAttesaResult } from '@/lib/lunar-influence';
 import { format } from 'date-fns';
@@ -7,6 +9,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { MapPin } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, ReferenceLine, Tooltip, ComposedChart, Line } from 'recharts';
 import { usePrp } from '@/context/PrpContext';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const TIME_SLOTS = [
   { key: 'morning' as const, label: 'Mattina', icon: '🌅', hours: [8, 9, 10, 11] },
@@ -203,19 +206,12 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
     return { mae: Math.round(mae * 10) / 10, count: pairs.length };
   }, [journalEntry, slotPredictions]);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <span className="text-3xl">{phase.emoji}</span>
-            Analisi Lunare
-          </DialogTitle>
-        </DialogHeader>
+  const isMobile = useIsMobile();
 
-        <div className="space-y-5 pt-1">
-          {/* Date */}
-          <p className="text-sm text-muted-foreground capitalize">{dateLabel}</p>
+  const content = (
+    <div className="space-y-5 pt-1 pb-4">
+      {/* Date */}
+      <p className="text-sm text-muted-foreground capitalize">{dateLabel}</p>
 
           {/* Phase info */}
           <div className="bg-accent/30 rounded-xl p-4 space-y-2">
@@ -481,7 +477,37 @@ export function MoonDetailDialog({ open, onOpenChange, date }: Props) {
               </span>
             </div>
           </div>
-        </div>
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="pb-0">
+            <DrawerTitle className="flex items-center gap-2 text-lg">
+              <span className="text-3xl">{phase.emoji}</span>
+              Analisi Lunare
+            </DrawerTitle>
+          </DrawerHeader>
+          <ScrollArea className="flex-1 overflow-y-auto px-4" style={{ maxHeight: 'calc(90vh - 80px)' }}>
+            {content}
+          </ScrollArea>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-lg">
+            <span className="text-3xl">{phase.emoji}</span>
+            Analisi Lunare
+          </DialogTitle>
+        </DialogHeader>
+        {content}
       </DialogContent>
     </Dialog>
   );

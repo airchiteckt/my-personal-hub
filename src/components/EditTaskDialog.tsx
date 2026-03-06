@@ -11,7 +11,7 @@ import { Archive, Bell, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 function OptionalSection({ label, hasValue, children }: { label: string; hasValue: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(hasValue);
+  const [open, setOpen] = useState(false);
   useEffect(() => { setOpen(hasValue); }, [hasValue]);
   return (
     <Collapsible open={open} onOpenChange={setOpen}>

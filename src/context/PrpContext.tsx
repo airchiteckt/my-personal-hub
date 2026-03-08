@@ -117,7 +117,7 @@ const PrpContext = createContext<PrpContextType | null>(null);
 // --- DB row <-> Frontend type mappers ---
 function dbToEnterprise(row: any): Enterprise {
   return {
-    id: row.id, name: row.name, status: row.status, color: row.color,
+    id: row.id, name: row.name, description: row.description ?? undefined, status: row.status, color: row.color,
     strategicImportance: row.strategic_importance ?? 3,
     growthPotential: row.growth_potential ?? 3,
     phase: row.phase ?? 'setup',
@@ -394,6 +394,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.timeHorizon !== undefined) dbUpdates.time_horizon = updates.timeHorizon;
     if (updates.enterpriseType !== undefined) dbUpdates.enterprise_type = updates.enterpriseType;
     if (updates.priorityUntil !== undefined) dbUpdates.priority_until = updates.priorityUntil ?? null;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     await supabase.from('enterprises').update(dbUpdates).eq('id', id);
   }, []);
 

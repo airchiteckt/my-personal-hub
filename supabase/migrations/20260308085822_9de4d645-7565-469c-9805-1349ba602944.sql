@@ -1,0 +1,1 @@
+ALTER TABLE public.enterprises ADD COLUMN description text DEFAULT NULL;

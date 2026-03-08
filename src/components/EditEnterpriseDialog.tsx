@@ -1,4 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -41,6 +42,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
   const [priorityUntil, setPriorityUntil] = useState<Date | undefined>(
     enterprise.priorityUntil ? parseISO(enterprise.priorityUntil) : undefined
   );
+  const [description, setDescription] = useState(enterprise.description || '');
 
   useEffect(() => {
     setName(enterprise.name);
@@ -53,6 +55,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
     setGrowthPotential(enterprise.growthPotential);
     setPhase(enterprise.phase);
     setPriorityUntil(enterprise.priorityUntil ? parseISO(enterprise.priorityUntil) : undefined);
+    setDescription(enterprise.description || '');
   }, [enterprise]);
 
   const handleSubmit = () => {
@@ -63,6 +66,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
       businessCategory, timeHorizon,
       enterpriseType: templateType,
       priorityUntil: priorityUntil ? format(priorityUntil, 'yyyy-MM-dd') : undefined,
+      description: description.trim() || undefined,
     });
     toast.success('Impresa aggiornata');
     onOpenChange(false);
@@ -83,6 +87,18 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
           <div className="space-y-2">
             <Label>Nome Impresa</Label>
             <Input value={name} onChange={e => setName(e.target.value)} />
+          </div>
+
+          {/* Description for AI context */}
+          <div className="space-y-2">
+            <Label className="text-sm">📝 Descrizione & Contesto AI</Label>
+            <Textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Descrivi l'impresa: cosa fa, clienti target, modello di business, obiettivi a lungo termine, sfide attuali... Queste info saranno usate da Radar Strategy per consigli più mirati."
+              className="min-h-[100px] text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">Queste informazioni saranno utilizzate dall'AI per fornirti suggerimenti strategici personalizzati.</p>
           </div>
 
           {/* Color */}

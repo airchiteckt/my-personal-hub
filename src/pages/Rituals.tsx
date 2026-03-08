@@ -304,9 +304,9 @@ export default function Rituals() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-0">
+          <div className="space-y-0 overflow-x-auto -mx-4 px-4">
             {/* Day headers */}
-            <div className="grid items-center gap-2 mb-2" style={{ gridTemplateColumns: '1fr repeat(7, 40px) 60px' }}>
+            <div className="grid items-center gap-1.5 sm:gap-2 mb-2 min-w-[480px]" style={{ gridTemplateColumns: '1fr repeat(7, 36px) 44px' }}>
               <div />
               {weekDays.map(d => (
                 <div key={d.toISOString()} className={`text-center text-[10px] font-medium uppercase ${isToday(d) ? 'text-primary font-bold' : 'text-muted-foreground'}`}>

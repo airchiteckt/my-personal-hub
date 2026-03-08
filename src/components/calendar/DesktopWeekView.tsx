@@ -431,7 +431,7 @@ export function DesktopWeekView() {
                       if (e.button !== 0) return;
                       if ((e.target as HTMLElement).closest('[draggable]')) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+                      const relativeY = e.clientY - rect.top;
                       const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
                       isDraggingCreate.current = true;
                       setDragCreate({ dayDate, startSlot: slot, endSlot: slot + 1 });

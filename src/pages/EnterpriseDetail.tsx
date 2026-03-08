@@ -75,6 +75,23 @@ const EnterpriseDetail = () => {
   const backlogTasks = enterpriseTasks.filter(t => t.status === 'backlog').length;
   const taskCompletionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
+  // Strategic planning progress steps
+  const activeObjectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+  const activeKRs = activeObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+  const strategicProjects = enterpriseProjects.filter(p => p.isStrategicLever);
+
+  const planningSteps = [
+    { key: 'overview', label: 'Overview', done: true },
+    { key: 'focus', label: 'Focus', done: !!activeFocus, count: focusPeriods.length },
+    { key: 'strategy', label: 'Strategy', done: activeObjectives.length > 0 && activeKRs.length > 0, count: `${activeObjectives.length}O · ${activeKRs.length}KR` },
+    { key: 'execution', label: 'Execution', done: enterpriseProjects.length > 0 && enterpriseTasks.length > 0, count: `${enterpriseProjects.length}P · ${enterpriseTasks.length}T` },
+    { key: 'tracking', label: 'Tracking', done: doneTasks > 0 },
+  ];
+
+  // Find the last completed step index for progress bar width
+  const lastDoneIdx = planningSteps.reduce((max, s, i) => s.done ? i : max, 0);
+  const progressPct = Math.round((lastDoneIdx / (planningSteps.length - 1)) * 100);
+
   // KR progress for active focus
   const getObjectiveProgress = (objectiveId: string) => {
     const krs = getKeyResultsForObjective(objectiveId);

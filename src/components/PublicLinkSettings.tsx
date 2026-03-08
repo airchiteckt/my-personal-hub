@@ -257,7 +257,7 @@ export function PublicLinkSettings() {
 
               {/* Enterprise visibility toggles */}
               <div className="space-y-3 pt-2 border-t">
-                <Label className="text-sm">Imprese visibili nello Showcase</Label>
+                <Label className="text-sm">Imprese visibili nello Showcase — per ognuna puoi scegliere un nome per il link diretto</Label>
                 {enterprises.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Nessuna impresa creata</p>
                 ) : (

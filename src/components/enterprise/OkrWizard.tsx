@@ -1469,6 +1469,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
                     </div>
                   </button>
                   <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newTitle = prompt('Nuovo titolo:', conv.title);
+                      if (newTitle?.trim()) renameConversation(conv.id, newTitle);
+                    }}
+                    className="h-5 w-5 rounded flex items-center justify-center shrink-0 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                    title="Rinomina sessione"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
                     onClick={(e) => deleteConversation(conv.id, e)}
                     className="h-5 w-5 rounded flex items-center justify-center shrink-0 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                     title="Elimina sessione"

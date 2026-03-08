@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import PublicBooking from "./pages/PublicBooking";
 import PublicTaskRequest from "./pages/PublicTaskRequest";
 import ResetPassword from "./pages/ResetPassword";
+import PublicShowcase from "./pages/PublicShowcase";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
@@ -105,6 +106,8 @@ const App = () => (
             <Route path="/admin" element={<AdminRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />
+            <Route path="/:slug/showcase" element={<PublicShowcase />} />
+            <Route path="/:slug/showcase/:enterpriseId" element={<PublicShowcase />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>

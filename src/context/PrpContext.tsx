@@ -125,6 +125,7 @@ function dbToEnterprise(row: any): Enterprise {
     timeHorizon: row.time_horizon ?? 'medium',
     enterpriseType: row.enterprise_type ?? 'digital_services',
     priorityUntil: row.priority_until ?? undefined,
+    is_public: row.is_public ?? false,
     createdAt: row.created_at,
   };
 }

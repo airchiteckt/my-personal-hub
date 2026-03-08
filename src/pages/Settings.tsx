@@ -31,8 +31,12 @@ const Settings = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="priority" className="space-y-4">
+      <Tabs defaultValue="profile" className="space-y-4">
         <TabsList className="w-full">
+          <TabsTrigger value="profile" className="flex-1 gap-1.5">
+            <UserCircle className="h-4 w-4" />
+            Profilo
+          </TabsTrigger>
           <TabsTrigger value="priority" className="flex-1 gap-1.5">
             <Gauge className="h-4 w-4" />
             Priorità
@@ -42,6 +46,10 @@ const Settings = () => {
             Link Pubblici
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="profile">
+          <ProfileSettings />
+        </TabsContent>
 
         <TabsContent value="priority">
           <div className="space-y-4">

@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import PublicBooking from "./pages/PublicBooking";
 import PublicTaskRequest from "./pages/PublicTaskRequest";
 import ResetPassword from "./pages/ResetPassword";
+import PublicShowcase from "./pages/PublicShowcase";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();

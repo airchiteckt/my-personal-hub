@@ -5,9 +5,9 @@ import { AppSidebar } from '@/components/AppSidebar';
 export function Layout() {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-[100dvh] flex w-full overflow-hidden">
         <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
           <header className="h-14 flex items-center border-b bg-card px-4 shrink-0">
             <SidebarTrigger />
           </header>

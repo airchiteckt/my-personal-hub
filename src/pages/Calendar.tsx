@@ -5,7 +5,7 @@ import { DesktopWeekView } from '@/components/calendar/DesktopWeekView';
 const Calendar = () => {
   const isMobile = useIsMobile();
   return (
-    <div className="fixed inset-0 top-14 flex flex-col md:p-6 md:static md:inset-auto md:top-auto md:h-full">
+    <div className={isMobile ? "fixed inset-0 top-14 flex flex-col" : "flex flex-col h-full md:p-6"}>
       {isMobile ? <MobileDayView /> : <DesktopWeekView />}
     </div>
   );

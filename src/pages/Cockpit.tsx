@@ -101,7 +101,7 @@ function DashboardTab() {
   return (
     <div className="space-y-6">
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         <Card className="p-4">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <CheckCircle2 className="h-4 w-4" />

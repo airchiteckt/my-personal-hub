@@ -122,12 +122,12 @@ const EnterpriseDetail = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 h-9">
-          <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
-          <TabsTrigger value="focus" className="text-xs">Focus</TabsTrigger>
-          <TabsTrigger value="strategy" className="text-xs">Strategy</TabsTrigger>
-          <TabsTrigger value="execution" className="text-xs">Execution</TabsTrigger>
-          <TabsTrigger value="tracking" className="text-xs">Tracking</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-5 h-9 overflow-x-auto">
+          <TabsTrigger value="overview" className="text-[11px] px-1.5">Overview</TabsTrigger>
+          <TabsTrigger value="focus" className="text-[11px] px-1.5">Focus</TabsTrigger>
+          <TabsTrigger value="strategy" className="text-[11px] px-1.5">Strategy</TabsTrigger>
+          <TabsTrigger value="execution" className="text-[11px] px-1.5">Execution</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-[11px] px-1.5">Tracking</TabsTrigger>
         </TabsList>
 
         {/* ===== OVERVIEW ===== */}

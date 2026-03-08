@@ -910,11 +910,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   };
 
   useEffect(() => {
-    const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-    const active = focusPeriods.find(f => f.status === 'active');
-    if (active && !createdFocusId) setCreatedFocusId(active.id);
-    if (active) {
-      const objs = getObjectivesForFocus(active.id);
+    // Sync createdFocusId and createdObjectiveId from session's focus period
+    if (sessionFocusId) {
+      if (!createdFocusId || createdFocusId !== sessionFocusId) setCreatedFocusId(sessionFocusId);
+      const objs = getObjectivesForFocus(sessionFocusId);
       if (objs.length > 0) setCreatedObjectiveId(objs[objs.length - 1].id);
     }
   });

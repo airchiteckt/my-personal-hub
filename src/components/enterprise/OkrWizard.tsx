@@ -793,6 +793,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
             if (p.type === 'actions' && p.actions?.length) {
+              streamReceivedActions = true;
               setMessages(prev => {
                 const msgIdx = prev.length - 1;
                 const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
@@ -811,22 +812,13 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 500);
       } else {
         // Detect if AI described creating entities in text without emitting tool calls
-        const mentionsCreation = /(?:ho creato|task:|progetto:|ecco (?:le|i|la|il)|procediamo con la creazione)/i.test(assistantContent);
-        const hasNewActions = pendingActions.some(a => !a.applied && !a.rejected);
-        
-        // Check if new actions were added during this stream
-        let streamAddedActions = false;
-        setPendingActions(prev => {
-          streamAddedActions = prev.some(a => !a.applied && !a.rejected);
-          return prev;
-        });
+        const mentionsCreation = /(?:ho creato|ecco (?:le|i|la|il)\s+\d|procediamo con la creazione|task creata|progetto creato)/i.test(assistantContent);
 
-        if (mentionsCreation && !streamAddedActions && !isVoiceCall) {
+        if (mentionsCreation && !streamReceivedActions && !isVoiceCall) {
           console.warn('[Wizard] AI described creation without tool calls — auto-retrying');
-          // Auto-retry with correction
           setTimeout(() => {
             if (!isLoadingRef.current) {
-              doSend('[ERRORE SISTEMA] Hai descritto la creazione di entità nel testo ma NON hai emesso i tool call. Il testo da solo NON crea nulla. DEVI emettere i tool call (create_project, create_task, etc.) per ogni entità. Riprova emettendo i tool call corretti.', false);
+              doSend('[ERRORE SISTEMA] Hai descritto la creazione di entità nel testo ma NON hai emesso i tool call. Il testo da solo NON crea nulla. DEVI emettere i tool call (create_project, create_task, etc.) per ogni entità. Riprova ORA emettendo SOLO i tool call corretti, senza riscrivere le descrizioni nel testo.', false);
             }
           }, 500);
         } else if (isVoiceCall) {

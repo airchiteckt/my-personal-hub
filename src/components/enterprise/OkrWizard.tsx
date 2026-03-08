@@ -564,48 +564,52 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // --- Action apply ---
   const applyAction = async (action: WizardAction) => {
+    // Optimistic update — mark as applied immediately
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
+
     try {
       let appliedLabel = '';
       if (action.type === 'create_focus_period') {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
-        action.applied = true;
         appliedLabel = `Focus Period "${action.data.name}"`;
       } else if (action.type === 'create_objective') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
-        if (!targetFocusId) { toast.error('Crea prima un Focus Period attivo'); return; }
+        if (!targetFocusId) {
+          toast.error('Crea prima un Focus Period attivo');
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
         addObjective({ focusPeriodId: targetFocusId, enterpriseId: enterprise.id, title: action.data.title, description: action.data.description, weight: 1, status: 'active' });
         toast.success(`Objective "${action.data.title}" creato`);
-        action.applied = true;
         appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const activeFocus = focusPeriods.find(f => f.status === 'active');
         const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
         const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
-        if (!targetObjId) { toast.error('Crea prima un Objective'); return; }
+        if (!targetObjId) {
+          toast.error('Crea prima un Objective');
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
         addKeyResult({ objectiveId: targetObjId, enterpriseId: enterprise.id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'percentage', deadline: action.data.deadline, status: 'active' });
         toast.success(`Key Result "${action.data.title}" creato`);
-        action.applied = true;
         appliedLabel = `Key Result "${action.data.title}"`;
       }
-      setPendingActions(prev => [...prev]);
       onCreated?.();
 
       // Auto-continue: send a follow-up message to AI so it proceeds to next step
-      if (action.applied && appliedLabel) {
+      if (appliedLabel) {
         const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
-        // Wait until isLoading is false before sending continuation
         const waitAndSend = () => {
           const checkInterval = setInterval(() => {
-            // Access isLoading via ref to avoid stale closure
             if (!isLoadingRef.current) {
               clearInterval(checkInterval);
               doSend(continuationMsg, false);
             }
           }, 300);
-          // Safety timeout: give up after 10 seconds
           setTimeout(() => clearInterval(checkInterval), 10000);
         };
         waitAndSend();
@@ -613,13 +617,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
+      // Rollback
+      setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
     }
   };
 
   // --- Action reject ---
   const rejectAction = (action: WizardAction) => {
-    action.rejected = true;
-    setPendingActions(prev => [...prev]);
+    // Immutable update
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
     // Tell AI to try again or move on
     setTimeout(() => {
       const label = action.data?.name || action.data?.title || action.type;

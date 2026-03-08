@@ -853,13 +853,13 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
           type: "function",
           function: {
             name: "create_project",
-            description: "Crea un Progetto collegato a un Key Result per far avanzare la strategia",
+            description: "Crea un Progetto collegato a un Key Result per far avanzare la strategia. Per progetti strategic, DEVI specificare key_result_id dal contesto.",
             parameters: {
               type: "object",
               properties: {
                 name: { type: "string", description: "Nome del progetto (leva operativa)" },
                 type: { type: "string", enum: ["strategic", "operational", "maintenance"], description: "Tipo di progetto" },
-                key_result_id: { type: "string", description: "ID del Key Result collegato (per progetti strategic)" },
+                key_result_id: { type: "string", description: "ID del Key Result collegato (OBBLIGATORIO per tipo strategic, da objectives[].keyResults[].id nel contesto)" },
               },
               required: ["name", "type"],
               additionalProperties: false,
@@ -870,19 +870,19 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
           type: "function",
           function: {
             name: "create_task",
-            description: "Crea una Task eseguibile dentro un progetto",
+            description: "Crea una Task eseguibile dentro un progetto. DEVI specificare project_id dal contesto (projects[].id).",
             parameters: {
               type: "object",
               properties: {
                 title: { type: "string", description: "Titolo della task (Verbo + oggetto)" },
                 description: { type: "string", description: "Descrizione opzionale" },
-                project_id: { type: "string", description: "ID del progetto di appartenenza" },
+                project_id: { type: "string", description: "ID del progetto di appartenenza (OBBLIGATORIO, da projects[].id nel contesto)" },
                 priority: { type: "string", enum: ["high", "medium", "low"] },
                 estimated_minutes: { type: "number", description: "Durata stimata in minuti" },
                 impact: { type: "number", description: "Impatto 1-3" },
                 effort: { type: "number", description: "Sforzo 1-3" },
               },
-              required: ["title", "priority", "estimated_minutes"],
+              required: ["title", "project_id", "priority", "estimated_minutes"],
               additionalProperties: false,
             },
           },

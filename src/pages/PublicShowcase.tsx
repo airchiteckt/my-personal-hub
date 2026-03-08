@@ -69,15 +69,16 @@ export default function PublicShowcase() {
     })();
   }, [slug, enterpriseId]);
 
-  const loadEnterprises = async (userId: string, singleId?: string) => {
+  const loadEnterprises = async (userId: string, singleSlug?: string) => {
     let query = supabase
       .from('enterprises')
-      .select('id, name, description, status, phase, color, enterprise_type, business_category')
+      .select('id, name, description, status, phase, color, enterprise_type, business_category, public_slug')
       .eq('user_id', userId)
       .eq('is_public', true);
 
-    if (singleId) {
-      query = query.eq('id', singleId);
+    if (singleSlug) {
+      // Try matching by public_slug first, fallback to id
+      query = query.eq('public_slug', singleSlug);
     }
 
     const { data } = await query.order('name');

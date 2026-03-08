@@ -241,32 +241,33 @@ export function DesktopWeekView() {
   return (
     <div className="flex flex-col h-full">
       {/* Week nav */}
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold">Calendario</h1>
-          <p className="text-sm text-muted-foreground">{weekLabel}</p>
+      <div className="flex items-center justify-between mb-2 shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold">Calendario</h1>
+          <span className="text-xs text-muted-foreground">{weekLabel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
-            <Clock className="h-4 w-4 mr-1" />
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
+            <Clock className="h-3 w-3 mr-1" />
             Task
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
-            <CalendarClock className="h-4 w-4 mr-1" />
-            Appuntamento
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
+            <CalendarClock className="h-3 w-3 mr-1" />
+            Appunt.
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
-            <Bell className="h-4 w-4 mr-1" />
-            Promemoria
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
+            <Bell className="h-3 w-3 mr-1" />
+            Memo
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
-            <ChevronLeft className="h-4 w-4" />
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
             Oggi
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>

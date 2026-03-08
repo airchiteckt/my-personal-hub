@@ -297,7 +297,7 @@ export function PublicLinkSettings() {
                                     toast.success('Nome link impresa salvato');
                                   }
                                 }}
-                                placeholder="es. nome-impresa"
+                                placeholder="es. ambressa"
                                 className="h-7 text-xs font-mono flex-1"
                               />
                             </div>

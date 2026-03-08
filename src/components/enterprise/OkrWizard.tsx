@@ -275,6 +275,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setActiveConvId(convId);
     setPendingActions([]);
     setShowConvList(false);
+    // Restore the session's focus period
+    const targetConv = conversations.find(c => c.id === convId);
+    setCreatedFocusId(targetConv?.focusPeriodId || null);
+    setCreatedObjectiveId(null);
   }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
 
   // Delete a conversation

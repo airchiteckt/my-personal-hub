@@ -123,6 +123,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isLoadingRef = useRef(false);
   const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);

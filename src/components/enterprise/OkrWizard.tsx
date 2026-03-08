@@ -370,6 +370,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setMessages([]);
     setPendingActions([]);
     setShowConvList(false);
+    // Reset focus tracking for new session (fresh progress bar)
+    setCreatedFocusId(null);
+    setCreatedObjectiveId(null);
     // Opening message will be set when chat opens
   }, [activeConvId, conversations, messages, saveConversation]);
 

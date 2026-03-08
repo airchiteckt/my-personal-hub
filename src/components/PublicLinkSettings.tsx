@@ -86,14 +86,14 @@ export function PublicLinkSettings() {
     setSaving(false);
     if (error) {
       if (error.message.includes('duplicate') || error.message.includes('unique')) {
-        toast.error('Questo slug è già in uso, scegline un altro');
+        toast.error('Questo nome è già in uso, scegline un altro');
       } else {
         toast.error('Errore nel salvataggio');
       }
     } else {
       setSavedSlug(clean);
       setSlug(clean);
-      toast.success('Slug pubblico salvato!');
+      toast.success('Nome pubblico salvato!');
     }
   };
 
@@ -143,9 +143,9 @@ export function PublicLinkSettings() {
         <div className="flex items-center gap-2">
           <Link2 className="h-5 w-5 text-primary" />
           <div>
-            <h3 className="font-semibold">Il tuo identificativo pubblico</h3>
+            <h3 className="font-semibold">Il tuo nome pubblico</h3>
             <p className="text-xs text-muted-foreground">
-              Questo slug è la base di tutti i tuoi link pubblici: <span className="font-mono">flydeck.app/<strong>{savedSlug || '...'}</strong>/...</span>
+              Questo è il tuo identificativo nei link pubblici: <span className="font-mono">flydeck.app/<strong>{savedSlug || '...'}</strong>/...</span>
             </p>
           </div>
         </div>
@@ -155,13 +155,13 @@ export function PublicLinkSettings() {
           <Input
             value={slug}
             onChange={e => setSlug(sanitize(e.target.value))}
-            placeholder="es. se"
+            placeholder="es. mario-rossi"
             className="font-mono max-w-[180px]"
           />
         </div>
 
         <Button onClick={handleSave} disabled={saving || !slug.trim() || slug === savedSlug} size="sm">
-          {saving ? 'Salvataggio...' : 'Salva slug'}
+          {saving ? 'Salvataggio...' : 'Salva'}
         </Button>
       </Card>
 
@@ -203,7 +203,7 @@ export function PublicLinkSettings() {
                   )}
 
                   {!savedSlug && (
-                    <p className="text-[11px] text-amber-500 mt-1">Configura prima il tuo slug per attivare questo link.</p>
+                    <p className="text-[11px] text-amber-500 mt-1">Configura prima il tuo nome pubblico per attivare questo link.</p>
                   )}
                 </div>
               </div>
@@ -257,7 +257,7 @@ export function PublicLinkSettings() {
 
               {/* Enterprise visibility toggles */}
               <div className="space-y-3 pt-2 border-t">
-                <Label className="text-sm">Imprese visibili nello Showcase</Label>
+                <Label className="text-sm">Imprese visibili nello Showcase — per ognuna puoi scegliere un nome per il link diretto</Label>
                 {enterprises.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Nessuna impresa creata</p>
                 ) : (
@@ -277,7 +277,7 @@ export function PublicLinkSettings() {
                         {e.is_public && (
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Slug:</span>
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Nome link:</span>
                               <Input
                                 value={e.public_slug || ''}
                                 onChange={ev => {
@@ -289,15 +289,15 @@ export function PublicLinkSettings() {
                                   const { error } = await supabase.from('enterprises').update({ public_slug: val } as any).eq('id', e.id);
                                   if (error) {
                                     if (error.message.includes('duplicate') || error.message.includes('unique')) {
-                                      toast.error('Slug già in uso');
+                                      toast.error('Nome link già in uso');
                                     } else {
-                                      toast.error('Errore salvataggio slug');
+                                      toast.error('Errore salvataggio nome link');
                                     }
                                   } else if (val) {
-                                    toast.success('Slug impresa salvato');
+                                    toast.success('Nome link impresa salvato');
                                   }
                                 }}
-                                placeholder="es. nome-impresa"
+                                placeholder="es. ambressa"
                                 className="h-7 text-xs font-mono flex-1"
                               />
                             </div>
@@ -337,7 +337,7 @@ export function PublicLinkSettings() {
 
       <Card className="p-4 bg-muted/50 border-dashed">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong>💡 Come funziona:</strong> Lo slug è il tuo identificativo unico. Attiva lo Showcase e scegli quali imprese rendere visibili.
+          <strong>💡 Come funziona:</strong> Il nome pubblico è il tuo identificativo unico nei link. Attiva lo Showcase e scegli quali imprese rendere visibili.
           Se imposti una password, i visitatori dovranno autenticarsi prima di accedere.
         </p>
       </Card>

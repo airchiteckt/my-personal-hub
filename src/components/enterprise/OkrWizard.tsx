@@ -811,6 +811,27 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Clear conversation */}
+          {messages.length > 0 && (
+            <button
+              onClick={async () => {
+                setMessages([]);
+                setPendingActions([]);
+                if (session?.user?.id) {
+                  await supabase
+                    .from('wizard_conversations')
+                    .delete()
+                    .eq('user_id', session.user.id)
+                    .eq('enterprise_id', enterprise.id);
+                }
+                toast.success('Conversazione azzerata');
+              }}
+              className="h-6 w-6 rounded-md hover:bg-destructive/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-destructive"
+              title="Cancella conversazione"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
           {/* Call button */}
           <button
             onClick={startCall}

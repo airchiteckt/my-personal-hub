@@ -656,8 +656,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const projects = getProjectsForEnterprise(enterprise.id);
     const tasks = getTasksForEnterprise(enterprise.id);
-    const activeFocus = focusPeriods.find(f => f.status === 'active');
-    const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+    // Use the session's focus period, not just any active one
+    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : focusPeriods.find(f => f.status === 'active');
+    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
     const now = new Date();
     const currentQ = Math.ceil((now.getMonth() + 1) / 3);

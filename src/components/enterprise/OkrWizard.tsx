@@ -644,13 +644,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // --- Action reject ---
   const rejectAction = (action: WizardAction) => {
-    // Immutable update
+    // Immutable update – don't auto-send, wait for user input
     setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
-    // Tell AI to try again or move on
-    setTimeout(() => {
-      const label = action.data?.name || action.data?.title || action.type;
-      doSend(`[Rifiutato: ${label}. Proponi un'alternativa o procedi al prossimo passo.]`, false);
-    }, 400);
   };
 
   useEffect(() => {

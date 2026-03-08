@@ -337,7 +337,7 @@ export function PublicLinkSettings() {
 
       <Card className="p-4 bg-muted/50 border-dashed">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong>💡 Come funziona:</strong> Lo slug è il tuo identificativo unico. Attiva lo Showcase e scegli quali imprese rendere visibili.
+          <strong>💡 Come funziona:</strong> Il nome pubblico è il tuo identificativo unico nei link. Attiva lo Showcase e scegli quali imprese rendere visibili.
           Se imposti una password, i visitatori dovranno autenticarsi prima di accedere.
         </p>
       </Card>

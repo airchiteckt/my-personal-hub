@@ -294,7 +294,7 @@ export function PublicLinkSettings() {
                                       toast.error('Errore salvataggio nome link');
                                     }
                                   } else if (val) {
-                                    toast.success('Slug impresa salvato');
+                                    toast.success('Nome link impresa salvato');
                                   }
                                 }}
                                 placeholder="es. nome-impresa"

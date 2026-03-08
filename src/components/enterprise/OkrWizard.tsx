@@ -825,7 +825,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
         appliedLabel = `Focus Period "${action.data.name}"`;
-      } else if (action.type === 'create_objective') {
+        // Link focus period to this session after a short delay (to let state update)
+        setTimeout(() => {
+          const fps = getFocusPeriodsForEnterprise(enterprise.id);
+          const newFocus = fps.find(f => f.name === action.data.name && f.enterpriseId === enterprise.id);
+          if (newFocus && activeConvId) {
+            setCreatedFocusId(newFocus.id);
+            setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, focusPeriodId: newFocus.id } : c));
+          }
+        }, 1500);
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
         if (!targetFocusId) {

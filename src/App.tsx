@@ -25,6 +25,22 @@ import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
 
+function AdminRoute() {
+  const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
+
+  if (loading || adminLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground text-sm">Verifica accesso...</div>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) return <Navigate to="/" replace />;
+  return <Admin />;
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
 
@@ -52,7 +68,6 @@ function ProtectedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/rituals" element={<Rituals />} />
-          <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -494,9 +494,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
             if (p.type === 'actions' && p.actions?.length) {
-              const acts: WizardAction[] = p.actions.map((a: any) => ({ ...a, applied: false }));
-              setPendingActions(prev => [...prev, ...acts]);
-              // Don't auto-apply — wait for user confirmation
+              setMessages(prev => {
+                const msgIdx = prev.length - 1;
+                const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+                  ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+                }));
+                setPendingActions(pa => [...pa, ...acts]);
+                return prev;
+              });
             }
           } catch { buffer = line + '\n' + buffer; break; }
         }

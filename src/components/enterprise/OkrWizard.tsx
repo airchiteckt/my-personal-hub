@@ -1027,33 +1027,65 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     <div className="rounded-xl border border-primary/20 overflow-hidden bg-card shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-3 md:px-4 py-2.5 bg-gradient-to-r from-primary/[0.06] to-primary/[0.03] border-b border-primary/10">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
-          <div>
-            <span className="text-xs font-semibold text-foreground">Radar Strategy</span>
-            <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">· {enterprise.name}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-foreground">Radar Strategy</span>
+              {conversations.length > 1 && (
+                <button
+                  onClick={() => setShowConvList(!showConvList)}
+                  className="text-[9px] text-muted-foreground bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-0.5"
+                >
+                  <Clock className="h-2.5 w-2.5" />
+                  {conversations.length}
+                </button>
+              )}
+            </div>
+            {activeConvMeta && (
+              <p className="text-[10px] text-muted-foreground truncate">{activeConvMeta.title}</p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {/* New conversation */}
+          <button
+            onClick={createNewConversation}
+            className="h-6 w-6 rounded-md hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary"
+            title="Nuova sessione strategica"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
           {/* Clear conversation */}
           {messages.length > 0 && (
             <button
               onClick={async () => {
                 setMessages([]);
                 setPendingActions([]);
-                if (session?.user?.id) {
-                  await supabase
-                    .from('wizard_conversations')
-                    .delete()
-                    .eq('user_id', session.user.id)
-                    .eq('enterprise_id', enterprise.id);
+                // Remove this conversation from the list
+                if (activeConvId) {
+                  const updated = conversations.filter(c => c.id !== activeConvId);
+                  setConversations(updated);
+                  if (updated.length > 0) {
+                    switchConversation(updated[updated.length - 1].id);
+                  } else {
+                    setActiveConvId(null);
+                    // Save empty state
+                    if (session?.user?.id) {
+                      await supabase
+                        .from('wizard_conversations')
+                        .delete()
+                        .eq('user_id', session.user.id)
+                        .eq('enterprise_id', enterprise.id);
+                    }
+                  }
                 }
-                toast.success('Conversazione azzerata');
+                toast.success('Sessione eliminata');
               }}
               className="h-6 w-6 rounded-md hover:bg-destructive/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-destructive"
-              title="Cancella conversazione"
+              title="Elimina sessione"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -1073,6 +1105,40 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             <X className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         </div>
+      </div>
+
+      {/* Conversation list dropdown */}
+      <AnimatePresence>
+        {showConvList && conversations.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-b border-border/30 overflow-hidden"
+          >
+            <div className="p-2 space-y-1 bg-muted/20 max-h-40 overflow-y-auto">
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => switchConversation(conv.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-xs ${
+                    conv.id === activeConvId
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-muted/60 text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium truncate">{conv.title}</span>
+                    <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
+                      {new Date(conv.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
 
       {/* Planning Progress Bar */}

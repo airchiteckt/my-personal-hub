@@ -672,7 +672,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       quarterStartDate: qStart.toISOString().split('T')[0],
       quarterEndDate: qEnd.toISOString().split('T')[0],
       focusPeriods: focusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
-      activeFocus: activeFocus ? { name: activeFocus.name, id: activeFocus.id, startDate: activeFocus.startDate, endDate: activeFocus.endDate } : null,
+      activeFocus: sessionFocus ? { name: sessionFocus.name, id: sessionFocus.id, startDate: sessionFocus.startDate, endDate: sessionFocus.endDate } : null,
       objectives: objectives.map(o => ({
         title: o.title, status: o.status, description: o.description, weight: o.weight,
         keyResults: getKeyResultsForObjective(o.id).map(kr => ({

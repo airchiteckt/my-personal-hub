@@ -163,6 +163,7 @@ export interface Enterprise {
   timeHorizon: TimeHorizon;
   enterpriseType: EnterpriseTemplateType;
   priorityUntil?: string;
+  is_public?: boolean;
   createdAt: string;
 }
 

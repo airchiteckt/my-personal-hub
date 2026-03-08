@@ -861,7 +861,13 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           }
         }, 1500);
       } else if (action.type === 'create_objective') {
-        const targetFocusId = sessionFocusId || createdFocusId;
+        // Use focus_period_id from AI if provided, otherwise fallback to session
+        let targetFocusId = action.data.focus_period_id || sessionFocusId || createdFocusId;
+        if (targetFocusId) {
+          // Validate UUID
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetFocusId);
+          if (!isUUID) targetFocusId = sessionFocusId || createdFocusId;
+        }
         if (!targetFocusId) {
           toast.error('Crea prima un Focus Period attivo');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
@@ -871,9 +877,18 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         toast.success(`Objective "${action.data.title}" creato`);
         appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
-        const sessionFocus = sessionFocusId ? getFocusPeriodsForEnterprise(enterprise.id).find(f => f.id === sessionFocusId) : null;
-        const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
-        const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
+        // Use objective_id from AI if provided
+        let targetObjId = action.data.objective_id;
+        if (targetObjId) {
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetObjId);
+          if (!isUUID) targetObjId = undefined;
+        }
+        // Fallback to session's last objective
+        if (!targetObjId) {
+          const sessionFocus = sessionFocusId ? getFocusPeriodsForEnterprise(enterprise.id).find(f => f.id === sessionFocusId) : null;
+          const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
+          targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
+        }
         if (!targetObjId) {
           toast.error('Crea prima un Objective');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));

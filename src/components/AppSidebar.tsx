@@ -1,4 +1,4 @@
-import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat, Gauge, Shield } from 'lucide-react';
+import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat, Gauge } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
 import { useAuth } from '@/context/AuthContext';

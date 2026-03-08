@@ -677,15 +677,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       focusPeriods: focusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
       activeFocus: sessionFocus ? { name: sessionFocus.name, id: sessionFocus.id, startDate: sessionFocus.startDate, endDate: sessionFocus.endDate } : null,
       objectives: objectives.map(o => ({
-        title: o.title, status: o.status, description: o.description, weight: o.weight,
+        id: o.id, title: o.title, status: o.status, description: o.description, weight: o.weight,
         keyResults: getKeyResultsForObjective(o.id).map(kr => ({
-          title: kr.title, targetValue: kr.targetValue, currentValue: kr.currentValue,
+          id: kr.id, title: kr.title, targetValue: kr.targetValue, currentValue: kr.currentValue,
           metricType: kr.metricType, status: kr.status, deadline: kr.deadline,
           progress: kr.targetValue > 0 ? Math.round((kr.currentValue / kr.targetValue) * 100) : 0,
         })),
       })),
       projects: projects.map(p => ({
-        name: p.name, type: p.type, isStrategicLever: p.isStrategicLever,
+        id: p.id, name: p.name, type: p.type, isStrategicLever: p.isStrategicLever,
         keyResultId: p.keyResultId,
         tasksCount: tasks.filter(t => t.projectId === p.id).length,
         tasksDone: tasks.filter(t => t.projectId === p.id && t.status === 'done').length,

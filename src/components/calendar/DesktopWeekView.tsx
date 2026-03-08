@@ -349,11 +349,11 @@ export function DesktopWeekView() {
               const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
               const totalMins = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
               return (
-                <div key={day.toISOString()} className="p-2 text-center border-l">
-                  <p className="text-xs text-muted-foreground uppercase font-medium">
+                <div key={day.toISOString()} className="px-1 py-1.5 text-center border-l">
+                  <p className="text-[10px] text-muted-foreground uppercase font-medium leading-none">
                     {format(day, 'EEE', { locale: it })}
                   </p>
-                  <div className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
+                  <div className={`text-sm font-semibold mt-0.5 ${isToday(day) ? 'text-primary' : ''}`}>
                     {format(day, 'd')}
                     <TooltipProvider delayDuration={200}>
                       <Tooltip>

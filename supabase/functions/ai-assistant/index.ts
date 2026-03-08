@@ -282,16 +282,27 @@ REGOLE DI COMUNICAZIONE:
 - CORREGGI SEMPRE errori metodologici (KR come task, Focus troppo vaghi, etc.)
 - Rispondi SEMPRE in italiano
 
-CONTINUITÀ DEL FLUSSO (CRITICO):
-- Quando l'utente conferma un'azione (messaggio tipo "[Confermato: ...]"), DEVI procedere immediatamente al passo successivo
-- NON fermarti dopo una conferma. Guida SEMPRE verso il prossimo step:
-  - Dopo Focus confermato → chiedi/proponi l'Objective
-  - Dopo Objective confermato → chiedi/proponi i Key Results
-  - Dopo KR confermato → chiedi se aggiungerne un altro o procedere ai Progetti
-  - Dopo tutti i KR → fai un recap e proponi i Progetti
-- Se l'utente rifiuta un'azione (messaggio tipo "[Rifiutato: ...]"), proponi un'alternativa o chiedi cosa preferisce
-- L'obiettivo è portare l'utente dal Focus fino all'Execution senza interruzioni
-- Se il contesto mostra che una fase è già completata (es. Focus già attivo), SALTA direttamente alla fase successiva
+CONTINUITÀ DEL FLUSSO STRATEGICO (CRITICO — REGOLA PRIMARIA):
+
+Il tuo obiettivo è guidare l'utente attraverso TUTTO il flusso: Focus → Objective → Key Results → Progetti → Task.
+NON fermarti MAI dopo un singolo step. Dopo OGNI conferma o rifiuto, DEVI procedere immediatamente:
+
+SEQUENZA OBBLIGATORIA:
+1. Focus confermato → proponi SUBITO l'Objective (con tool create_objective)
+2. Objective confermato → proponi SUBITO il primo Key Result (con tool create_key_result)
+3. KR confermato → chiedi "Ne aggiungiamo un altro?" Se sì, proponi. Se no o dopo 2-5 KR → proponi un Progetto (con tool create_project)
+4. Progetto confermato → proponi 2-3 Task concrete per quel progetto (con tool create_task)
+5. Task confermate → chiedi "Altro progetto per questo KR?" o "Passiamo al prossimo Objective?"
+6. Dopo tutti gli Objective → RECAP FINALE completo
+
+REGOLE DI CONTINUITÀ:
+- Quando ricevi "[Confermato: ...]", DEVI rispondere con testo + una nuova proposta (tool call) per il passo successivo
+- Quando ricevi "[Rifiutato: ...]", proponi un'ALTERNATIVA per lo stesso step o chiedi cosa preferisce
+- NON fare mai domande generiche tipo "Come vuoi procedere?" — proponi SEMPRE qualcosa di concreto
+- Se il contesto mostra che una fase è già completata, SALTA direttamente alla fase successiva
+- Se l'utente ha già Focus + Objective + KR ma nessun Progetto, parti dalla creazione dei Progetti
+- Per i Progetti: collegali sempre a un KR specifico se sono di tipo strategic
+- Per le Task: usa la formula "Verbo + oggetto specifico", stima 30-90 min, assegna priorità e impatto/sforzo
 
 ═══════════════════════════════════════
 UTILIZZO DEL CONTESTO (OBBLIGATORIO)
@@ -824,6 +835,44 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
                 deadline: { type: "string", description: "Scadenza formato YYYY-MM-DD (opzionale)" },
               },
               required: ["title", "target_value", "metric_type"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_project",
+            description: "Crea un Progetto collegato a un Key Result per far avanzare la strategia",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nome del progetto (leva operativa)" },
+                type: { type: "string", enum: ["strategic", "operational", "maintenance"], description: "Tipo di progetto" },
+                key_result_id: { type: "string", description: "ID del Key Result collegato (per progetti strategic)" },
+              },
+              required: ["name", "type"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_task",
+            description: "Crea una Task eseguibile dentro un progetto",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Titolo della task (Verbo + oggetto)" },
+                description: { type: "string", description: "Descrizione opzionale" },
+                project_id: { type: "string", description: "ID del progetto di appartenenza" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                estimated_minutes: { type: "number", description: "Durata stimata in minuti" },
+                impact: { type: "number", description: "Impatto 1-3" },
+                effort: { type: "number", description: "Sforzo 1-3" },
+              },
+              required: ["title", "priority", "estimated_minutes"],
               additionalProperties: false,
             },
           },

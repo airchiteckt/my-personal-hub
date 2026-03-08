@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Compass, Rocket, Trash2 } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Compass, Rocket, Trash2, FolderPlus, ListTodo } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -13,11 +13,11 @@ import type { Enterprise } from '@/types/prp';
 type Msg = { role: 'user' | 'assistant'; content: string };
 type WizardAction = {
   id: string;
-  type: 'create_focus_period' | 'create_objective' | 'create_key_result';
+  type: 'create_focus_period' | 'create_objective' | 'create_key_result' | 'create_project' | 'create_task';
   data: any;
   applied?: boolean;
   rejected?: boolean;
-  afterMessageIndex: number; // which message index this action follows
+  afterMessageIndex: number;
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
@@ -82,7 +82,7 @@ const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tt
 export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const { session } = useAuth();
   const {
-    addFocusPeriod, addObjective, addKeyResult,
+    addFocusPeriod, addObjective, addKeyResult, addProject, addTask,
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
@@ -564,7 +564,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // --- Action apply ---
   const applyAction = async (action: WizardAction) => {
-    // Optimistic update — mark as applied immediately
     setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
 
     try {
@@ -597,12 +596,34 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         addKeyResult({ objectiveId: targetObjId, enterpriseId: enterprise.id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'percentage', deadline: action.data.deadline, status: 'active' });
         toast.success(`Key Result "${action.data.title}" creato`);
         appliedLabel = `Key Result "${action.data.title}"`;
+      } else if (action.type === 'create_project') {
+        const keyResultId = action.data.key_result_id || undefined;
+        const projectType = action.data.type || 'strategic';
+        addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
+        toast.success(`Progetto "${action.data.name}" creato`);
+        appliedLabel = `Progetto "${action.data.name}"`;
+      } else if (action.type === 'create_task') {
+        const projects = getProjectsForEnterprise(enterprise.id);
+        const targetProjectId = action.data.project_id || projects[projects.length - 1]?.id;
+        if (!targetProjectId) {
+          toast.error('Crea prima un Progetto');
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
+        addTask({
+          enterpriseId: enterprise.id, projectId: targetProjectId, title: action.data.title,
+          description: action.data.description, estimatedMinutes: action.data.estimated_minutes || 30,
+          priority: action.data.priority || 'medium',
+          impact: action.data.impact, effort: action.data.effort, isRecurring: false,
+        });
+        toast.success(`Task "${action.data.title}" creata`);
+        appliedLabel = `Task "${action.data.title}"`;
       }
       onCreated?.();
 
-      // Auto-continue: send a follow-up message to AI so it proceeds to next step
+      // Auto-continue the strategic flow
       if (appliedLabel) {
-        const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
+        const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del flusso strategico.]`;
         const waitAndSend = () => {
           const checkInterval = setInterval(() => {
             if (!isLoadingRef.current) {
@@ -617,7 +638,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
-      // Rollback
       setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
     }
   };
@@ -651,6 +671,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return <Calendar className="h-3 w-3" />;
       case 'create_objective': return <Target className="h-3 w-3" />;
       case 'create_key_result': return <BarChart3 className="h-3 w-3" />;
+      case 'create_project': return <FolderPlus className="h-3 w-3" />;
+      case 'create_task': return <ListTodo className="h-3 w-3" />;
       default: return <Check className="h-3 w-3" />;
     }
   };
@@ -659,6 +681,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return action.data.name;
       case 'create_objective': return action.data.title;
       case 'create_key_result': return action.data.title;
+      case 'create_project': return action.data.name;
+      case 'create_task': return action.data.title;
       default: return action.type;
     }
   };
@@ -667,6 +691,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return 'Focus';
       case 'create_objective': return 'Objective';
       case 'create_key_result': return 'KR';
+      case 'create_project': return 'Progetto';
+      case 'create_task': return 'Task';
       default: return '';
     }
   };

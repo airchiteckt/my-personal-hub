@@ -208,7 +208,7 @@ export function DesktopWeekView() {
     handleDragEnd(); // reset drag state on drop
     
     const rect = e.currentTarget.getBoundingClientRect();
-    const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+    const relativeY = e.clientY - rect.top;
     const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
 

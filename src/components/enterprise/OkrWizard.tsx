@@ -991,18 +991,51 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       }
       onCreated?.();
 
-      // Auto-continue the strategic flow
+      // Auto-continue ONLY when ALL actions in the same batch are resolved
       if (appliedLabel) {
-        const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del flusso strategico.]`;
-        const waitAndSend = () => {
-          const checkInterval = setInterval(() => {
-            if (!isLoadingRef.current) {
-              clearInterval(checkInterval);
-              doSend(continuationMsg, false);
-            }
-          }, 300);
-          setTimeout(() => clearInterval(checkInterval), 10000);
-        };
+        // Check if all sibling actions (same afterMessageIndex) are resolved
+        setPendingActions(prev => {
+          const updated = prev.map(a => a.id === action.id ? { ...a, applied: true } : a);
+          const siblings = updated.filter(a => a.afterMessageIndex === action.afterMessageIndex);
+          const allResolved = siblings.every(a => a.applied || a.rejected);
+          
+          if (allResolved) {
+            // Gather all approved labels from this batch
+            const approvedLabels = siblings.filter(a => a.applied).map(a => {
+              switch (a.type) {
+                case 'create_focus_period': return `Focus Period "${a.data.name}"`;
+                case 'create_objective': return `Objective "${a.data.title}"`;
+                case 'create_key_result': return `Key Result "${a.data.title}"`;
+                case 'create_project': return `Progetto "${a.data.name}"`;
+                case 'create_task': return `Task "${a.data.title}"`;
+                default: return a.type;
+              }
+            });
+            const rejectedLabels = siblings.filter(a => a.rejected).map(a => {
+              return a.data.title || a.data.name || a.type;
+            });
+            
+            let continuationMsg = '';
+            if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
+            if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
+            continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
+            
+            const waitAndSend = () => {
+              const checkInterval = setInterval(() => {
+                if (!isLoadingRef.current) {
+                  clearInterval(checkInterval);
+                  doSend(continuationMsg.trim(), false);
+                }
+              }, 300);
+              setTimeout(() => clearInterval(checkInterval), 10000);
+            };
+            waitAndSend();
+          }
+          
+          return updated;
+        });
+        return; // Skip the duplicate setPendingActions at the top of applyAction
+      }
         waitAndSend();
       }
     } catch (e) {

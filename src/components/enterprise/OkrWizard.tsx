@@ -763,6 +763,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
             if (p.type === 'actions' && p.actions?.length) {
+              streamReceivedActions = true;
               setMessages(prev => {
                 const msgIdx = prev.length - 1;
                 const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({

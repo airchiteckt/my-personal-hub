@@ -254,6 +254,7 @@ export type Database = {
           name: string
           phase: string
           priority_until: string | null
+          public_slug: string | null
           status: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance: number
           time_horizon: string
@@ -271,6 +272,7 @@ export type Database = {
           name: string
           phase?: string
           priority_until?: string | null
+          public_slug?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance?: number
           time_horizon?: string
@@ -288,6 +290,7 @@ export type Database = {
           name?: string
           phase?: string
           priority_until?: string | null
+          public_slug?: string | null
           status?: Database["public"]["Enums"]["enterprise_status"]
           strategic_importance?: number
           time_horizon?: string

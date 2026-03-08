@@ -164,6 +164,7 @@ export interface Enterprise {
   enterpriseType: EnterpriseTemplateType;
   priorityUntil?: string;
   is_public?: boolean;
+  public_slug?: string;
   createdAt: string;
 }
 

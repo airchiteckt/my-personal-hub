@@ -126,6 +126,7 @@ function dbToEnterprise(row: any): Enterprise {
     enterpriseType: row.enterprise_type ?? 'digital_services',
     priorityUntil: row.priority_until ?? undefined,
     is_public: row.is_public ?? false,
+    public_slug: row.public_slug ?? undefined,
     createdAt: row.created_at,
   };
 }

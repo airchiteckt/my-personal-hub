@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { useAdmin } from "@/hooks/use-admin";
 import { PrpProvider } from "@/context/PrpContext";
 import { Layout } from "@/components/Layout";
 import Index from "./pages/Index";
@@ -24,6 +25,22 @@ import ResetPassword from "./pages/ResetPassword";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();
+
+function AdminRoute() {
+  const { user, loading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdmin();
+
+  if (loading || adminLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground text-sm">Verifica accesso...</div>
+      </div>
+    );
+  }
+
+  if (!user || !isAdmin) return <Navigate to="/" replace />;
+  return <Admin />;
+}
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
@@ -52,7 +69,6 @@ function ProtectedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/rituals" element={<Rituals />} />
-          <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -86,6 +102,7 @@ const App = () => (
             <Route path="/home" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/admin" element={<AdminRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />
             <Route path="/*" element={<ProtectedRoutes />} />

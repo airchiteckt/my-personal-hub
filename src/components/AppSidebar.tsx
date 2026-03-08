@@ -1,8 +1,7 @@
-import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat, Gauge, Shield } from 'lucide-react';
+import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat, Gauge } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
 import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/hooks/use-admin';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -25,7 +24,6 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { enterprises } = usePrp();
   const { user, signOut } = useAuth();
-  const { isAdmin } = useAdmin();
 
   return (
     <Sidebar collapsible="icon">
@@ -58,16 +56,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {isAdmin && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/admin" className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
-                      <Shield className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>Admin</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

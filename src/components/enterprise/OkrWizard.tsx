@@ -1035,9 +1035,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           return updated;
         });
         return; // Skip the duplicate setPendingActions at the top of applyAction
-      }
-        waitAndSend();
-      }
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");

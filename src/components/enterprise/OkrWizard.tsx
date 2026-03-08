@@ -954,14 +954,21 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
           return;
         }
-        addTask({
-          enterpriseId: enterprise.id, projectId: targetProjectId, title: action.data.title,
-          description: action.data.description, estimatedMinutes: action.data.estimated_minutes || 30,
-          priority: action.data.priority || 'medium',
-          impact: action.data.impact, effort: action.data.effort, isRecurring: false,
-        });
-        toast.success(`Task "${action.data.title}" creata`);
-        appliedLabel = `Task "${action.data.title}"`;
+        try {
+          addTask({
+            enterpriseId: enterprise.id, projectId: targetProjectId, title: action.data.title,
+            description: action.data.description, estimatedMinutes: action.data.estimated_minutes || 30,
+            priority: action.data.priority || 'medium',
+            impact: action.data.impact, effort: action.data.effort, isRecurring: false,
+          });
+          toast.success(`Task "${action.data.title}" creata`);
+          appliedLabel = `Task "${action.data.title}"`;
+        } catch (taskErr) {
+          console.error('[Wizard] Task creation error:', taskErr);
+          toast.error(`Errore creazione task: ${taskErr}`);
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
       }
       onCreated?.();
 

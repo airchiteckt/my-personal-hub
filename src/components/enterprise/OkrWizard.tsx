@@ -12,10 +12,12 @@ import type { Enterprise } from '@/types/prp';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type WizardAction = {
+  id: string;
   type: 'create_focus_period' | 'create_objective' | 'create_key_result';
   data: any;
   applied?: boolean;
   rejected?: boolean;
+  afterMessageIndex: number; // which message index this action follows
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
@@ -492,9 +494,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
             if (p.type === 'actions' && p.actions?.length) {
-              const acts: WizardAction[] = p.actions.map((a: any) => ({ ...a, applied: false }));
-              setPendingActions(prev => [...prev, ...acts]);
-              // Don't auto-apply — wait for user confirmation
+              setMessages(prev => {
+                const msgIdx = prev.length - 1;
+                const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+                  ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+                }));
+                setPendingActions(pa => [...pa, ...acts]);
+                return prev;
+              });
             }
           } catch { buffer = line + '\n' + buffer; break; }
         }
@@ -516,8 +523,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
             }
             if (p.type === 'actions' && p.actions?.length) {
-              const acts: WizardAction[] = p.actions.map((a: any) => ({ ...a, applied: false }));
-              setPendingActions(prev => [...prev, ...acts]);
+              setMessages(prev => {
+                const msgIdx = prev.length - 1;
+                const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+                  ...a, id: `flush-${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+                }));
+                setPendingActions(pa => [...pa, ...acts]);
+                return prev;
+              });
             }
           } catch { /* ignore */ }
         }
@@ -551,48 +564,52 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // --- Action apply ---
   const applyAction = async (action: WizardAction) => {
+    // Optimistic update — mark as applied immediately
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
+
     try {
       let appliedLabel = '';
       if (action.type === 'create_focus_period') {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
-        action.applied = true;
         appliedLabel = `Focus Period "${action.data.name}"`;
       } else if (action.type === 'create_objective') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
-        if (!targetFocusId) { toast.error('Crea prima un Focus Period attivo'); return; }
+        if (!targetFocusId) {
+          toast.error('Crea prima un Focus Period attivo');
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
         addObjective({ focusPeriodId: targetFocusId, enterpriseId: enterprise.id, title: action.data.title, description: action.data.description, weight: 1, status: 'active' });
         toast.success(`Objective "${action.data.title}" creato`);
-        action.applied = true;
         appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const activeFocus = focusPeriods.find(f => f.status === 'active');
         const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
         const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
-        if (!targetObjId) { toast.error('Crea prima un Objective'); return; }
+        if (!targetObjId) {
+          toast.error('Crea prima un Objective');
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
         addKeyResult({ objectiveId: targetObjId, enterpriseId: enterprise.id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'percentage', deadline: action.data.deadline, status: 'active' });
         toast.success(`Key Result "${action.data.title}" creato`);
-        action.applied = true;
         appliedLabel = `Key Result "${action.data.title}"`;
       }
-      setPendingActions(prev => [...prev]);
       onCreated?.();
 
       // Auto-continue: send a follow-up message to AI so it proceeds to next step
-      if (action.applied && appliedLabel) {
+      if (appliedLabel) {
         const continuationMsg = `[Confermato: ${appliedLabel}. Procedi con il prossimo passo del wizard.]`;
-        // Wait until isLoading is false before sending continuation
         const waitAndSend = () => {
           const checkInterval = setInterval(() => {
-            // Access isLoading via ref to avoid stale closure
             if (!isLoadingRef.current) {
               clearInterval(checkInterval);
               doSend(continuationMsg, false);
             }
           }, 300);
-          // Safety timeout: give up after 10 seconds
           setTimeout(() => clearInterval(checkInterval), 10000);
         };
         waitAndSend();
@@ -600,13 +617,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
+      // Rollback
+      setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
     }
   };
 
   // --- Action reject ---
   const rejectAction = (action: WizardAction) => {
-    action.rejected = true;
-    setPendingActions(prev => [...prev]);
+    // Immutable update
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
     // Tell AI to try again or move on
     setTimeout(() => {
       const label = action.data?.name || action.data?.title || action.type;
@@ -794,8 +813,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         {/* Show pending actions even in call view */}
         {pendingActions.filter(a => !a.applied && !a.rejected).length > 0 && (
           <div className="border-t border-border/50 p-3 space-y-2">
-            {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-              <div key={`cpend-${i}`} className="flex items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
+            {pendingActions.filter(a => !a.applied && !a.rejected).map((action) => (
+              <div key={action.id} className="flex items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
                 <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
                 <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{getActionLabel(action)}</span>
@@ -869,55 +888,65 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       {/* Phase Stepper */}
       <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
 
-      {/* Messages area */}
+      {/* Messages area with inline actions */}
       <div ref={scrollRef} className="max-h-[50vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3">
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'assistant' && (
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                <Sparkles className="h-3 w-3 text-primary" />
-              </div>
-            )}
-            <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted/70 text-foreground rounded-bl-md'}`}>
-              {msg.role === 'assistant' ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+        {messages.map((msg, i) => {
+          const actionsAfterThis = pendingActions.filter(a => a.afterMessageIndex === i);
+          return (
+            <div key={i}>
+              {/* Message bubble */}
+              <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </div>
+                )}
+                <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted/70 text-foreground rounded-bl-md'}`}>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
+                  )}
                 </div>
-              ) : (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
 
-        {/* Pending actions awaiting confirmation */}
-        {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-          <div key={`pending-${i}`} className="flex justify-center py-1">
-            <div className="flex items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm">
-              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
-              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-              <span className="text-[11px] text-muted-foreground truncate max-w-[120px] md:max-w-[180px]">{getActionLabel(action)}</span>
-              <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
-                <Check className="h-3 w-3 text-primary" />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
-                <X className="h-3 w-3 text-destructive" />
-              </button>
+              {/* Inline action cards after this message */}
+              {actionsAfterThis.map((action) => (
+                <div key={action.id} className="flex justify-center py-1.5">
+                  {action.applied ? (
+                    <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/20 px-3 py-1.5 animate-in fade-in duration-200">
+                      <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
+                      <Check className="h-3 w-3 text-primary shrink-0" />
+                    </div>
+                  ) : action.rejected ? (
+                    <div className="flex items-center gap-1.5 rounded-full bg-destructive/[0.06] border border-destructive/15 px-3 py-1.5 opacity-60 animate-in fade-in duration-200">
+                      <div className="h-4 w-4 rounded-full bg-destructive/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-muted-foreground line-through">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px] line-through">{getActionLabel(action)}</span>
+                      <X className="h-3 w-3 text-destructive/60 shrink-0" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm animate-in slide-in-from-bottom-2 duration-300">
+                      <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[120px] md:max-w-[180px]">{getActionLabel(action)}</span>
+                      <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
+                        <Check className="h-3 w-3 text-primary" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
+                        <X className="h-3 w-3 text-destructive" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-
-        {/* Applied actions */}
-        {pendingActions.filter(a => a.applied).map((action, i) => (
-          <div key={`action-${i}`} className="flex justify-center py-1">
-            <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/15 px-3 py-1">
-              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
-              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-              <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
-              <Check className="h-3 w-3 text-primary shrink-0" />
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Loading */}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (

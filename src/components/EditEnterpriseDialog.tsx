@@ -55,6 +55,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
     setGrowthPotential(enterprise.growthPotential);
     setPhase(enterprise.phase);
     setPriorityUntil(enterprise.priorityUntil ? parseISO(enterprise.priorityUntil) : undefined);
+    setDescription(enterprise.description || '');
   }, [enterprise]);
 
   const handleSubmit = () => {

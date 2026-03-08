@@ -89,6 +89,18 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
             <Input value={name} onChange={e => setName(e.target.value)} />
           </div>
 
+          {/* Description for AI context */}
+          <div className="space-y-2">
+            <Label className="text-sm">📝 Descrizione & Contesto AI</Label>
+            <Textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Descrivi l'impresa: cosa fa, clienti target, modello di business, obiettivi a lungo termine, sfide attuali... Queste info saranno usate da Radar Strategy per consigli più mirati."
+              className="min-h-[100px] text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">Queste informazioni saranno utilizzate dall'AI per fornirti suggerimenti strategici personalizzati.</p>
+          </div>
+
           {/* Color */}
           <div className="space-y-2">
             <Label>Colore</Label>

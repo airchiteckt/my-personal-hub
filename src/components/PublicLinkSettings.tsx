@@ -143,9 +143,9 @@ export function PublicLinkSettings() {
         <div className="flex items-center gap-2">
           <Link2 className="h-5 w-5 text-primary" />
           <div>
-            <h3 className="font-semibold">Il tuo identificativo pubblico</h3>
+            <h3 className="font-semibold">Il tuo nome pubblico</h3>
             <p className="text-xs text-muted-foreground">
-              Questo slug è la base di tutti i tuoi link pubblici: <span className="font-mono">flydeck.app/<strong>{savedSlug || '...'}</strong>/...</span>
+              Questo è il tuo identificativo nei link pubblici: <span className="font-mono">flydeck.app/<strong>{savedSlug || '...'}</strong>/...</span>
             </p>
           </div>
         </div>

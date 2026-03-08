@@ -117,7 +117,7 @@ const PrpContext = createContext<PrpContextType | null>(null);
 // --- DB row <-> Frontend type mappers ---
 function dbToEnterprise(row: any): Enterprise {
   return {
-    id: row.id, name: row.name, status: row.status, color: row.color,
+    id: row.id, name: row.name, description: row.description ?? undefined, status: row.status, color: row.color,
     strategicImportance: row.strategic_importance ?? 3,
     growthPotential: row.growth_potential ?? 3,
     phase: row.phase ?? 'setup',

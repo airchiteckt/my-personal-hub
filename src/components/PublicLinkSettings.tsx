@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
+import { usePrp } from '@/context/PrpContext';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Link2, Copy, Check, ExternalLink, CalendarDays, Building2, Briefcase, Lock, ClipboardList } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Link2, Copy, Check, ExternalLink, CalendarDays, Building2, Lock, ClipboardList, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PUBLIC_PAGES = [
@@ -29,40 +31,43 @@ const PUBLIC_PAGES = [
   {
     key: 'showcase',
     label: 'Showcase Imprese',
-    description: 'Portfolio pubblico di tutte le tue imprese e i loro progressi',
+    description: 'Portfolio pubblico delle tue imprese — tutte quelle marcate come pubbliche',
     icon: Building2,
     path: '/showcase',
-    available: false,
-  },
-  {
-    key: 'enterprise',
-    label: 'Pagina Singola Impresa',
-    description: 'Pagina pubblica dedicata a una singola impresa con OKR e metriche',
-    icon: Briefcase,
-    path: '/enterprise/:id',
-    available: false,
+    available: true,
   },
 ];
 
 export function PublicLinkSettings() {
   const { user } = useAuth();
+  const { enterprises, updateEnterprise } = usePrp();
   const [slug, setSlug] = useState('');
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
+  // Showcase settings
+  const [showcaseEnabled, setShowcaseEnabled] = useState(false);
+  const [showcasePassword, setShowcasePassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showcaseSaving, setShowcaseSaving] = useState(false);
+
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('public_slug')
+        .select('public_slug, showcase_enabled, showcase_password')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (data?.public_slug) {
-        setSlug(data.public_slug);
-        setSavedSlug(data.public_slug);
+      if (data) {
+        if (data.public_slug) {
+          setSlug(data.public_slug);
+          setSavedSlug(data.public_slug);
+        }
+        setShowcaseEnabled(data.showcase_enabled || false);
+        setShowcasePassword(data.showcase_password || '');
       }
       setLoading(false);
     })();
@@ -89,6 +94,35 @@ export function PublicLinkSettings() {
       setSavedSlug(clean);
       setSlug(clean);
       toast.success('Slug pubblico salvato!');
+    }
+  };
+
+  const saveShowcaseSettings = async () => {
+    if (!user) return;
+    setShowcaseSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        showcase_enabled: showcaseEnabled,
+        showcase_password: showcasePassword.trim() || null,
+      })
+      .eq('user_id', user.id);
+    setShowcaseSaving(false);
+    if (error) {
+      toast.error('Errore nel salvataggio');
+    } else {
+      toast.success('Impostazioni showcase salvate');
+    }
+  };
+
+  const toggleEnterprisePublic = async (id: string, currentValue: boolean) => {
+    const { error } = await supabase
+      .from('enterprises')
+      .update({ is_public: !currentValue } as any)
+      .eq('id', id);
+    if (!error) {
+      updateEnterprise(id, { is_public: !currentValue } as any);
+      toast.success(!currentValue ? 'Impresa resa pubblica' : 'Impresa nascosta');
     }
   };
 
@@ -140,25 +174,19 @@ export function PublicLinkSettings() {
           const fullUrl = savedSlug ? `${window.location.origin}/${savedSlug}${page.path}` : null;
 
           return (
-            <Card key={page.key} className={`p-4 ${!page.available ? 'opacity-50' : ''}`}>
+            <Card key={page.key} className="p-4">
               <div className="flex items-start gap-3">
-                <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${page.available ? 'bg-primary/10' : 'bg-muted'}`}>
-                  <Icon className={`h-4 w-4 ${page.available ? 'text-primary' : 'text-muted-foreground'}`} />
+                <div className="h-9 w-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10">
+                  <Icon className="h-4 w-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
                     <h4 className="font-medium text-sm">{page.label}</h4>
-                    {page.available ? (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 py-0">attivo</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
-                        <Lock className="h-2.5 w-2.5" /> prossimamente
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">attivo</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">{page.description}</p>
 
-                  {page.available && savedSlug && fullUrl && (
+                  {savedSlug && fullUrl && (
                     <div className="flex items-center gap-1.5 mt-2">
                       <code className="text-[11px] bg-background px-2 py-1 rounded border truncate flex-1">
                         /{savedSlug}{page.path}
@@ -174,7 +202,7 @@ export function PublicLinkSettings() {
                     </div>
                   )}
 
-                  {page.available && !savedSlug && (
+                  {!savedSlug && (
                     <p className="text-[11px] text-amber-500 mt-1">Configura prima il tuo slug per attivare questo link.</p>
                   )}
                 </div>
@@ -184,10 +212,84 @@ export function PublicLinkSettings() {
         })}
       </div>
 
+      {/* Showcase settings */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Configurazione Showcase</h3>
+
+        <Card className="p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="font-semibold text-sm">Abilita Showcase</h3>
+                <p className="text-xs text-muted-foreground">Rendi visibile il tuo portfolio pubblico</p>
+              </div>
+            </div>
+            <Switch checked={showcaseEnabled} onCheckedChange={setShowcaseEnabled} />
+          </div>
+
+          {showcaseEnabled && (
+            <>
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5" />
+                  Password di accesso <span className="text-muted-foreground font-normal">(opzionale)</span>
+                </Label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={showcasePassword}
+                      onChange={e => setShowcasePassword(e.target.value)}
+                      placeholder="Lascia vuoto per accesso libero"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground">Se impostata, i visitatori dovranno inserire questa password per vedere lo showcase.</p>
+              </div>
+
+              {/* Enterprise visibility toggles */}
+              <div className="space-y-2 pt-2 border-t">
+                <Label className="text-sm">Imprese visibili nello Showcase</Label>
+                {enterprises.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nessuna impresa creata</p>
+                ) : (
+                  <div className="space-y-2">
+                    {enterprises.map(e => (
+                      <div key={e.id} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${e.color})` }} />
+                          <span className="text-sm">{e.name}</span>
+                        </div>
+                        <Switch
+                          checked={(e as any).is_public || false}
+                          onCheckedChange={() => toggleEnterprisePublic(e.id, (e as any).is_public || false)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <Button onClick={saveShowcaseSettings} disabled={showcaseSaving} size="sm">
+            {showcaseSaving ? 'Salvataggio...' : 'Salva impostazioni showcase'}
+          </Button>
+        </Card>
+      </div>
+
       <Card className="p-4 bg-muted/50 border-dashed">
         <p className="text-xs text-muted-foreground leading-relaxed">
-          <strong>💡 Come funziona:</strong> Lo slug è il tuo identificativo unico. Una volta impostato, puoi condividere i link delle pagine pubbliche attive.
-          Le pagine "prossimamente" verranno sbloccate nelle prossime versioni.
+          <strong>💡 Come funziona:</strong> Lo slug è il tuo identificativo unico. Attiva lo Showcase e scegli quali imprese rendere visibili.
+          Se imposti una password, i visitatori dovranno autenticarsi prima di accedere.
         </p>
       </Card>
     </div>

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, X, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff, MoreVertical } from 'lucide-react';
+import { Send, Trash2, Mic, Volume2, VolumeX, Loader2, Check, X, Building2, FolderKanban, ListTodo, Calendar, Target, BarChart3, ChevronRight, Radio, ArrowLeft, Maximize2, Phone, PhoneOff, MoreVertical, MicOff } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
@@ -37,6 +37,15 @@ const RadarIcon = ({ size = 18, className = '' }: { size?: number; className?: s
   </svg>
 );
 
+// Detect mobile once
+const isMobileDevice = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+// Check SpeechRecognition support
+const SRConstructor = typeof window !== 'undefined'
+  ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  : null;
+
 // Shared hook for all Radar logic
 function useRadar() {
   const { session } = useAuth();
@@ -63,9 +72,13 @@ function useRadar() {
   const callTimerRef = useRef<ReturnType<typeof setInterval>>();
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const callActiveRef = useRef(false); // ref to track call state in callbacks
-  const pendingSendRef = useRef<string | null>(null); // for auto-sending recognized text
+  const callActiveRef = useRef(false);
+  const pendingSendRef = useRef<string | null>(null);
   const doSendRef = useRef<(text: string, isVoiceCall: boolean) => Promise<void>>();
+  const isSpeakingRef = useRef(false);
+  const greetingCacheRef = useRef<Blob | null>(null);
+  const isStartingRecognitionRef = useRef(false);
+  const wakeLockRef = useRef<any>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -77,6 +90,7 @@ function useRadar() {
       if (recognitionRef.current) try { recognitionRef.current.abort(); } catch {}
       if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
       if (callTimerRef.current) clearInterval(callTimerRef.current);
+      releaseWakeLock();
     };
   }, []);
 
@@ -85,26 +99,44 @@ function useRadar() {
 
   const stripMarkdown = (t: string) => t.replace(/[*_~`#>[\]()!|]/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').trim();
 
-  // Start continuous listening (for call mode — also runs during TTS for interruption)
-  const isSpeakingRef = useRef(false);
-  const greetingCacheRef = useRef<Blob | null>(null);
-  const isStartingRecognitionRef = useRef(false); // Guard against concurrent starts
+  // Wake Lock to prevent screen sleep during call
+  const requestWakeLock = async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      }
+    } catch {}
+  };
+  const releaseWakeLock = () => {
+    try { wakeLockRef.current?.release(); wakeLockRef.current = null; } catch {}
+  };
 
-  // Detect mobile for SpeechRecognition adjustments
-  const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  // Unlock audio on iOS — must be called from a user gesture handler
+  const unlockAudio = () => {
+    const audio = new Audio();
+    // Create a tiny silent audio context to unlock playback
+    audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    audio.volume = 0.01;
+    const p = audio.play();
+    if (p) p.then(() => audio.pause()).catch(() => {});
+    audioRef.current = audio;
+  };
 
+  // Start continuous listening
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
-    // Prevent multiple concurrent starts (main mobile fix)
     if (isStartingRecognitionRef.current) return;
+    if (!SRConstructor) {
+      toast.error('Il browser non supporta il riconoscimento vocale');
+      return;
+    }
     isStartingRecognitionRef.current = true;
 
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { toast.error('Browser non supporta il riconoscimento vocale'); isStartingRecognitionRef.current = false; return; }
     try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
 
-    const r = new SR();
+    const r = new SRConstructor();
     r.lang = 'it-IT';
+    // iOS: continuous mode crashes; Android/desktop: use continuous
     r.continuous = !isMobileDevice;
     r.interimResults = true;
 
@@ -123,7 +155,6 @@ function useRadar() {
 
       // Interrupt TTS if user speaks
       if (isSpeakingRef.current && currentText.trim().length > 2) {
-        console.log('[Radar] User interruption detected, stopping TTS');
         if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
         isSpeakingRef.current = false;
         setCallState('listening');
@@ -131,7 +162,7 @@ function useRadar() {
 
       if (finalTranscript.trim()) {
         if (silenceTimer) clearTimeout(silenceTimer);
-        const delay = isMobileDevice ? 1000 : 700;
+        const delay = isMobileDevice ? 1200 : 700;
         silenceTimer = setTimeout(() => {
           if (callActiveRef.current && finalTranscript.trim()) {
             pendingSendRef.current = finalTranscript.trim();
@@ -151,18 +182,18 @@ function useRadar() {
         if (doSendRef.current) doSendRef.current(text, true);
         return;
       }
-      // Don't restart while TTS is playing — audio.onended will restart
       if (isSpeakingRef.current) return;
-      const restartDelay = isMobileDevice ? 300 : 200;
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, restartDelay);
+      // On mobile, use a longer delay to avoid rapid restarts
+      const restartDelay = isMobileDevice ? 500 : 200;
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, restartDelay);
     };
 
     r.onerror = (e: any) => {
       isStartingRecognitionRef.current = false;
       if (silenceTimer) clearTimeout(silenceTimer);
       if (e.error === 'no-speech' || e.error === 'aborted') {
-        if (isSpeakingRef.current) return; // Don't restart during TTS
-        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, isMobileDevice ? 400 : 300);
+        if (isSpeakingRef.current) return;
+        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, isMobileDevice ? 600 : 300);
         return;
       }
       if (e.error === 'not-allowed') {
@@ -170,7 +201,7 @@ function useRadar() {
         return;
       }
       console.error('Speech error:', e.error);
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
+      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, 800);
     };
 
     recognitionRef.current = r;
@@ -180,7 +211,7 @@ function useRadar() {
     } catch (err) {
       console.warn('[Radar] STT start failed, retrying...', err);
       isStartingRecognitionRef.current = false;
-      setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
+      setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, 800);
     }
   }, []);
 
@@ -192,12 +223,10 @@ function useRadar() {
       isSpeakingRef.current = true;
       setCallState('speaking');
 
-      // On desktop, listen during TTS for interruption; on mobile skip to avoid mic flicker
+      // On desktop, listen during TTS for interruption; on mobile skip
       if (!isMobileDevice) startContinuousListening();
 
       let blob: Blob;
-
-      // Check if this is the greeting and we have it cached
       const isGreeting = clean === 'Pronto.' || clean === 'Pronto';
       if (isGreeting && greetingCacheRef.current) {
         blob = greetingCacheRef.current;
@@ -207,12 +236,8 @@ function useRadar() {
           body: JSON.stringify({ text: clean }),
         });
         if (!res.ok) throw new Error('TTS failed');
-
-        // If user interrupted while fetching, skip playback
         if (!isSpeakingRef.current) return;
-
         blob = await res.blob();
-        // Cache greeting for future calls
         if (isGreeting) greetingCacheRef.current = blob;
       }
 
@@ -293,11 +318,10 @@ function useRadar() {
     } catch (e) { console.error(e); toast.error("Errore nell'azione"); }
   };
 
-  // Core send function (used by both text and voice)
+  // Core send function
   const doSend = async (text: string, isVoiceCall: boolean) => {
-    doSendRef.current = doSend; // keep ref fresh
+    doSendRef.current = doSend;
     if (!text) return;
-    // For voice calls, queue if already loading instead of dropping
     if (isLoading && !isVoiceCall) return;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
@@ -333,18 +357,15 @@ function useRadar() {
       }
       if (!assistantContent) {
         setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
-        // If voice call, restart listening even without response
         if (isVoiceCall && callActiveRef.current) {
           setTimeout(() => startContinuousListening(), 500);
         }
       } else if (isVoiceCall || voiceEnabled) {
-        // Speak the response — speakText will auto-restart listening after
         speakText(assistantContent);
       }
     } catch (e: any) {
       console.error(e); toast.error(e?.message || 'Errore AI');
       setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
-      // If voice call, restart listening despite error
       if (isVoiceCall && callActiveRef.current) {
         setTimeout(() => startContinuousListening(), 1000);
       }
@@ -359,16 +380,19 @@ function useRadar() {
     await doSend(text, false);
   };
 
-  const handleSendVoice = async (text: string) => {
-    if (!text) return;
-    await doSend(text, true);
-  };
-
-  // Keep ref always pointing to latest doSend
   doSendRef.current = doSend;
 
   // Start a call
   const startCall = useCallback(async () => {
+    // Check SpeechRecognition support before starting
+    if (!SRConstructor) {
+      toast.error('Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Safari.');
+      return;
+    }
+
+    // Unlock audio on iOS (must happen in user gesture context)
+    if (isIOS) unlockAudio();
+
     setCallActive(true);
     callActiveRef.current = true;
     isSpeakingRef.current = false;
@@ -378,11 +402,16 @@ function useRadar() {
     setInput('');
     setCallState('processing');
 
-    // Pre-create audio element for TTS playback
-    audioRef.current = new Audio();
+    // Pre-create audio element
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+    }
     audioRef.current.preload = 'auto';
 
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
+
+    // Request wake lock
+    requestWakeLock();
 
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -392,7 +421,6 @@ function useRadar() {
       return;
     }
 
-    // Skip AI call for greeting — play "Pronto." directly via TTS (cached after first time)
     setMessages(prev => [...prev, { role: 'assistant', content: 'Pronto.' }]);
     speakText('Pronto.');
   }, []);
@@ -401,15 +429,17 @@ function useRadar() {
   const endCall = useCallback(() => {
     callActiveRef.current = false;
     isSpeakingRef.current = false;
+    isStartingRecognitionRef.current = false;
     setCallActive(false);
     setCallState('idle');
     setInput('');
     pendingSendRef.current = null;
 
     if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
-    try { if (recognitionRef.current) recognitionRef.current.abort(); } catch {}
+    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
 
+    releaseWakeLock();
     setView(messages.length > 0 ? 'chat' : 'home');
   }, [messages.length]);
 
@@ -426,10 +456,7 @@ function useRadar() {
     };
     return map[type] || <Radio className="h-3 w-3" />;
   };
-  const getActionLabel = (a: GlobalAction) => {
-    const label = a.data?.name || a.data?.title || a.type.replace(/_/g, ' ');
-    return label;
-  };
+  const getActionLabel = (a: GlobalAction) => a.data?.name || a.data?.title || a.type.replace(/_/g, ' ');
   const getActionDescription = (a: GlobalAction) => {
     const parts: string[] = [];
     if (a.data?.priority) parts.push(`priorità ${a.data.priority}`);
@@ -449,18 +476,14 @@ function useRadar() {
 
   const approveAction = async (action: GlobalAction) => {
     await applyAction(action);
-    if (callActiveRef.current) {
-      speakText('Fatto.');
-    }
+    if (callActiveRef.current) speakText('Fatto.');
   };
 
   const rejectAction = (action: GlobalAction) => {
     action.rejected = true;
     setPendingActions(prev => [...prev]);
     toast('Azione annullata');
-    if (callActiveRef.current) {
-      speakText('Annullato.');
-    }
+    if (callActiveRef.current) speakText('Annullato.');
   };
 
   const tasksDueToday = tasks.filter(t => t.scheduledDate === new Date().toISOString().split('T')[0] && t.status !== 'done').length;
@@ -541,13 +564,13 @@ function ActionConfirmCard({ action, getActionIcon, getActionLabel, getActionDes
       <div className="flex gap-2">
         <button
           onClick={onApprove}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground py-2 text-xs font-semibold hover:opacity-90 transition-opacity"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground py-2.5 text-xs font-semibold hover:opacity-90 active:scale-[0.97] transition-all min-h-[44px]"
         >
           <Check className="h-3.5 w-3.5" /> Approva
         </button>
         <button
           onClick={onReject}
-          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-foreground py-2 text-xs font-medium hover:bg-muted transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-background text-foreground py-2.5 text-xs font-medium hover:bg-muted active:scale-[0.97] transition-all min-h-[44px]"
         >
           <X className="h-3.5 w-3.5" /> Annulla
         </button>
@@ -570,7 +593,8 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
   rejectAction: (a: GlobalAction) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, pendingActions]);
+  
   const stateLabel: Record<CallState, string> = {
     idle: 'CHIAMA RADAR',
     connecting: 'CONNESSIONE...',
@@ -579,94 +603,92 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
     speaking: 'RADAR PARLA...',
   };
 
+  const stateIcon: Record<CallState, React.ReactNode> = {
+    idle: <Phone className="h-5 w-5" />,
+    connecting: <Loader2 className="h-5 w-5 animate-spin" />,
+    listening: <Mic className="h-5 w-5" />,
+    processing: <Loader2 className="h-5 w-5 animate-spin" />,
+    speaking: <Volume2 className="h-5 w-5" />,
+  };
+
   return (
     <motion.div
       key="voice"
-      initial={{ opacity: 0, scale: 0.92 }}
+      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.92 }}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="flex-1 flex flex-col items-center p-6 border-t border-border/30 relative overflow-hidden"
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="flex-1 flex flex-col border-t border-border/30 relative overflow-hidden"
     >
-      {/* Call timer */}
-      <AnimatePresence>
+      {/* Top status bar */}
+      <div className="flex items-center justify-center gap-3 py-3 px-4 shrink-0">
         {callActive && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="text-center mb-3 shrink-0"
-          >
-            <span className="text-xs text-muted-foreground tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-              {formatDuration(callDuration)}
-            </span>
-          </motion.div>
+          <span className="text-xs text-muted-foreground tabular-nums" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            {formatDuration(callDuration)}
+          </span>
         )}
-      </AnimatePresence>
-
-      {/* Compact Radar indicator + state */}
-      <div className="flex items-center gap-3 mb-4 shrink-0">
-        <div className="relative">
-          {callActive && callState === 'listening' && (
-            <motion.div
-              className="absolute rounded-full border-2 border-primary/20 pointer-events-none"
-              style={{ width: 52, height: 52, left: -6, top: -6 }}
-              animate={{ scale: [1, 1.3, 1], opacity: [0.4, 0, 0.4] }}
-              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          )}
-          {!callActive ? (
-            <motion.button
-              onClick={startCall}
-              className="relative h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.93 }}
-            >
-              <Phone className="h-4 w-4" />
-            </motion.button>
-          ) : (
-            <motion.div
-              className={`relative h-10 w-10 rounded-full flex items-center justify-center ${
-                callState === 'speaking' ? 'bg-primary shadow-[0_0_15px_hsl(var(--primary)/0.3)]'
-                : callState === 'listening' ? 'bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.2)]'
-                : 'bg-primary/80'
-              } text-primary-foreground`}
-              animate={callState === 'listening' ? { scale: [1, 1.04, 1] } : {}}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              {callState === 'processing' || callState === 'connecting' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : callState === 'speaking' ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </motion.div>
-          )}
-        </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            {callActive && callState === 'listening' && (
+              <motion.div
+                className="absolute rounded-full border-2 border-primary/20 pointer-events-none"
+                style={{ width: 44, height: 44, left: -6, top: -6 }}
+                animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+              />
+            )}
+            {!callActive ? (
+              <motion.button
+                onClick={startCall}
+                className="relative h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
+                whileTap={{ scale: 0.93 }}
+              >
+                <Phone className="h-4 w-4" />
+              </motion.button>
+            ) : (
+              <motion.div
+                className={`relative h-8 w-8 rounded-full flex items-center justify-center ${
+                  callState === 'speaking' ? 'bg-primary shadow-[0_0_15px_hsl(var(--primary)/0.3)]'
+                  : callState === 'listening' ? 'bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.2)]'
+                  : 'bg-primary/80'
+                } text-primary-foreground`}
+                animate={callState === 'listening' ? { scale: [1, 1.06, 1] } : {}}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                {callState === 'processing' || callState === 'connecting' ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : callState === 'speaking' ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </motion.div>
+            )}
+          </div>
           <motion.p
-            className="text-xs font-medium text-muted-foreground"
+            className="text-[11px] font-medium text-muted-foreground"
             style={{ fontFamily: "'JetBrains Mono', monospace" }}
             animate={callState === 'listening' ? { opacity: [0.5, 1, 0.5] } : { opacity: 1 }}
             transition={callState === 'listening' ? { duration: 2, repeat: Infinity } : {}}
           >
             {stateLabel[callState]}
           </motion.p>
-          {callState === 'speaking' && (
-            <button onClick={stopSpeaking} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>INTERROMPI</button>
-          )}
         </div>
+        {callState === 'speaking' && (
+          <button onClick={stopSpeaking} className="text-[10px] text-muted-foreground hover:text-foreground active:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            STOP
+          </button>
+        )}
       </div>
 
-      {/* Live transcript of what user is saying */}
+      {/* Live transcript */}
       <AnimatePresence>
         {callActive && input && callState === 'listening' && (
           <motion.div
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="w-full max-w-sm mb-3 shrink-0"
+            className="mx-4 mb-2 shrink-0"
           >
             <div className="bg-primary/5 rounded-lg px-3 py-2 border border-primary/10 text-center">
               <p className="text-xs text-foreground/70 italic">🎤 "{input}"</p>
@@ -677,9 +699,8 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
 
       {/* Chat transcript - scrollable */}
       {messages.length > 0 && (
-        <div ref={scrollRef} className="flex-1 w-full max-w-sm overflow-y-auto space-y-2 mb-3 px-1">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 px-4 pb-2 min-h-0">
           {messages.map((msg, i) => {
-            // Skip the first system-like user message (greeting prompt)
             if (i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'))) return null;
             return (
               <motion.div
@@ -711,7 +732,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
               </div>
             </div>
           )}
-          {/* Pending action cards in voice view */}
+          {/* Pending action cards */}
           {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
             <div key={`va-${i}`} className="w-full">
               <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
@@ -720,22 +741,27 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
         </div>
       )}
 
-      {/* Hang up */}
-      {callActive && (
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          onClick={(e) => { e.stopPropagation(); endCall(); }}
-          className="shrink-0 mt-2 h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer"
-        >
-          <PhoneOff className="h-5 w-5" />
-        </motion.button>
+      {/* Empty state when no messages and not active */}
+      {messages.length === 0 && !callActive && (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-xs text-muted-foreground">Tocca per avviare una conversazione vocale</p>
+        </div>
       )}
 
-      {/* Switch to text (only when not in a call) */}
-      {!callActive && (
-        <p className="mt-5 text-xs text-muted-foreground">Tocca per avviare una conversazione vocale con Radar</p>
+      {/* Bottom controls — fixed at bottom with safe area */}
+      {callActive && (
+        <div className="shrink-0 flex flex-col items-center gap-2 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            onClick={(e) => { e.stopPropagation(); endCall(); }}
+            className="h-14 w-14 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+          >
+            <PhoneOff className="h-6 w-6" />
+          </motion.button>
+          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RIATTACCA</span>
+        </div>
       )}
     </motion.div>
   );
@@ -747,7 +773,6 @@ export function AiAssistant() {
   const [open, setOpen] = useState(false);
   const r = useRadar();
 
-  // Reset view on close
   useEffect(() => { if (!open) { if (r.callActive) r.endCall(); setTimeout(() => r.setView('home'), 300); } }, [open]);
 
   const openFullPage = () => { setOpen(false); navigate('/radar'); };
@@ -755,15 +780,15 @@ export function AiAssistant() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="fixed bottom-4 right-4 md:bottom-5 md:right-5 z-50 group" aria-label="Apri Radar">
+        <button className="fixed bottom-4 right-4 md:bottom-5 md:right-5 z-50 group" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }} aria-label="Apri Radar">
           <div className="absolute inset-0 rounded-full md:rounded-2xl bg-primary/30 blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-300" />
-          <div className="relative h-12 w-12 md:h-12 md:w-auto md:px-5 rounded-full md:rounded-2xl bg-primary text-primary-foreground flex items-center justify-center md:justify-start gap-2.5 shadow-lg hover:shadow-xl hover:scale-[1.03] active:scale-[0.97] transition-all duration-200">
+          <div className="relative h-12 w-12 md:h-12 md:w-auto md:px-5 rounded-full md:rounded-2xl bg-primary text-primary-foreground flex items-center justify-center md:justify-start gap-2.5 shadow-lg hover:shadow-xl active:scale-[0.95] transition-all duration-200">
             <RadarIcon size={20} className="md:h-[18px] md:w-[18px]" />
             <span className="hidden md:inline text-sm font-semibold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RADAR</span>
           </div>
         </button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:w-[440px] p-0 flex flex-col bg-background border-l border-border/40">
+      <SheetContent side="right" className="w-full sm:w-[440px] p-0 flex flex-col bg-background border-l border-border/40 [&>button]:hidden">
         {/* Header */}
         <div className="relative overflow-hidden shrink-0">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-accent/[0.04] pointer-events-none" />
@@ -771,7 +796,7 @@ export function AiAssistant() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {r.view !== 'home' && (
-                  <button onClick={r.goBack} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                  <button onClick={r.goBack} className="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground">
                     <ArrowLeft className="h-4 w-4" />
                   </button>
                 )}
@@ -789,9 +814,11 @@ export function AiAssistant() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={openFullPage} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Pagina dedicata">
-                  <Maximize2 className="h-4 w-4" />
-                </button>
+                {!r.callActive && (
+                  <button onClick={openFullPage} className="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-colors" title="Pagina dedicata">
+                    <Maximize2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -817,14 +844,14 @@ export function AiAssistant() {
               <p className="text-[11px] text-muted-foreground font-medium mb-2 px-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>AZIONI RAPIDE</p>
               <div className="space-y-1.5 mb-5">
                 {QUICK_PROMPTS.map(q => (
-                  <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="w-full flex items-center gap-3 rounded-lg border border-border/50 bg-card/80 hover:bg-muted/60 hover:border-primary/20 transition-all duration-150 px-3 py-2.5 group text-left">
+                  <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="w-full flex items-center gap-3 rounded-lg border border-border/50 bg-card/80 hover:bg-muted/60 active:bg-muted/80 transition-all duration-150 px-3 py-3 group text-left min-h-[48px]">
                     <span className="text-base">{q.icon}</span>
                     <span className="text-[13px] text-foreground font-medium flex-1">{q.label}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary transition-all" />
                   </button>
                 ))}
               </div>
-              <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] border border-primary/15 hover:border-primary/25 transition-all duration-200 py-3.5 group">
+              <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] active:bg-primary/[0.18] border border-primary/15 transition-all duration-200 py-4 group min-h-[52px]">
                 <Phone className="h-4 w-4 text-primary/70 group-hover:text-primary transition-colors" />
                 <span className="text-[13px] font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>CHIAMA RADAR</span>
               </button>
@@ -872,9 +899,9 @@ export function AiAssistant() {
                   </div>
                 )}
               </div>
-              <div className="border-t border-border/40 p-3 shrink-0 bg-muted/10">
+              <div className="border-t border-border/40 p-3 shrink-0 bg-muted/10" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
                 {r.messages.length > 0 && (
-                  <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1 min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     <Trash2 className="h-3 w-3" /> NUOVA SESSIONE
                   </button>
                 )}
@@ -882,7 +909,7 @@ export function AiAssistant() {
                   <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi al Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[32px] max-h-[80px] py-1" rows={1} disabled={r.isLoading} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200">
+                      <button className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-all duration-200">
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
@@ -908,7 +935,7 @@ export function RadarFullPage() {
   const r = useRadar();
 
   return (
-    <div className="h-[calc(100vh-3.5rem)] max-w-3xl mx-auto">
+    <div className="h-[calc(100dvh-3.5rem)] max-w-3xl mx-auto">
       <div className="h-full rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden flex flex-col">
         {/* Header */}
         <div className="relative overflow-hidden shrink-0">
@@ -917,7 +944,7 @@ export function RadarFullPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {r.view !== 'home' && (
-                  <button onClick={r.goBack} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+                  <button onClick={r.goBack} className="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground">
                     <ArrowLeft className="h-4 w-4" />
                   </button>
                 )}
@@ -958,18 +985,17 @@ export function RadarFullPage() {
               <p className="text-[11px] text-muted-foreground font-medium mb-2 px-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>AZIONI RAPIDE</p>
               <div className="grid grid-cols-2 gap-2 mb-5">
                 {QUICK_PROMPTS.map(q => (
-                  <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-card hover:bg-muted/60 hover:border-primary/20 transition-all px-3 py-3 group text-left">
+                  <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="flex items-center gap-2.5 rounded-lg border border-border/50 bg-card hover:bg-muted/60 active:bg-muted/80 transition-all px-3 py-3 group text-left min-h-[48px]">
                     <span className="text-lg">{q.icon}</span>
                     <span className="text-[13px] text-foreground font-medium">{q.label}</span>
                   </button>
                 ))}
               </div>
-              <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] border border-primary/15 hover:border-primary/25 transition-all py-4 group">
+              <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] active:bg-primary/[0.18] border border-primary/15 transition-all py-4 group min-h-[52px]">
                 <Phone className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors" />
                 <span className="text-sm font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>CHIAMA RADAR</span>
               </button>
 
-              {/* Text input on home */}
               <div className="mt-4 flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
                 <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi o dai un ordine a Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[36px] max-h-[120px] py-1.5" rows={1} disabled={r.isLoading} />
                 <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
@@ -1014,7 +1040,7 @@ export function RadarFullPage() {
               </div>
               <div className="border-t border-border/40 p-4 shrink-0 bg-muted/10">
                 {r.messages.length > 0 && (
-                  <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                  <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1 min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                     <Trash2 className="h-3 w-3" /> NUOVA SESSIONE
                   </button>
                 )}
@@ -1022,7 +1048,7 @@ export function RadarFullPage() {
                   <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi al Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[36px] max-h-[120px] py-1.5" rows={1} disabled={r.isLoading} />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-all duration-200">
+                      <button className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-all duration-200">
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>

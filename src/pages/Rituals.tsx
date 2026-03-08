@@ -327,8 +327,8 @@ export default function Rituals() {
               return (
                 <div
                   key={ritual.id}
-                  className="grid items-center gap-2 py-2.5 border-t border-border/50 group"
-                  style={{ gridTemplateColumns: '1fr repeat(7, 40px) 60px' }}
+                  className="grid items-center gap-1.5 sm:gap-2 py-2.5 border-t border-border/50 group min-w-[480px]"
+                  style={{ gridTemplateColumns: '1fr repeat(7, 36px) 44px' }}
                 >
                   {/* Ritual info */}
                   <div className="flex items-center gap-2 min-w-0">

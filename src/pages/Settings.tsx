@@ -6,8 +6,9 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2 } from 'lucide-react';
+import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle } from 'lucide-react';
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
+import { ProfileSettings } from '@/components/ProfileSettings';
 
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();

@@ -299,7 +299,16 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     // Opening message will be set when chat opens
   }, [activeConvId, conversations, messages, saveConversation]);
 
-  // Phase detection — 5 granular stages
+  // Planning thresholds from localStorage (configurable in admin)
+  const planningThresholds = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('planning_thresholds');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return { minProjectsPerKR: 1, minTasksPerProject: 1 };
+  }, []);
+
+  // Phase detection — 5 granular stages (strategic only)
   const { currentPhase, completedPhases } = useMemo(() => {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const activeFocus = focusPeriods.find(f => f.status === 'active');
@@ -308,10 +317,25 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const hasObjectives = objectives.length > 0;
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
     const hasKRs = keyResults.length > 0;
-    const projects = getProjectsForEnterprise(enterprise.id);
-    const hasProjects = projects.length > 0;
-    const tasks = getTasksForEnterprise(enterprise.id);
-    const hasTasks = tasks.length > 0;
+
+    // Only count STRATEGIC projects linked to KRs from active focus
+    const allProjects = getProjectsForEnterprise(enterprise.id);
+    const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
+    
+    // Check: each KR has at least N strategic projects
+    const { minProjectsPerKR, minTasksPerProject } = planningThresholds;
+    const allKRsCovered = hasKRs && keyResults.every(kr => {
+      const krProjects = strategicProjects.filter(p => p.keyResultId === kr.id);
+      return krProjects.length >= minProjectsPerKR;
+    });
+
+    // Only count tasks within strategic projects
+    const allTasks = getTasksForEnterprise(enterprise.id);
+    const strategicTasks = allTasks.filter(t => strategicProjects.some(p => p.id === t.projectId));
+    const allProjectsCovered = allKRsCovered && strategicProjects.every(p => {
+      const pTasks = strategicTasks.filter(t => t.projectId === p.id);
+      return pTasks.length >= minTasksPerProject;
+    });
 
     const completed: WizardPhase[] = [];
     let current: WizardPhase = 'focus';
@@ -328,16 +352,16 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       completed.push('key_results');
       current = 'projects';
     }
-    if (hasProjects) {
+    if (allKRsCovered) {
       completed.push('projects');
       current = 'tasks';
     }
-    if (hasTasks) {
+    if (allProjectsCovered) {
       completed.push('tasks');
     }
 
     return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions]);
+  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');

@@ -732,18 +732,19 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
 
   const getOpeningMessage = (): string => {
-    const phaseLabel = PHASES.find(p => p.key === currentPhase)?.label || 'Focus';
-    if (currentPhase === 'execution') {
-      return `🚀 **Fase: Execution** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
+    const stageLabel = PLANNING_STAGES.find(p => p.key === currentPhase)?.label || 'Focus';
+    if (currentPhase === 'projects' || currentPhase === 'tasks') {
+      return `🚀 **Fase: ${stageLabel}** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
     }
-    if (currentPhase === 'strategy') {
-      const focus = allFocusPeriods.find(f => f.status === 'active')!;
+    if (currentPhase === 'objectives' || currentPhase === 'key_results') {
+      const focus = allFocusPeriods.find(f => f.status === 'active');
+      if (!focus) return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
       const objs = getObjectivesForFocus(focus.id);
-      if (objs.length === 0) return `🧭 **Fase: Strategy** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;
+      if (objs.length === 0) return `🧭 **Fase: Obiettivi** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;
       const lastObj = objs[objs.length - 1];
       const krs = getKeyResultsForObjective(lastObj.id);
-      if (krs.length < 2) return `📊 **Fase: Strategy** — Objective: **"${lastObj.title}"**.\n\nDefiniamo i Key Results. Qual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
-      return `📊 **Fase: Strategy** — ${objs.length} Objective con ${krs.length} KR definiti.\n\nVuoi aggiungere altro o passare all'Execution?`;
+      if (krs.length < 2) return `📊 **Fase: Key Results** — Objective: **"${lastObj.title}"**.\n\nDefiniamo i Key Results. Qual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
+      return `📊 **Fase: ${stageLabel}** — ${objs.length} Objective con ${krs.length} KR definiti.\n\nVuoi aggiungere altro o passare ai Progetti?`;
     }
     return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };

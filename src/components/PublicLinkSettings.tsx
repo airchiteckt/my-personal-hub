@@ -86,7 +86,7 @@ export function PublicLinkSettings() {
     setSaving(false);
     if (error) {
       if (error.message.includes('duplicate') || error.message.includes('unique')) {
-        toast.error('Questo slug è già in uso, scegline un altro');
+        toast.error('Questo nome è già in uso, scegline un altro');
       } else {
         toast.error('Errore nel salvataggio');
       }

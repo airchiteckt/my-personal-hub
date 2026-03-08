@@ -861,14 +861,46 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         toast.success(`Key Result "${action.data.title}" creato`);
         appliedLabel = `Key Result "${action.data.title}"`;
       } else if (action.type === 'create_project') {
-        const keyResultId = action.data.key_result_id || undefined;
+        // Resolve key_result_id: AI might send a KR title/name instead of ID
+        let keyResultId = action.data.key_result_id || undefined;
+        if (keyResultId && sessionFocusId) {
+          const objectives = getObjectivesForFocus(sessionFocusId);
+          const allKRs = objectives.flatMap(o => getKeyResultsForObjective(o.id));
+          // If it's not a valid UUID, try matching by title
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(keyResultId);
+          if (!isUUID) {
+            const match = allKRs.find(kr => kr.title.toLowerCase().includes(keyResultId!.toLowerCase()));
+            keyResultId = match?.id;
+          } else if (!allKRs.find(kr => kr.id === keyResultId)) {
+            // UUID doesn't exist in current KRs, try to find closest match
+            keyResultId = allKRs[allKRs.length - 1]?.id;
+          }
+        }
         const projectType = action.data.type || 'strategic';
         addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
         toast.success(`Progetto "${action.data.name}" creato`);
         appliedLabel = `Progetto "${action.data.name}"`;
       } else if (action.type === 'create_task') {
         const projects = getProjectsForEnterprise(enterprise.id);
-        const targetProjectId = action.data.project_id || projects[projects.length - 1]?.id;
+        // Resolve project_id: AI might send project name instead of UUID
+        let targetProjectId = action.data.project_id;
+        if (targetProjectId) {
+          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetProjectId);
+          if (!isUUID) {
+            const match = projects.find(p => p.name.toLowerCase().includes(targetProjectId.toLowerCase()));
+            targetProjectId = match?.id;
+          } else if (!projects.find(p => p.id === targetProjectId)) {
+            targetProjectId = undefined;
+          }
+        }
+        // Fallback: use the most recently created strategic project for this session
+        if (!targetProjectId) {
+          const sessionKRIds = sessionFocusId
+            ? getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id)
+            : [];
+          const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
+          targetProjectId = strategicProject?.id || projects[projects.length - 1]?.id;
+        }
         if (!targetProjectId) {
           toast.error('Crea prima un Progetto');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));

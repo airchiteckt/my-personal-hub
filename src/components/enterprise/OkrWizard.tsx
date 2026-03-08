@@ -21,45 +21,66 @@ type WizardAction = {
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
-type WizardPhase = 'focus' | 'strategy' | 'execution';
+type WizardPhase = 'focus' | 'objectives' | 'key_results' | 'projects' | 'tasks';
 
-const PHASES: { key: WizardPhase; label: string; icon: typeof Crosshair; description: string }[] = [
-  { key: 'focus', label: 'Focus', icon: Crosshair, description: 'Focus Period 90gg' },
-  { key: 'strategy', label: 'Strategy', icon: Compass, description: 'Objective & KR' },
-  { key: 'execution', label: 'Execution', icon: Rocket, description: 'Progetti & Task' },
+type ConversationMeta = {
+  id: string;
+  title: string;
+  createdAt: string;
+  status: 'active' | 'completed';
+};
+
+const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; icon: typeof Crosshair }[] = [
+  { key: 'focus', label: 'Focus', shortLabel: 'Focus', icon: Crosshair },
+  { key: 'objectives', label: 'Obiettivi', shortLabel: 'Obj', icon: Target },
+  { key: 'key_results', label: 'Key Results', shortLabel: 'KR', icon: BarChart3 },
+  { key: 'projects', label: 'Progetti', shortLabel: 'Proj', icon: FolderPlus },
+  { key: 'tasks', label: 'Task', shortLabel: 'Task', icon: ListTodo },
 ];
 
-function PhaseStepper({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
-  const currentIdx = PHASES.findIndex(p => p.key === currentPhase);
+function PlanningProgressBar({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
+  const currentIdx = PLANNING_STAGES.findIndex(p => p.key === currentPhase);
+  const completedCount = completedPhases.length;
+  const progressPct = Math.round((completedCount / PLANNING_STAGES.length) * 100);
+
   return (
-    <div className="px-3 md:px-4 py-2.5 border-b border-border/30 bg-muted/10">
-      <div className="flex items-center gap-1">
-        {PHASES.map((phase, i) => {
-          const isCompleted = completedPhases.includes(phase.key);
-          const isCurrent = phase.key === currentPhase;
-          const Icon = phase.icon;
+    <div className="px-3 md:px-4 py-2 border-b border-border/30 bg-muted/10">
+      {/* Progress bar */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-primary rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+        <span className="text-[10px] font-medium text-muted-foreground shrink-0">{progressPct}%</span>
+      </div>
+      {/* Stage dots */}
+      <div className="flex items-center">
+        {PLANNING_STAGES.map((stage, i) => {
+          const isCompleted = completedPhases.includes(stage.key);
+          const isCurrent = stage.key === currentPhase;
+          const Icon = stage.icon;
           return (
-            <div key={phase.key} className="flex items-center flex-1">
-              <div className="flex items-center gap-1.5 flex-1">
-                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-                  isCompleted ? 'bg-primary text-primary-foreground' : isCurrent ? 'bg-primary/20 text-primary ring-2 ring-primary/30' : 'bg-muted text-muted-foreground'
+            <div key={stage.key} className="flex items-center flex-1">
+              <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                  isCompleted ? 'bg-primary text-primary-foreground' : isCurrent ? 'bg-primary/20 text-primary ring-1.5 ring-primary/30' : 'bg-muted text-muted-foreground'
                 }`}>
-                  {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  {isCompleted ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
                 </div>
-                <div className="min-w-0 hidden sm:block">
-                  <p className={`text-[10px] font-semibold leading-tight ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {phase.label}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground leading-tight truncate">{phase.description}</p>
-                </div>
-                {/* Mobile: just label */}
-                <span className={`text-[10px] font-medium sm:hidden ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {phase.label}
+                <span className={`text-[9px] font-medium truncate hidden sm:block ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {stage.label}
+                </span>
+                <span className={`text-[9px] font-medium sm:hidden ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {stage.shortLabel}
                 </span>
               </div>
-              {i < PHASES.length - 1 && (
-                <div className={`h-[2px] flex-1 mx-1.5 rounded-full transition-colors duration-300 ${
-                  i < currentIdx || completedPhases.includes(PHASES[i + 1].key) ? 'bg-primary' : 'bg-border'
+              {i < PLANNING_STAGES.length - 1 && (
+                <div className={`h-[1.5px] flex-1 mx-1 rounded-full transition-colors duration-300 ${
+                  isCompleted ? 'bg-primary' : 'bg-border'
                 }`} />
               )}
             </div>

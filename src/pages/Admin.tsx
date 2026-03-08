@@ -2,9 +2,10 @@ import { useAdmin } from '@/hooks/use-admin';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Bot, Volume2 } from 'lucide-react';
+import { Shield, Bot, Volume2, Target } from 'lucide-react';
 import { AiPromptsSettings } from '@/components/AiPromptsSettings';
 import { AiVoiceSettings } from '@/components/admin/AiVoiceSettings';
+import { PlanningThresholds } from '@/components/admin/PlanningThresholds';
 
 const Admin = () => {
   const { user } = useAuth();
@@ -30,7 +31,7 @@ const Admin = () => {
           Admin Panel
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Configurazione avanzata AI e sistema vocale Radar
+          Configurazione avanzata AI, sistema vocale e pianificazione
         </p>
       </div>
 
@@ -44,6 +45,10 @@ const Admin = () => {
             <Bot className="h-4 w-4" />
             AI Prompts
           </TabsTrigger>
+          <TabsTrigger value="planning" className="flex-1 gap-1.5">
+            <Target className="h-4 w-4" />
+            Pianificazione
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="voice">
@@ -53,9 +58,14 @@ const Admin = () => {
         <TabsContent value="prompts">
           <AiPromptsSettings />
         </TabsContent>
+
+        <TabsContent value="planning">
+          <PlanningThresholds />
+        </TabsContent>
       </Tabs>
     </div>
   );
 };
 
 export default Admin;
+

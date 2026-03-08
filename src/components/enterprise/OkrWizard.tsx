@@ -840,16 +840,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         {pendingActions.filter(a => !a.applied && !a.rejected).length > 0 && (
           <div className="border-t border-border/50 p-3 space-y-2">
             {pendingActions.filter(a => !a.applied && !a.rejected).map((action) => (
-              <div key={action.id} className="flex items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
-                <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
-                <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-                <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{getActionLabel(action)}</span>
-                <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
-                  <Check className="h-3 w-3 text-primary" />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
-                  <X className="h-3 w-3 text-destructive" />
-                </button>
+              <div key={action.id} className="flex flex-wrap items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">{getActionIcon(action.type)}</div>
+                  <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+                  <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{getActionLabel(action)}</span>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="h-7 w-7 rounded-md bg-primary/15 hover:bg-primary/25 active:bg-primary/35 flex items-center justify-center transition-colors" title="Conferma">
+                    <Check className="h-3.5 w-3.5 text-primary" />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-7 w-7 rounded-md bg-destructive/10 hover:bg-destructive/20 active:bg-destructive/30 flex items-center justify-center transition-colors" title="Rifiuta">
+                    <X className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

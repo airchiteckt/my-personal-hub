@@ -817,12 +817,13 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
           type: "function",
           function: {
             name: "create_objective",
-            description: "Crea un Objective dentro un Focus Period",
+            description: "Crea un Objective dentro un Focus Period. DEVI specificare focus_period_id dal contesto (activeFocus.id).",
             parameters: {
               type: "object",
               properties: {
                 title: { type: "string", description: "Titolo qualitativo dell'objective" },
                 description: { type: "string", description: "Descrizione opzionale" },
+                focus_period_id: { type: "string", description: "ID del Focus Period (da activeFocus.id nel contesto)" },
               },
               required: ["title"],
               additionalProperties: false,
@@ -833,11 +834,12 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
           type: "function",
           function: {
             name: "create_key_result",
-            description: "Crea un Key Result dentro un Objective",
+            description: "Crea un Key Result dentro un Objective. DEVI specificare objective_id dal contesto (objectives[].id).",
             parameters: {
               type: "object",
               properties: {
                 title: { type: "string", description: "Titolo del KR" },
+                objective_id: { type: "string", description: "ID dell'Objective di appartenenza (da objectives[].id nel contesto)" },
                 target_value: { type: "number", description: "Valore target" },
                 metric_type: { type: "string", enum: ["number", "percentage", "boolean"], description: "Tipo di metrica" },
                 deadline: { type: "string", description: "Scadenza formato YYYY-MM-DD (opzionale)" },

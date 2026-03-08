@@ -835,8 +835,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           }
         }, 1500);
       } else if (action.type === 'create_objective') {
-        const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-        const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
+        const targetFocusId = sessionFocusId || createdFocusId;
         if (!targetFocusId) {
           toast.error('Crea prima un Focus Period attivo');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));

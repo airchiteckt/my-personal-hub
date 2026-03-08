@@ -155,7 +155,7 @@ export function PublicLinkSettings() {
           <Input
             value={slug}
             onChange={e => setSlug(sanitize(e.target.value))}
-            placeholder="es. se"
+            placeholder="es. mario-rossi"
             className="font-mono max-w-[180px]"
           />
         </div>

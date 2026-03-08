@@ -803,7 +803,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       }
 
       if (!assistantContent) {
-        setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+        if (streamReceivedActions) {
+          // Actions came through without text — keep the assistant message as a minimal placeholder
+          // so that action cards (tied to this message index) are rendered
+          setMessages(prev => prev.map((m, i) => 
+            i === prev.length - 1 && m.role === 'assistant' && !m.content 
+              ? { ...m, content: '📋 Ecco le proposte:' } 
+              : m
+          ));
+        } else {
+          setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+        }
         if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 500);
       } else {
         // Detect if AI described creating entities in text without emitting tool calls

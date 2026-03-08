@@ -671,6 +671,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return <Calendar className="h-3 w-3" />;
       case 'create_objective': return <Target className="h-3 w-3" />;
       case 'create_key_result': return <BarChart3 className="h-3 w-3" />;
+      case 'create_project': return <FolderPlus className="h-3 w-3" />;
+      case 'create_task': return <ListTodo className="h-3 w-3" />;
       default: return <Check className="h-3 w-3" />;
     }
   };
@@ -679,6 +681,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return action.data.name;
       case 'create_objective': return action.data.title;
       case 'create_key_result': return action.data.title;
+      case 'create_project': return action.data.name;
+      case 'create_task': return action.data.title;
       default: return action.type;
     }
   };
@@ -687,6 +691,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       case 'create_focus_period': return 'Focus';
       case 'create_objective': return 'Objective';
       case 'create_key_result': return 'KR';
+      case 'create_project': return 'Progetto';
+      case 'create_task': return 'Task';
       default: return '';
     }
   };

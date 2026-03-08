@@ -726,8 +726,8 @@ export function DesktopWeekView() {
         open={showChoice}
         onOpenChange={setShowChoice}
         timeLabel={`${apptDefaults.date ?? ''} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}`}
-        onChooseAppointment={() => { setShowChoice(false); setShowCreateAppt(true); }}
-        onChooseTask={() => { setShowChoice(false); setShowCreateTask(true); }}
+        onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
+        onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}
       />
 
       <CreateAppointmentDialog

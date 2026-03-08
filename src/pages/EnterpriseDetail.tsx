@@ -75,23 +75,6 @@ const EnterpriseDetail = () => {
   const backlogTasks = enterpriseTasks.filter(t => t.status === 'backlog').length;
   const taskCompletionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-  // Strategic planning progress steps
-  const activeObjectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
-  const activeKRs = activeObjectives.flatMap(o => getKeyResultsForObjective(o.id));
-  const strategicProjects = enterpriseProjects.filter(p => p.isStrategicLever);
-
-  const planningSteps = [
-    { key: 'overview', label: 'Overview', done: true },
-    { key: 'focus', label: 'Focus', done: !!activeFocus, count: focusPeriods.length },
-    { key: 'strategy', label: 'Strategy', done: activeObjectives.length > 0 && activeKRs.length > 0, count: `${activeObjectives.length}O · ${activeKRs.length}KR` },
-    { key: 'execution', label: 'Execution', done: enterpriseProjects.length > 0 && enterpriseTasks.length > 0, count: `${enterpriseProjects.length}P · ${enterpriseTasks.length}T` },
-    { key: 'tracking', label: 'Tracking', done: doneTasks > 0 },
-  ];
-
-  // Find the last completed step index for progress bar width
-  const lastDoneIdx = planningSteps.reduce((max, s, i) => s.done ? i : max, 0);
-  const progressPct = Math.round((lastDoneIdx / (planningSteps.length - 1)) * 100);
-
   // KR progress for active focus
   const getObjectiveProgress = (objectiveId: string) => {
     const krs = getKeyResultsForObjective(objectiveId);
@@ -139,35 +122,13 @@ const EnterpriseDetail = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <div className="space-y-2">
-          <TabsList className="w-full grid grid-cols-5 h-9">
-            {planningSteps.map((step) => (
-              <TabsTrigger
-                key={step.key}
-                value={step.key}
-                className="text-[10px] md:text-xs gap-1"
-              >
-                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                  step.done ? 'bg-primary' : 'bg-muted-foreground/30'
-                }`} />
-                {step.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          {/* Progress bar below tabs */}
-          <div className="flex items-center gap-1 px-1">
-            {planningSteps.map((step, i) => (
-              <div key={step.key} className="flex-1 flex flex-col items-center gap-0.5">
-                <div className={`w-full h-1 rounded-full transition-colors duration-300 ${
-                  step.done ? 'bg-primary' : 'bg-muted'
-                }`} />
-                {step.count !== undefined && (
-                  <span className="text-[8px] text-muted-foreground leading-none">{step.count}</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <TabsList className="w-full grid grid-cols-5 h-9">
+          <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+          <TabsTrigger value="focus" className="text-xs">Focus</TabsTrigger>
+          <TabsTrigger value="strategy" className="text-xs">Strategy</TabsTrigger>
+          <TabsTrigger value="execution" className="text-xs">Execution</TabsTrigger>
+          <TabsTrigger value="tracking" className="text-xs">Tracking</TabsTrigger>
+        </TabsList>
 
         {/* ===== OVERVIEW ===== */}
         <TabsContent value="overview" className="space-y-4">

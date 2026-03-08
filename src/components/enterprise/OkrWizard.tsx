@@ -888,55 +888,65 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       {/* Phase Stepper */}
       <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
 
-      {/* Messages area */}
+      {/* Messages area with inline actions */}
       <div ref={scrollRef} className="max-h-[50vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3">
-        {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            {msg.role === 'assistant' && (
-              <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
-                <Sparkles className="h-3 w-3 text-primary" />
-              </div>
-            )}
-            <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted/70 text-foreground rounded-bl-md'}`}>
-              {msg.role === 'assistant' ? (
-                <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
-                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+        {messages.map((msg, i) => {
+          const actionsAfterThis = pendingActions.filter(a => a.afterMessageIndex === i);
+          return (
+            <div key={i}>
+              {/* Message bubble */}
+              <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {msg.role === 'assistant' && (
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+                    <Sparkles className="h-3 w-3 text-primary" />
+                  </div>
+                )}
+                <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted/70 text-foreground rounded-bl-md'}`}>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
+                  )}
                 </div>
-              ) : (
-                <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>
-              )}
-            </div>
-          </div>
-        ))}
+              </div>
 
-        {/* Pending actions awaiting confirmation */}
-        {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-          <div key={`pending-${i}`} className="flex justify-center py-1">
-            <div className="flex items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm">
-              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
-              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-              <span className="text-[11px] text-muted-foreground truncate max-w-[120px] md:max-w-[180px]">{getActionLabel(action)}</span>
-              <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
-                <Check className="h-3 w-3 text-primary" />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
-                <X className="h-3 w-3 text-destructive" />
-              </button>
+              {/* Inline action cards after this message */}
+              {actionsAfterThis.map((action) => (
+                <div key={action.id} className="flex justify-center py-1.5">
+                  {action.applied ? (
+                    <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/20 px-3 py-1.5 animate-in fade-in duration-200">
+                      <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
+                      <Check className="h-3 w-3 text-primary shrink-0" />
+                    </div>
+                  ) : action.rejected ? (
+                    <div className="flex items-center gap-1.5 rounded-full bg-destructive/[0.06] border border-destructive/15 px-3 py-1.5 opacity-60 animate-in fade-in duration-200">
+                      <div className="h-4 w-4 rounded-full bg-destructive/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-muted-foreground line-through">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px] line-through">{getActionLabel(action)}</span>
+                      <X className="h-3 w-3 text-destructive/60 shrink-0" />
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm animate-in slide-in-from-bottom-2 duration-300">
+                      <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
+                      <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+                      <span className="text-[11px] text-muted-foreground truncate max-w-[120px] md:max-w-[180px]">{getActionLabel(action)}</span>
+                      <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="ml-1 h-5 w-5 rounded-md bg-primary/15 hover:bg-primary/25 flex items-center justify-center transition-colors" title="Conferma">
+                        <Check className="h-3 w-3 text-primary" />
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-5 w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors" title="Rifiuta">
+                        <X className="h-3 w-3 text-destructive" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-
-        {/* Applied actions */}
-        {pendingActions.filter(a => a.applied).map((action, i) => (
-          <div key={`action-${i}`} className="flex justify-center py-1">
-            <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/15 px-3 py-1">
-              <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
-              <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-              <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
-              <Check className="h-3 w-3 text-primary shrink-0" />
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Loading */}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (

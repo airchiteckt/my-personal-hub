@@ -42,6 +42,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
   const [priorityUntil, setPriorityUntil] = useState<Date | undefined>(
     enterprise.priorityUntil ? parseISO(enterprise.priorityUntil) : undefined
   );
+  const [description, setDescription] = useState(enterprise.description || '');
 
   useEffect(() => {
     setName(enterprise.name);

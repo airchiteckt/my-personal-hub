@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Trash2, FolderPlus, ListTodo, Plus, Clock, Square } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Trash2, FolderPlus, ListTodo, Plus, Clock, Square, Pencil } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -123,6 +123,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isLoadingRef = useRef(false);
   const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
@@ -349,6 +351,18 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
     toast.success('Sessione eliminata');
   }, [activeConvId, conversations, session?.user?.id]);
+
+  // Rename a conversation
+  const renameConversation = useCallback((convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    const updated = conversations.map(c => c.id === convId ? { ...c, title: trimmed } : c);
+    setConversations(updated);
+    setEditingTitle(false);
+    // Persist
+    saveConversation(enterpriseIdRef.current, updated, activeConvId, messages);
+    toast.success('Titolo aggiornato');
+  }, [conversations, activeConvId, messages, saveConversation]);
 
   // Create new conversation
   const createNewConversation = useCallback(() => {
@@ -1342,7 +1356,27 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               )}
             </div>
             {activeConvMeta && (
-              <p className="text-[10px] text-muted-foreground truncate">{activeConvMeta.title}</p>
+              editingTitle ? (
+                <form onSubmit={(e) => { e.preventDefault(); renameConversation(activeConvMeta.id, editTitleValue); }} className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={editTitleValue}
+                    onChange={e => setEditTitleValue(e.target.value)}
+                    onBlur={() => renameConversation(activeConvMeta.id, editTitleValue)}
+                    onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+                    className="text-[10px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 outline-none ring-1 ring-primary/30 w-full max-w-[180px]"
+                  />
+                </form>
+              ) : (
+                <button
+                  onClick={() => { setEditTitleValue(activeConvMeta.title); setEditingTitle(true); }}
+                  className="text-[10px] text-muted-foreground truncate hover:text-foreground transition-colors flex items-center gap-1 group"
+                  title="Clicca per modificare il titolo"
+                >
+                  {activeConvMeta.title}
+                  <Pencil className="h-2 w-2 opacity-0 group-hover:opacity-60 transition-opacity" />
+                </button>
+              )
             )}
           </div>
         </div>
@@ -1433,6 +1467,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
                         {new Date(conv.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
                       </span>
                     </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const newTitle = prompt('Nuovo titolo:', conv.title);
+                      if (newTitle?.trim()) renameConversation(conv.id, newTitle);
+                    }}
+                    className="h-5 w-5 rounded flex items-center justify-center shrink-0 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                    title="Rinomina sessione"
+                  >
+                    <Pencil className="h-3 w-3" />
                   </button>
                   <button
                     onClick={(e) => deleteConversation(conv.id, e)}

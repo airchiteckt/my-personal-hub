@@ -840,15 +840,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
           <p className="text-[10px] text-muted-foreground z-10 mb-2">{enterprise.name} · Radar Strategy</p>
           {/* Phase indicator in call */}
-          <div className="flex items-center gap-2 z-10 mb-4">
-            {PHASES.map((phase) => {
-              const isCompleted = completedPhases.includes(phase.key);
-              const isCurrent = phase.key === currentPhase;
+          <div className="flex items-center gap-1.5 z-10 mb-4 flex-wrap justify-center">
+            {PLANNING_STAGES.map((stage) => {
+              const isCompleted = completedPhases.includes(stage.key);
+              const isCurrent = stage.key === currentPhase;
               return (
-                <div key={phase.key} className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
+                <div key={stage.key} className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
                   isCompleted ? 'bg-primary/20 text-primary' : isCurrent ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'bg-muted/50 text-muted-foreground'
                 }`}>
-                  {isCompleted ? '✓ ' : ''}{phase.label}
+                  {isCompleted ? '✓ ' : ''}{stage.shortLabel}
                 </div>
               );
             })}

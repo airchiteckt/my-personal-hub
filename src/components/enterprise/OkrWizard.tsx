@@ -866,12 +866,26 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
 
+  const activeConvMeta = conversations.find(c => c.id === activeConvId);
+
   // --- Closed state ---
   if (!isOpen) {
     return (
       <button
         onClick={() => {
           setIsOpen(true);
+          if (conversations.length === 0) {
+            // Create first conversation
+            const newId = `conv-${Date.now()}`;
+            const newConv: ConversationMeta = {
+              id: newId,
+              title: `Sessione Q${currentQ} ${currentYear}`,
+              createdAt: new Date().toISOString(),
+              status: 'active',
+            };
+            setConversations([newConv]);
+            setActiveConvId(newId);
+          }
           if (messages.length === 0) setMessages([{ role: 'assistant', content: getOpeningMessage() }]);
         }}
         className="w-full group flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.08] hover:from-primary/[0.08] hover:to-primary/[0.14] transition-all duration-200 px-4 py-3"
@@ -881,7 +895,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         </div>
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">Radar Strategy</p>
-          <p className="text-[11px] text-muted-foreground truncate">Pianifica Focus, OKR e strategia</p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {conversations.length > 0 ? `${conversations.length} sessioni · ` : ''}Pianifica Focus, OKR e strategia
+          </p>
         </div>
         <Send className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
       </button>

@@ -352,6 +352,18 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     toast.success('Sessione eliminata');
   }, [activeConvId, conversations, session?.user?.id]);
 
+  // Rename a conversation
+  const renameConversation = useCallback((convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    const updated = conversations.map(c => c.id === convId ? { ...c, title: trimmed } : c);
+    setConversations(updated);
+    setEditingTitle(false);
+    // Persist
+    saveConversation(enterpriseIdRef.current, updated, activeConvId, messages);
+    toast.success('Titolo aggiornato');
+  }, [conversations, activeConvId, messages, saveConversation]);
+
   // Create new conversation
   const createNewConversation = useCallback(() => {
     const newId = `conv-${Date.now()}`;

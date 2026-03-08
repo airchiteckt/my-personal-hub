@@ -165,6 +165,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           title: c.title,
           createdAt: c.createdAt,
           status: (c.status as 'active' | 'completed') || 'active',
+          focusPeriodId: c.focusPeriodId,
         }));
         setConversations(convMetas);
         const activeId = stored.activeConversationId || convMetas[convMetas.length - 1]?.id || null;

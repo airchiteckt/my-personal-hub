@@ -404,8 +404,8 @@ export function DesktopWeekView() {
                   return (
                     <div
                       key={i}
-                      className="absolute right-2 text-[11px] text-muted-foreground tabular-nums"
-                      style={{ top: i * DESKTOP_SLOT_HEIGHT - 7 }}
+                     className="absolute right-1 text-[10px] text-muted-foreground tabular-nums"
+                     style={{ top: i * DESKTOP_SLOT_HEIGHT - 6 }}
                     >
                       {slotToTime(i)}
                     </div>

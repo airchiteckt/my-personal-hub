@@ -122,7 +122,7 @@ export function MobileDayView() {
 
       {/* Timeline */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="relative" style={{ height: TOTAL_SLOTS * MOBILE_SLOT_HEIGHT, marginLeft: 48 }}>
+        <div className="relative" style={{ height: TOTAL_SLOTS * MOBILE_SLOT_HEIGHT, marginLeft: 40 }}>
           {/* Time labels + grid lines */}
           {Array.from({ length: TOTAL_SLOTS }, (_, i) => {
             const time = slotToTime(i);

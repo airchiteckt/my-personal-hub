@@ -289,7 +289,7 @@ export function PublicLinkSettings() {
                                   const { error } = await supabase.from('enterprises').update({ public_slug: val } as any).eq('id', e.id);
                                   if (error) {
                                     if (error.message.includes('duplicate') || error.message.includes('unique')) {
-                                      toast.error('Slug già in uso');
+                                      toast.error('Nome link già in uso');
                                     } else {
                                       toast.error('Errore salvataggio slug');
                                     }

@@ -291,7 +291,7 @@ export function PublicLinkSettings() {
                                     if (error.message.includes('duplicate') || error.message.includes('unique')) {
                                       toast.error('Nome link già in uso');
                                     } else {
-                                      toast.error('Errore salvataggio slug');
+                                      toast.error('Errore salvataggio nome link');
                                     }
                                   } else if (val) {
                                     toast.success('Slug impresa salvato');

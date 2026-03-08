@@ -722,10 +722,16 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     let assistantContent = '';
 
     try {
+      // Create abort controller for this request
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
         body: JSON.stringify({ type: 'okr_wizard', messages: newMessages, context: buildContext() }),
+        signal: abortController.signal,
       });
 
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }

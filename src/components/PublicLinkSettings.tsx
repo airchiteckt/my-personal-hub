@@ -161,7 +161,7 @@ export function PublicLinkSettings() {
         </div>
 
         <Button onClick={handleSave} disabled={saving || !slug.trim() || slug === savedSlug} size="sm">
-          {saving ? 'Salvataggio...' : 'Salva slug'}
+          {saving ? 'Salvataggio...' : 'Salva'}
         </Button>
       </Card>
 

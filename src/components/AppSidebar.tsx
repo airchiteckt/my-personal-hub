@@ -2,7 +2,6 @@ import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
 import { useAuth } from '@/context/AuthContext';
-import { useAdmin } from '@/hooks/use-admin';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,

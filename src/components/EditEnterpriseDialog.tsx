@@ -66,6 +66,7 @@ export function EditEnterpriseDialog({ open, onOpenChange, enterprise }: Props) 
       businessCategory, timeHorizon,
       enterpriseType: templateType,
       priorityUntil: priorityUntil ? format(priorityUntil, 'yyyy-MM-dd') : undefined,
+      description: description.trim() || undefined,
     });
     toast.success('Impresa aggiornata');
     onOpenChange(false);

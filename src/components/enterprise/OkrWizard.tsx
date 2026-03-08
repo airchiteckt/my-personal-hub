@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Compass, Rocket, Trash2, FolderPlus, ListTodo } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Trash2, FolderPlus, ListTodo, Plus, Clock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -21,45 +21,66 @@ type WizardAction = {
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
-type WizardPhase = 'focus' | 'strategy' | 'execution';
+type WizardPhase = 'focus' | 'objectives' | 'key_results' | 'projects' | 'tasks';
 
-const PHASES: { key: WizardPhase; label: string; icon: typeof Crosshair; description: string }[] = [
-  { key: 'focus', label: 'Focus', icon: Crosshair, description: 'Focus Period 90gg' },
-  { key: 'strategy', label: 'Strategy', icon: Compass, description: 'Objective & KR' },
-  { key: 'execution', label: 'Execution', icon: Rocket, description: 'Progetti & Task' },
+type ConversationMeta = {
+  id: string;
+  title: string;
+  createdAt: string;
+  status: 'active' | 'completed';
+};
+
+const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; icon: typeof Crosshair }[] = [
+  { key: 'focus', label: 'Focus', shortLabel: 'Focus', icon: Crosshair },
+  { key: 'objectives', label: 'Obiettivi', shortLabel: 'Obj', icon: Target },
+  { key: 'key_results', label: 'Key Results', shortLabel: 'KR', icon: BarChart3 },
+  { key: 'projects', label: 'Progetti', shortLabel: 'Proj', icon: FolderPlus },
+  { key: 'tasks', label: 'Task', shortLabel: 'Task', icon: ListTodo },
 ];
 
-function PhaseStepper({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
-  const currentIdx = PHASES.findIndex(p => p.key === currentPhase);
+function PlanningProgressBar({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
+  const currentIdx = PLANNING_STAGES.findIndex(p => p.key === currentPhase);
+  const completedCount = completedPhases.length;
+  const progressPct = Math.round((completedCount / PLANNING_STAGES.length) * 100);
+
   return (
-    <div className="px-3 md:px-4 py-2.5 border-b border-border/30 bg-muted/10">
-      <div className="flex items-center gap-1">
-        {PHASES.map((phase, i) => {
-          const isCompleted = completedPhases.includes(phase.key);
-          const isCurrent = phase.key === currentPhase;
-          const Icon = phase.icon;
+    <div className="px-3 md:px-4 py-2 border-b border-border/30 bg-muted/10">
+      {/* Progress bar */}
+      <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-primary rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+        <span className="text-[10px] font-medium text-muted-foreground shrink-0">{progressPct}%</span>
+      </div>
+      {/* Stage dots */}
+      <div className="flex items-center">
+        {PLANNING_STAGES.map((stage, i) => {
+          const isCompleted = completedPhases.includes(stage.key);
+          const isCurrent = stage.key === currentPhase;
+          const Icon = stage.icon;
           return (
-            <div key={phase.key} className="flex items-center flex-1">
-              <div className="flex items-center gap-1.5 flex-1">
-                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
-                  isCompleted ? 'bg-primary text-primary-foreground' : isCurrent ? 'bg-primary/20 text-primary ring-2 ring-primary/30' : 'bg-muted text-muted-foreground'
+            <div key={stage.key} className="flex items-center flex-1">
+              <div className="flex items-center gap-1 flex-1 min-w-0">
+                <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 ${
+                  isCompleted ? 'bg-primary text-primary-foreground' : isCurrent ? 'bg-primary/20 text-primary ring-1.5 ring-primary/30' : 'bg-muted text-muted-foreground'
                 }`}>
-                  {isCompleted ? <Check className="h-3 w-3" /> : <Icon className="h-3 w-3" />}
+                  {isCompleted ? <Check className="h-2.5 w-2.5" /> : <Icon className="h-2.5 w-2.5" />}
                 </div>
-                <div className="min-w-0 hidden sm:block">
-                  <p className={`text-[10px] font-semibold leading-tight ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {phase.label}
-                  </p>
-                  <p className="text-[9px] text-muted-foreground leading-tight truncate">{phase.description}</p>
-                </div>
-                {/* Mobile: just label */}
-                <span className={`text-[10px] font-medium sm:hidden ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {phase.label}
+                <span className={`text-[9px] font-medium truncate hidden sm:block ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {stage.label}
+                </span>
+                <span className={`text-[9px] font-medium sm:hidden ${isCurrent ? 'text-primary' : isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {stage.shortLabel}
                 </span>
               </div>
-              {i < PHASES.length - 1 && (
-                <div className={`h-[2px] flex-1 mx-1.5 rounded-full transition-colors duration-300 ${
-                  i < currentIdx || completedPhases.includes(PHASES[i + 1].key) ? 'bg-primary' : 'bg-border'
+              {i < PLANNING_STAGES.length - 1 && (
+                <div className={`h-[1.5px] flex-1 mx-1 rounded-full transition-colors duration-300 ${
+                  isCompleted ? 'bg-primary' : 'bg-border'
                 }`} />
               )}
             </div>
@@ -86,7 +107,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
-  // --- Per-enterprise persistent memory via Supabase ---
+  // --- Multi-conversation support ---
+  const [conversations, setConversations] = useState<ConversationMeta[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [showConvList, setShowConvList] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [pendingActions, setPendingActions] = useState<WizardAction[]>([]);
   const [input, setInput] = useState('');
@@ -103,7 +127,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const enterpriseIdRef = useRef(enterprise.id);
 
-  // Load conversation from Supabase
+  type StoredData = {
+    conversations: { id: string; title: string; createdAt: string; status: string; messages: Msg[] }[];
+    activeConversationId: string | null;
+  };
+
+  // Load all conversations from Supabase
   const loadConversation = useCallback(async (eid: string) => {
     if (!session?.user?.id) return;
     setConversationLoaded(false);
@@ -114,29 +143,89 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         .eq('user_id', session.user.id)
         .eq('enterprise_id', eid)
         .maybeSingle();
-      
-      const msgs = data?.messages as Msg[] | null;
-      setMessages(msgs && Array.isArray(msgs) ? msgs : []);
+
+      const raw = data?.messages as any;
+
+      // Migrate from old format (plain array) to new format
+      if (Array.isArray(raw)) {
+        const defaultConv: ConversationMeta = {
+          id: 'conv-migrated',
+          title: 'Sessione iniziale',
+          createdAt: new Date().toISOString(),
+          status: 'active',
+        };
+        setConversations([defaultConv]);
+        setActiveConvId(defaultConv.id);
+        setMessages(raw as Msg[]);
+      } else if (raw && raw.conversations) {
+        const stored = raw as StoredData;
+        const convMetas: ConversationMeta[] = stored.conversations.map(c => ({
+          id: c.id,
+          title: c.title,
+          createdAt: c.createdAt,
+          status: (c.status as 'active' | 'completed') || 'active',
+        }));
+        setConversations(convMetas);
+        const activeId = stored.activeConversationId || convMetas[convMetas.length - 1]?.id || null;
+        setActiveConvId(activeId);
+        const activeConv = stored.conversations.find(c => c.id === activeId);
+        setMessages(activeConv?.messages || []);
+      } else {
+        setConversations([]);
+        setActiveConvId(null);
+        setMessages([]);
+      }
     } catch (e) {
       console.error('Error loading wizard conversation:', e);
+      setConversations([]);
       setMessages([]);
     }
     setConversationLoaded(true);
   }, [session?.user?.id]);
 
-  // Save conversation to Supabase (debounced)
+  // Save all conversations to Supabase (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const saveConversation = useCallback((eid: string, msgs: Msg[]) => {
-    if (!session?.user?.id || msgs.length === 0) return;
+  const saveConversation = useCallback((eid: string, convs: ConversationMeta[], activeId: string | null, msgs: Msg[]) => {
+    if (!session?.user?.id) return;
+    if (convs.length === 0 && msgs.length === 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
+        // Rebuild full stored data
+        // We need the previous stored data to not lose other conversations' messages
+        const { data: existing } = await supabase
+          .from('wizard_conversations')
+          .select('messages')
+          .eq('user_id', session.user.id!)
+          .eq('enterprise_id', eid)
+          .maybeSingle();
+
+        let existingConvs: StoredData['conversations'] = [];
+        const existingRaw = existing?.messages as any;
+        if (existingRaw && !Array.isArray(existingRaw) && existingRaw.conversations) {
+          existingConvs = existingRaw.conversations;
+        }
+
+        // Merge: update active conversation messages, keep others
+        const allConvs = convs.map(c => {
+          if (c.id === activeId) {
+            return { ...c, messages: msgs };
+          }
+          const prev = existingConvs.find(ec => ec.id === c.id);
+          return { ...c, messages: prev?.messages || [] };
+        });
+
+        const stored: StoredData = {
+          conversations: allConvs,
+          activeConversationId: activeId,
+        };
+
         await supabase
           .from('wizard_conversations')
           .upsert({
-            user_id: session.user.id,
+            user_id: session.user.id!,
             enterprise_id: eid,
-            messages: msgs as any,
+            messages: stored as any,
           }, { onConflict: 'user_id,enterprise_id' });
       } catch (e) {
         console.error('Error saving wizard conversation:', e);
@@ -146,10 +235,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // Persist messages whenever they change
   useEffect(() => {
-    if (conversationLoaded && messages.length > 0) {
-      saveConversation(enterpriseIdRef.current, messages);
+    if (conversationLoaded && (messages.length > 0 || conversations.length > 0)) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
     }
-  }, [messages, conversationLoaded, saveConversation]);
+  }, [messages, conversationLoaded, saveConversation, conversations, activeConvId]);
 
   // Load on mount and when enterprise changes
   useEffect(() => {
@@ -158,10 +247,59 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setInput('');
     setCreatedFocusId(activeFocusId || null);
     setCreatedObjectiveId(null);
+    setShowConvList(false);
     loadConversation(enterprise.id);
   }, [enterprise.id, loadConversation]);
 
-  // Phase detection
+  // Switch conversation
+  const switchConversation = useCallback(async (convId: string) => {
+    if (convId === activeConvId) { setShowConvList(false); return; }
+    // Save current first
+    if (activeConvId && conversationLoaded) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    // Load target conversation messages
+    const { data } = await supabase
+      .from('wizard_conversations')
+      .select('messages')
+      .eq('user_id', session?.user?.id!)
+      .eq('enterprise_id', enterpriseIdRef.current)
+      .maybeSingle();
+    const raw = data?.messages as any;
+    if (raw && raw.conversations) {
+      const target = raw.conversations.find((c: any) => c.id === convId);
+      setMessages(target?.messages || []);
+    }
+    setActiveConvId(convId);
+    setPendingActions([]);
+    setShowConvList(false);
+  }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
+
+  // Create new conversation
+  const createNewConversation = useCallback(() => {
+    const newId = `conv-${Date.now()}`;
+    const now = new Date();
+    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+    const title = `Sessione Q${currentQ} ${now.getFullYear()} — ${now.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
+    const newConv: ConversationMeta = {
+      id: newId,
+      title,
+      createdAt: now.toISOString(),
+      status: 'active',
+    };
+    // Save current messages before switching
+    if (activeConvId && messages.length > 0) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    setConversations(prev => [...prev, newConv]);
+    setActiveConvId(newId);
+    setMessages([]);
+    setPendingActions([]);
+    setShowConvList(false);
+    // Opening message will be set when chat opens
+  }, [activeConvId, conversations, messages, saveConversation]);
+
+  // Phase detection — 5 granular stages
   const { currentPhase, completedPhases } = useMemo(() => {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const activeFocus = focusPeriods.find(f => f.status === 'active');
@@ -172,24 +310,34 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const hasKRs = keyResults.length > 0;
     const projects = getProjectsForEnterprise(enterprise.id);
     const hasProjects = projects.length > 0;
+    const tasks = getTasksForEnterprise(enterprise.id);
+    const hasTasks = tasks.length > 0;
 
     const completed: WizardPhase[] = [];
     let current: WizardPhase = 'focus';
 
     if (hasFocus) {
       completed.push('focus');
-      current = 'strategy';
+      current = 'objectives';
     }
-    if (hasObjectives && hasKRs) {
-      completed.push('strategy');
-      current = 'execution';
+    if (hasObjectives) {
+      completed.push('objectives');
+      current = 'key_results';
+    }
+    if (hasKRs) {
+      completed.push('key_results');
+      current = 'projects';
     }
     if (hasProjects) {
-      completed.push('execution');
+      completed.push('projects');
+      current = 'tasks';
+    }
+    if (hasTasks) {
+      completed.push('tasks');
     }
 
     return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, pendingActions]);
+  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');
@@ -701,21 +849,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
 
   const getOpeningMessage = (): string => {
-    const phaseLabel = PHASES.find(p => p.key === currentPhase)?.label || 'Focus';
-    if (currentPhase === 'execution') {
-      return `🚀 **Fase: Execution** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
+    const stageLabel = PLANNING_STAGES.find(p => p.key === currentPhase)?.label || 'Focus';
+    if (currentPhase === 'projects' || currentPhase === 'tasks') {
+      return `🚀 **Fase: ${stageLabel}** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
     }
-    if (currentPhase === 'strategy') {
-      const focus = allFocusPeriods.find(f => f.status === 'active')!;
+    if (currentPhase === 'objectives' || currentPhase === 'key_results') {
+      const focus = allFocusPeriods.find(f => f.status === 'active');
+      if (!focus) return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
       const objs = getObjectivesForFocus(focus.id);
-      if (objs.length === 0) return `🧭 **Fase: Strategy** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;
+      if (objs.length === 0) return `🧭 **Fase: Obiettivi** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;
       const lastObj = objs[objs.length - 1];
       const krs = getKeyResultsForObjective(lastObj.id);
-      if (krs.length < 2) return `📊 **Fase: Strategy** — Objective: **"${lastObj.title}"**.\n\nDefiniamo i Key Results. Qual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
-      return `📊 **Fase: Strategy** — ${objs.length} Objective con ${krs.length} KR definiti.\n\nVuoi aggiungere altro o passare all'Execution?`;
+      if (krs.length < 2) return `📊 **Fase: Key Results** — Objective: **"${lastObj.title}"**.\n\nDefiniamo i Key Results. Qual è il **numero chiave** che ti dice se hai raggiunto questo obiettivo?`;
+      return `📊 **Fase: ${stageLabel}** — ${objs.length} Objective con ${krs.length} KR definiti.\n\nVuoi aggiungere altro o passare ai Progetti?`;
     }
     return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
+
+  const activeConvMeta = conversations.find(c => c.id === activeConvId);
 
   // --- Closed state ---
   if (!isOpen) {
@@ -723,6 +874,18 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       <button
         onClick={() => {
           setIsOpen(true);
+          if (conversations.length === 0) {
+            // Create first conversation
+            const newId = `conv-${Date.now()}`;
+            const newConv: ConversationMeta = {
+              id: newId,
+              title: `Sessione Q${currentQ} ${currentYear}`,
+              createdAt: new Date().toISOString(),
+              status: 'active',
+            };
+            setConversations([newConv]);
+            setActiveConvId(newId);
+          }
           if (messages.length === 0) setMessages([{ role: 'assistant', content: getOpeningMessage() }]);
         }}
         className="w-full group flex items-center gap-3 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/[0.04] to-primary/[0.08] hover:from-primary/[0.08] hover:to-primary/[0.14] transition-all duration-200 px-4 py-3"
@@ -732,7 +895,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         </div>
         <div className="text-left flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground">Radar Strategy</p>
-          <p className="text-[11px] text-muted-foreground truncate">Pianifica Focus, OKR e strategia</p>
+          <p className="text-[11px] text-muted-foreground truncate">
+            {conversations.length > 0 ? `${conversations.length} sessioni · ` : ''}Pianifica Focus, OKR e strategia
+          </p>
         </div>
         <Send className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
       </button>
@@ -808,15 +973,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
           <p className="text-[10px] text-muted-foreground z-10 mb-2">{enterprise.name} · Radar Strategy</p>
           {/* Phase indicator in call */}
-          <div className="flex items-center gap-2 z-10 mb-4">
-            {PHASES.map((phase) => {
-              const isCompleted = completedPhases.includes(phase.key);
-              const isCurrent = phase.key === currentPhase;
+          <div className="flex items-center gap-1.5 z-10 mb-4 flex-wrap justify-center">
+            {PLANNING_STAGES.map((stage) => {
+              const isCompleted = completedPhases.includes(stage.key);
+              const isCurrent = stage.key === currentPhase;
               return (
-                <div key={phase.key} className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
+                <div key={stage.key} className={`text-[9px] font-medium px-2 py-0.5 rounded-full ${
                   isCompleted ? 'bg-primary/20 text-primary' : isCurrent ? 'bg-primary/10 text-primary ring-1 ring-primary/30' : 'bg-muted/50 text-muted-foreground'
                 }`}>
-                  {isCompleted ? '✓ ' : ''}{phase.label}
+                  {isCompleted ? '✓ ' : ''}{stage.shortLabel}
                 </div>
               );
             })}
@@ -862,33 +1027,65 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     <div className="rounded-xl border border-primary/20 overflow-hidden bg-card shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between px-3 md:px-4 py-2.5 bg-gradient-to-r from-primary/[0.06] to-primary/[0.03] border-b border-primary/10">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="h-6 w-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
           </div>
-          <div>
-            <span className="text-xs font-semibold text-foreground">Radar Strategy</span>
-            <span className="text-[10px] text-muted-foreground ml-1.5 hidden sm:inline">· {enterprise.name}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-foreground">Radar Strategy</span>
+              {conversations.length > 1 && (
+                <button
+                  onClick={() => setShowConvList(!showConvList)}
+                  className="text-[9px] text-muted-foreground bg-muted/60 hover:bg-muted px-1.5 py-0.5 rounded-md transition-colors flex items-center gap-0.5"
+                >
+                  <Clock className="h-2.5 w-2.5" />
+                  {conversations.length}
+                </button>
+              )}
+            </div>
+            {activeConvMeta && (
+              <p className="text-[10px] text-muted-foreground truncate">{activeConvMeta.title}</p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {/* New conversation */}
+          <button
+            onClick={createNewConversation}
+            className="h-6 w-6 rounded-md hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary"
+            title="Nuova sessione strategica"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
           {/* Clear conversation */}
           {messages.length > 0 && (
             <button
               onClick={async () => {
                 setMessages([]);
                 setPendingActions([]);
-                if (session?.user?.id) {
-                  await supabase
-                    .from('wizard_conversations')
-                    .delete()
-                    .eq('user_id', session.user.id)
-                    .eq('enterprise_id', enterprise.id);
+                // Remove this conversation from the list
+                if (activeConvId) {
+                  const updated = conversations.filter(c => c.id !== activeConvId);
+                  setConversations(updated);
+                  if (updated.length > 0) {
+                    switchConversation(updated[updated.length - 1].id);
+                  } else {
+                    setActiveConvId(null);
+                    // Save empty state
+                    if (session?.user?.id) {
+                      await supabase
+                        .from('wizard_conversations')
+                        .delete()
+                        .eq('user_id', session.user.id)
+                        .eq('enterprise_id', enterprise.id);
+                    }
+                  }
                 }
-                toast.success('Conversazione azzerata');
+                toast.success('Sessione eliminata');
               }}
               className="h-6 w-6 rounded-md hover:bg-destructive/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-destructive"
-              title="Cancella conversazione"
+              title="Elimina sessione"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -910,8 +1107,41 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         </div>
       </div>
 
-      {/* Phase Stepper */}
-      <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
+      {/* Conversation list dropdown */}
+      <AnimatePresence>
+        {showConvList && conversations.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="border-b border-border/30 overflow-hidden"
+          >
+            <div className="p-2 space-y-1 bg-muted/20 max-h-40 overflow-y-auto">
+              {conversations.map(conv => (
+                <button
+                  key={conv.id}
+                  onClick={() => switchConversation(conv.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-xs ${
+                    conv.id === activeConvId
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-muted/60 text-foreground'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium truncate">{conv.title}</span>
+                    <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
+                      {new Date(conv.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Planning Progress Bar */}
+      <PlanningProgressBar currentPhase={currentPhase} completedPhases={completedPhases} />
 
       {/* Messages area with inline actions */}
       <div ref={scrollRef} className="max-h-[60vh] md:max-h-[28rem] overflow-y-auto p-3 md:p-4 space-y-3 overscroll-contain">

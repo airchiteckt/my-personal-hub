@@ -462,8 +462,11 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   useEffect(() => { callActiveRef.current = callActive; }, [callActive]);
 
+  const hasInteractedRef = useRef(false);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    if (hasInteractedRef.current) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, pendingActions]);
 
   useEffect(() => {

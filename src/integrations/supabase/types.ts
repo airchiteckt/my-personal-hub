@@ -246,6 +246,7 @@ export type Database = {
           business_category: string
           color: string
           created_at: string
+          description: string | null
           enterprise_type: string
           growth_potential: number
           id: string
@@ -261,6 +262,7 @@ export type Database = {
           business_category?: string
           color?: string
           created_at?: string
+          description?: string | null
           enterprise_type?: string
           growth_potential?: number
           id?: string
@@ -276,6 +278,7 @@ export type Database = {
           business_category?: string
           color?: string
           created_at?: string
+          description?: string | null
           enterprise_type?: string
           growth_potential?: number
           id?: string

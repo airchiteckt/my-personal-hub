@@ -394,6 +394,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.timeHorizon !== undefined) dbUpdates.time_horizon = updates.timeHorizon;
     if (updates.enterpriseType !== undefined) dbUpdates.enterprise_type = updates.enterpriseType;
     if (updates.priorityUntil !== undefined) dbUpdates.priority_until = updates.priorityUntil ?? null;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     await supabase.from('enterprises').update(dbUpdates).eq('id', id);
   }, []);
 

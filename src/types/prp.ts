@@ -153,6 +153,7 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 export interface Enterprise {
   id: string;
   name: string;
+  description?: string;
   status: EnterpriseStatus;
   color: string;
   strategicImportance: number;

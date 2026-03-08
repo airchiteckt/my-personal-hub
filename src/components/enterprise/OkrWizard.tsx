@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Enterprise } from '@/types/prp';
 
+// ─── Types ───────────────────────────────────────────────────────────
 type Msg = { role: 'user' | 'assistant'; content: string };
 type WizardAction = {
   id: string;
@@ -31,6 +32,12 @@ type ConversationMeta = {
   focusPeriodId?: string;
 };
 
+type StoredData = {
+  conversations: { id: string; title: string; createdAt: string; status: string; focusPeriodId?: string; messages: Msg[] }[];
+  activeConversationId: string | null;
+};
+
+// ─── Constants ───────────────────────────────────────────────────────
 const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; icon: typeof Crosshair }[] = [
   { key: 'focus', label: 'Focus', shortLabel: 'Focus', icon: Crosshair },
   { key: 'objectives', label: 'Obiettivi', shortLabel: 'Obj', icon: Target },
@@ -39,14 +46,18 @@ const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; ic
   { key: 'tasks', label: 'Task', shortLabel: 'Task', icon: ListTodo },
 ];
 
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
+
+const GHOST_CREATION_REGEX = /(?:ho creato|ho collegat[oaei]|ecco (?:le|i|la|il)\s+\d|procediamo con la creazione|task creata|progetto creato|task collegat[aei]|fatto!?\s*(?:ho|le|i)|completato!?\s*(?:ho|le|i)|ufficialmente collegat)/i;
+
+// ─── Sub-components ──────────────────────────────────────────────────
 function PlanningProgressBar({ currentPhase, completedPhases }: { currentPhase: WizardPhase; completedPhases: WizardPhase[] }) {
-  const currentIdx = PLANNING_STAGES.findIndex(p => p.key === currentPhase);
   const completedCount = completedPhases.length;
   const progressPct = Math.round((completedCount / PLANNING_STAGES.length) * 100);
 
   return (
     <div className="px-3 md:px-4 py-2 border-b border-border/30 bg-muted/10">
-      {/* Progress bar */}
       <div className="flex items-center gap-2 mb-1.5">
         <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
           <motion.div
@@ -58,7 +69,6 @@ function PlanningProgressBar({ currentPhase, completedPhases }: { currentPhase: 
         </div>
         <span className="text-[10px] font-medium text-muted-foreground shrink-0">{progressPct}%</span>
       </div>
-      {/* Stage dots */}
       <div className="flex items-center">
         {PLANNING_STAGES.map((stage, i) => {
           const isCompleted = completedPhases.includes(stage.key);
@@ -92,14 +102,84 @@ function PlanningProgressBar({ currentPhase, completedPhases }: { currentPhase: 
   );
 }
 
+// ─── Action card helpers ─────────────────────────────────────────────
+const getActionIcon = (type: string) => {
+  switch (type) {
+    case 'create_focus_period': return <Calendar className="h-3 w-3" />;
+    case 'create_objective': return <Target className="h-3 w-3" />;
+    case 'create_key_result': return <BarChart3 className="h-3 w-3" />;
+    case 'create_project': return <FolderPlus className="h-3 w-3" />;
+    case 'create_task': return <ListTodo className="h-3 w-3" />;
+    default: return <Check className="h-3 w-3" />;
+  }
+};
+
+const getActionLabel = (action: WizardAction) => action.data.title || action.data.name || action.type;
+
+const getActionTypeLabel = (type: string) => {
+  switch (type) {
+    case 'create_focus_period': return 'Focus';
+    case 'create_objective': return 'Objective';
+    case 'create_key_result': return 'KR';
+    case 'create_project': return 'Progetto';
+    case 'create_task': return 'Task';
+    default: return '';
+  }
+};
+
+const getEntityLabel = (action: WizardAction) => {
+  const name = action.data.title || action.data.name;
+  return `${getActionTypeLabel(action.type)} "${name}"`;
+};
+
+function ActionCard({ action, onApply, onReject }: { action: WizardAction; onApply: () => void; onReject: () => void }) {
+  if (action.applied) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/20 px-3 py-1.5 animate-in fade-in duration-200">
+        <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">{getActionIcon(action.type)}</div>
+        <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
+        <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
+        <Check className="h-3 w-3 text-primary shrink-0" />
+      </div>
+    );
+  }
+
+  if (action.rejected) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-full bg-destructive/[0.06] border border-destructive/15 px-3 py-1.5 opacity-60 animate-in fade-in duration-200">
+        <div className="h-4 w-4 rounded-full bg-destructive/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
+        <span className="text-[11px] font-medium text-muted-foreground line-through">{getActionTypeLabel(action.type)}</span>
+        <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px] line-through">{getActionLabel(action)}</span>
+        <X className="h-3 w-3 text-destructive/60 shrink-0" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm animate-in slide-in-from-bottom-2 duration-300 max-w-full">
+      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">{getActionIcon(action.type)}</div>
+        <span className="text-[11px] font-medium text-foreground shrink-0">{getActionTypeLabel(action.type)}</span>
+        <span className="text-[11px] text-muted-foreground truncate min-w-0">{getActionLabel(action)}</span>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button onClick={(e) => { e.stopPropagation(); onApply(); }} className="h-7 w-7 md:h-5 md:w-5 rounded-md bg-primary/15 hover:bg-primary/25 active:bg-primary/35 flex items-center justify-center transition-colors" title="Conferma">
+          <Check className="h-3.5 w-3.5 md:h-3 md:w-3 text-primary" />
+        </button>
+        <button onClick={(e) => { e.stopPropagation(); onReject(); }} className="h-7 w-7 md:h-5 md:w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 active:bg-destructive/30 flex items-center justify-center transition-colors" title="Rifiuta">
+          <X className="h-3.5 w-3.5 md:h-3 md:w-3 text-destructive" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ──────────────────────────────────────────────────
 interface Props {
   enterprise: Enterprise;
   activeFocusId?: string;
   onCreated?: () => void;
 }
-
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
-const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`;
 
 export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const { session } = useAuth();
@@ -108,7 +188,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
-  // --- Multi-conversation support ---
+
+  // ─── State ─────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<ConversationMeta[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [showConvList, setShowConvList] = useState(false);
@@ -117,26 +198,119 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [conversationLoaded, setConversationLoaded] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
+  const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
+  const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
+  const [view, setView] = useState<WizardView>('chat');
+  const [callState, setCallState] = useState<CallState>('idle');
+  const [callActive, setCallActive] = useState(false);
+  const [callDuration, setCallDuration] = useState(0);
+
+  // ─── Refs ──────────────────────────────────────────────────────────
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isLoadingRef = useRef(false);
-  const [conversationLoaded, setConversationLoaded] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [editTitleValue, setEditTitleValue] = useState('');
-
-  const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
-  const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
-
   const enterpriseIdRef = useRef(enterprise.id);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const callTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const recognitionRef = useRef<any>(null);
+  const callActiveRef = useRef(false);
+  const pendingSendRef = useRef<string | null>(null);
+  const hasInteractedRef = useRef(false);
+  const isSpeakingRef = useRef(false);
 
-  type StoredData = {
-    conversations: { id: string; title: string; createdAt: string; status: string; focusPeriodId?: string; messages: Msg[] }[];
-    activeConversationId: string | null;
-  };
+  // ─── Derived values ────────────────────────────────────────────────
+  const now = useMemo(() => new Date(), []);
+  const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+  const currentYear = now.getFullYear();
+  const quarterLabel = `Q${currentQ} ${currentYear}`;
 
-  // Load all conversations from Supabase
+  const allFocusPeriods = useMemo(
+    () => getFocusPeriodsForEnterprise(enterprise.id),
+    [enterprise.id, getFocusPeriodsForEnterprise]
+  );
+
+  // Planning thresholds from localStorage (configurable in admin)
+  const planningThresholds = useMemo(() => {
+    try {
+      const stored = localStorage.getItem('planning_thresholds');
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return { minProjectsPerKR: 1, minTasksPerProject: 1 };
+  }, []);
+
+  // The active conversation's focusPeriodId (scoped to session)
+  const sessionFocusId = useMemo(() => {
+    const conv = conversations.find(c => c.id === activeConvId);
+    return conv?.focusPeriodId || createdFocusId || null;
+  }, [conversations, activeConvId, createdFocusId]);
+
+  // Phase detection — 5 granular stages, SCOPED to this session's focus period
+  const { currentPhase, completedPhases } = useMemo(() => {
+    const sessionFocus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
+    const hasFocus = !!sessionFocus;
+    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
+    const hasObjectives = objectives.length > 0;
+    const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
+    const hasKRs = keyResults.length > 0;
+
+    // Only count STRATEGIC projects linked to KRs from this session's focus
+    const allProjects = getProjectsForEnterprise(enterprise.id);
+    const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
+
+    const { minProjectsPerKR, minTasksPerProject } = planningThresholds;
+    const allKRsCovered = hasKRs && keyResults.every(kr =>
+      strategicProjects.filter(p => p.keyResultId === kr.id).length >= minProjectsPerKR
+    );
+
+    const allTasks = getTasksForEnterprise(enterprise.id);
+    const strategicTasks = allTasks.filter(t => strategicProjects.some(p => p.id === t.projectId));
+    const allProjectsCovered = allKRsCovered && strategicProjects.every(p =>
+      strategicTasks.filter(t => t.projectId === p.id).length >= minTasksPerProject
+    );
+
+    const completed: WizardPhase[] = [];
+    let current: WizardPhase = 'focus';
+
+    if (hasFocus) { completed.push('focus'); current = 'objectives'; }
+    if (hasObjectives) { completed.push('objectives'); current = 'key_results'; }
+    if (hasKRs) { completed.push('key_results'); current = 'projects'; }
+    if (allKRsCovered) { completed.push('projects'); current = 'tasks'; }
+    if (allProjectsCovered) { completed.push('tasks'); }
+
+    return { currentPhase: current, completedPhases: completed };
+  }, [enterprise.id, sessionFocusId, allFocusPeriods, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, planningThresholds]);
+
+  const activeConvMeta = useMemo(
+    () => conversations.find(c => c.id === activeConvId),
+    [conversations, activeConvId]
+  );
+
+  // ─── Supabase conversation helpers ─────────────────────────────────
+  const fetchStoredData = useCallback(async (eid: string): Promise<StoredData | null> => {
+    if (!session?.user?.id) return null;
+    const { data } = await supabase
+      .from('wizard_conversations')
+      .select('messages')
+      .eq('user_id', session.user.id)
+      .eq('enterprise_id', eid)
+      .maybeSingle();
+    const raw = data?.messages as any;
+    if (raw && !Array.isArray(raw) && raw.conversations) return raw as StoredData;
+    return null;
+  }, [session?.user?.id]);
+
+  const loadMessagesForConv = useCallback(async (convId: string): Promise<Msg[]> => {
+    const stored = await fetchStoredData(enterpriseIdRef.current);
+    if (!stored) return [];
+    const target = stored.conversations.find(c => c.id === convId);
+    return target?.messages || [];
+  }, [fetchStoredData]);
+
   const loadConversation = useCallback(async (eid: string) => {
     if (!session?.user?.id) return;
     setConversationLoaded(false);
@@ -188,56 +362,44 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setConversationLoaded(true);
   }, [session?.user?.id]);
 
-  // Save all conversations to Supabase (debounced)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const saveConversation = useCallback((eid: string, convs: ConversationMeta[], activeId: string | null, msgs: Msg[]) => {
     if (!session?.user?.id) return;
     if (convs.length === 0 && msgs.length === 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
-        // Rebuild full stored data
-        // We need the previous stored data to not lose other conversations' messages
-        const { data: existing } = await supabase
-          .from('wizard_conversations')
-          .select('messages')
-          .eq('user_id', session.user.id!)
-          .eq('enterprise_id', eid)
-          .maybeSingle();
+        const stored = await fetchStoredData(eid);
+        const existingConvs = stored?.conversations || [];
 
-        let existingConvs: StoredData['conversations'] = [];
-        const existingRaw = existing?.messages as any;
-        if (existingRaw && !Array.isArray(existingRaw) && existingRaw.conversations) {
-          existingConvs = existingRaw.conversations;
-        }
-
-        // Merge: update active conversation messages, keep others
         const allConvs = convs.map(c => {
-          if (c.id === activeId) {
-            return { ...c, messages: msgs };
-          }
+          if (c.id === activeId) return { ...c, messages: msgs };
           const prev = existingConvs.find(ec => ec.id === c.id);
           return { ...c, messages: prev?.messages || [] };
         });
-
-        const stored: StoredData = {
-          conversations: allConvs,
-          activeConversationId: activeId,
-        };
 
         await supabase
           .from('wizard_conversations')
           .upsert({
             user_id: session.user.id!,
             enterprise_id: eid,
-            messages: stored as any,
+            messages: { conversations: allConvs, activeConversationId: activeId } as any,
           }, { onConflict: 'user_id,enterprise_id' });
       } catch (e) {
         console.error('Error saving wizard conversation:', e);
       }
     }, 1000);
-  }, [session?.user?.id]);
+  }, [session?.user?.id, fetchStoredData]);
 
+  // ─── Session reset helper ──────────────────────────────────────────
+  const resetSessionState = useCallback((focusPeriodId?: string | null) => {
+    setPendingActions([]);
+    setEditingTitle(false);
+    setCreatedFocusId(focusPeriodId || null);
+    setCreatedObjectiveId(null);
+    setShowConvList(false);
+  }, []);
+
+  // ─── Lifecycle effects ─────────────────────────────────────────────
   // Persist messages whenever they change
   useEffect(() => {
     if (conversationLoaded && (messages.length > 0 || conversations.length > 0)) {
@@ -248,236 +410,22 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   // Load on mount and when enterprise changes
   useEffect(() => {
     enterpriseIdRef.current = enterprise.id;
-    setPendingActions([]);
     setInput('');
-    setCreatedFocusId(activeFocusId || null);
-    setCreatedObjectiveId(null);
-    setShowConvList(false);
+    resetSessionState(activeFocusId);
     loadConversation(enterprise.id);
-  }, [enterprise.id, loadConversation]);
+  }, [enterprise.id, loadConversation, activeFocusId, resetSessionState]);
 
-  // Switch conversation
-  const switchConversation = useCallback(async (convId: string) => {
-    if (convId === activeConvId) { setShowConvList(false); return; }
-    // Save current first
-    if (activeConvId && conversationLoaded) {
-      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+  // Sync createdFocusId and createdObjectiveId from session's focus period
+  useEffect(() => {
+    if (sessionFocusId) {
+      if (!createdFocusId || createdFocusId !== sessionFocusId) setCreatedFocusId(sessionFocusId);
+      const objs = getObjectivesForFocus(sessionFocusId);
+      if (objs.length > 0) setCreatedObjectiveId(objs[objs.length - 1].id);
     }
-    // Load target conversation messages
-    const { data } = await supabase
-      .from('wizard_conversations')
-      .select('messages')
-      .eq('user_id', session?.user?.id!)
-      .eq('enterprise_id', enterpriseIdRef.current)
-      .maybeSingle();
-    const raw = data?.messages as any;
-    if (raw && raw.conversations) {
-      const target = raw.conversations.find((c: any) => c.id === convId);
-      setMessages(target?.messages || []);
-    }
-    setActiveConvId(convId);
-    setPendingActions([]);
-    setShowConvList(false);
-    // Restore the session's focus period
-    const targetConv = conversations.find(c => c.id === convId);
-    setCreatedFocusId(targetConv?.focusPeriodId || null);
-    setCreatedObjectiveId(null);
-  }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
-
-  // Delete a conversation
-  const deleteConversation = useCallback(async (convId: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const updated = conversations.filter(c => c.id !== convId);
-    setConversations(updated);
-
-    if (convId === activeConvId) {
-      if (updated.length > 0) {
-        // Switch to the last remaining conversation
-        const lastConv = updated[updated.length - 1];
-        setActiveConvId(lastConv.id);
-        setPendingActions([]);
-        // Load its messages
-        const { data } = await supabase
-          .from('wizard_conversations')
-          .select('messages')
-          .eq('user_id', session?.user?.id!)
-          .eq('enterprise_id', enterpriseIdRef.current)
-          .maybeSingle();
-        const raw = data?.messages as any;
-        if (raw?.conversations) {
-          const target = raw.conversations.find((c: any) => c.id === lastConv.id);
-          setMessages(target?.messages || []);
-        } else {
-          setMessages([]);
-        }
-      } else {
-        setActiveConvId(null);
-        setMessages([]);
-        setPendingActions([]);
-        // Delete from DB entirely
-        if (session?.user?.id) {
-          await supabase
-            .from('wizard_conversations')
-            .delete()
-            .eq('user_id', session.user.id)
-            .eq('enterprise_id', enterpriseIdRef.current);
-        }
-      }
-    }
-
-    // Persist updated list (if there are remaining convos)
-    if (updated.length > 0 && session?.user?.id) {
-      const { data: existing } = await supabase
-        .from('wizard_conversations')
-        .select('messages')
-        .eq('user_id', session.user.id)
-        .eq('enterprise_id', enterpriseIdRef.current)
-        .maybeSingle();
-      const existingRaw = existing?.messages as any;
-      let existingConvs: StoredData['conversations'] = [];
-      if (existingRaw?.conversations) existingConvs = existingRaw.conversations;
-      const stored: StoredData = {
-        conversations: existingConvs.filter(c => c.id !== convId),
-        activeConversationId: convId === activeConvId ? updated[updated.length - 1].id : activeConvId,
-      };
-      await supabase
-        .from('wizard_conversations')
-        .upsert({
-          user_id: session.user.id,
-          enterprise_id: enterpriseIdRef.current,
-          messages: stored as any,
-        }, { onConflict: 'user_id,enterprise_id' });
-    }
-
-    toast.success('Sessione eliminata');
-  }, [activeConvId, conversations, session?.user?.id]);
-
-  // Rename a conversation
-  const renameConversation = useCallback((convId: string, newTitle: string) => {
-    const trimmed = newTitle.trim();
-    if (!trimmed) return;
-    const updated = conversations.map(c => c.id === convId ? { ...c, title: trimmed } : c);
-    setConversations(updated);
-    setEditingTitle(false);
-    // Persist
-    saveConversation(enterpriseIdRef.current, updated, activeConvId, messages);
-    toast.success('Titolo aggiornato');
-  }, [conversations, activeConvId, messages, saveConversation]);
-
-  // Create new conversation
-  const createNewConversation = useCallback(() => {
-    const newId = `conv-${Date.now()}`;
-    const now = new Date();
-    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
-    const title = `Sessione Q${currentQ} ${now.getFullYear()} — ${now.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
-    const newConv: ConversationMeta = {
-      id: newId,
-      title,
-      createdAt: now.toISOString(),
-      status: 'active',
-    };
-    // Save current messages before switching
-    if (activeConvId && messages.length > 0) {
-      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
-    }
-    setConversations(prev => [...prev, newConv]);
-    setActiveConvId(newId);
-    setMessages([]);
-    setPendingActions([]);
-    setShowConvList(false);
-    // Reset focus tracking for new session (fresh progress bar)
-    setCreatedFocusId(null);
-    setCreatedObjectiveId(null);
-    // Opening message will be set when chat opens
-  }, [activeConvId, conversations, messages, saveConversation]);
-
-  // Planning thresholds from localStorage (configurable in admin)
-  const planningThresholds = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('planning_thresholds');
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return { minProjectsPerKR: 1, minTasksPerProject: 1 };
-  }, []);
-
-  // Get the active conversation's focusPeriodId
-  const sessionFocusId = useMemo(() => {
-    const conv = conversations.find(c => c.id === activeConvId);
-    return conv?.focusPeriodId || createdFocusId || null;
-  }, [conversations, activeConvId, createdFocusId]);
-
-  // Phase detection — 5 granular stages, SCOPED to this session's focus period
-  const { currentPhase, completedPhases } = useMemo(() => {
-    // Use only the focus period linked to this session
-    const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : null;
-    const hasFocus = !!sessionFocus;
-    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
-    const hasObjectives = objectives.length > 0;
-    const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-    const hasKRs = keyResults.length > 0;
-
-    // Only count STRATEGIC projects linked to KRs from this session's focus
-    const allProjects = getProjectsForEnterprise(enterprise.id);
-    const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
-    
-    // Check: each KR has at least N strategic projects
-    const { minProjectsPerKR, minTasksPerProject } = planningThresholds;
-    const allKRsCovered = hasKRs && keyResults.every(kr => {
-      const krProjects = strategicProjects.filter(p => p.keyResultId === kr.id);
-      return krProjects.length >= minProjectsPerKR;
-    });
-
-    // Only count tasks within strategic projects
-    const allTasks = getTasksForEnterprise(enterprise.id);
-    const strategicTasks = allTasks.filter(t => strategicProjects.some(p => p.id === t.projectId));
-    const allProjectsCovered = allKRsCovered && strategicProjects.every(p => {
-      const pTasks = strategicTasks.filter(t => t.projectId === p.id);
-      return pTasks.length >= minTasksPerProject;
-    });
-
-    const completed: WizardPhase[] = [];
-    let current: WizardPhase = 'focus';
-
-    if (hasFocus) {
-      completed.push('focus');
-      current = 'objectives';
-    }
-    if (hasObjectives) {
-      completed.push('objectives');
-      current = 'key_results';
-    }
-    if (hasKRs) {
-      completed.push('key_results');
-      current = 'projects';
-    }
-    if (allKRsCovered) {
-      completed.push('projects');
-      current = 'tasks';
-    }
-    if (allProjectsCovered) {
-      completed.push('tasks');
-    }
-
-    return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, sessionFocusId, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
-
-  // View & Call state
-  const [view, setView] = useState<WizardView>('chat');
-  const [callState, setCallState] = useState<CallState>('idle');
-  const [callActive, setCallActive] = useState(false);
-  const [callDuration, setCallDuration] = useState(0);
-  const callTimerRef = useRef<ReturnType<typeof setInterval>>();
-  const recognitionRef = useRef<any>(null);
-  const callActiveRef = useRef(false);
-  const pendingSendRef = useRef<string | null>(null);
-
-  const stripMarkdown = (text: string) =>
-    text.replace(/[*_~`#>[\]()!|]/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').trim();
+  }, [sessionFocusId, getObjectivesForFocus]);
 
   useEffect(() => { callActiveRef.current = callActive; }, [callActive]);
 
-  const hasInteractedRef = useRef(false);
   useEffect(() => {
     if (hasInteractedRef.current) {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -496,8 +444,95 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     };
   }, []);
 
-  // --- Continuous listening for call mode (runs even during TTS for interruption) ---
-  const isSpeakingRef = useRef(false);
+  // ─── Conversation management ───────────────────────────────────────
+  const switchConversation = useCallback(async (convId: string) => {
+    if (convId === activeConvId) { setShowConvList(false); return; }
+    // Save current first
+    if (activeConvId && conversationLoaded) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    const loadedMsgs = await loadMessagesForConv(convId);
+    setMessages(loadedMsgs);
+    setActiveConvId(convId);
+    const targetConv = conversations.find(c => c.id === convId);
+    resetSessionState(targetConv?.focusPeriodId);
+  }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, loadMessagesForConv, resetSessionState]);
+
+  const deleteConversation = useCallback(async (convId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const updated = conversations.filter(c => c.id !== convId);
+    setConversations(updated);
+
+    if (convId === activeConvId) {
+      if (updated.length > 0) {
+        const lastConv = updated[updated.length - 1];
+        setActiveConvId(lastConv.id);
+        resetSessionState(lastConv.focusPeriodId);
+        const loadedMsgs = await loadMessagesForConv(lastConv.id);
+        setMessages(loadedMsgs);
+      } else {
+        setActiveConvId(null);
+        setMessages([]);
+        resetSessionState();
+        if (session?.user?.id) {
+          await supabase.from('wizard_conversations').delete()
+            .eq('user_id', session.user.id)
+            .eq('enterprise_id', enterpriseIdRef.current);
+        }
+      }
+    }
+
+    // Persist updated list
+    if (updated.length > 0 && session?.user?.id) {
+      const stored = await fetchStoredData(enterpriseIdRef.current);
+      const existingConvs = stored?.conversations || [];
+      const newStored: StoredData = {
+        conversations: existingConvs.filter(c => c.id !== convId),
+        activeConversationId: convId === activeConvId ? updated[updated.length - 1].id : activeConvId,
+      };
+      await supabase.from('wizard_conversations').upsert({
+        user_id: session.user.id,
+        enterprise_id: enterpriseIdRef.current,
+        messages: newStored as any,
+      }, { onConflict: 'user_id,enterprise_id' });
+    }
+
+    toast.success('Sessione eliminata');
+  }, [activeConvId, conversations, session?.user?.id, loadMessagesForConv, resetSessionState, fetchStoredData]);
+
+  const renameConversation = useCallback((convId: string, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    const updated = conversations.map(c => c.id === convId ? { ...c, title: trimmed } : c);
+    setConversations(updated);
+    setEditingTitle(false);
+    saveConversation(enterpriseIdRef.current, updated, activeConvId, messages);
+    toast.success('Titolo aggiornato');
+  }, [conversations, activeConvId, messages, saveConversation]);
+
+  const createNewConversation = useCallback(() => {
+    const newId = `conv-${Date.now()}`;
+    const nowDate = new Date();
+    const q = Math.ceil((nowDate.getMonth() + 1) / 3);
+    const title = `Sessione Q${q} ${nowDate.getFullYear()} — ${nowDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
+    const newConv: ConversationMeta = {
+      id: newId,
+      title,
+      createdAt: nowDate.toISOString(),
+      status: 'active',
+    };
+    if (activeConvId && messages.length > 0) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    setConversations(prev => [...prev, newConv]);
+    setActiveConvId(newId);
+    setMessages([]);
+    resetSessionState();
+  }, [activeConvId, conversations, messages, saveConversation, resetSessionState]);
+
+  // ─── Voice / Call ──────────────────────────────────────────────────
+  const stripMarkdown = (text: string) =>
+    text.replace(/[*_~`#>[\]()!|]/g, '').replace(/\n{2,}/g, '. ').replace(/\n/g, ' ').trim();
 
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
@@ -523,9 +558,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       const currentText = finalTranscript + interim;
       setInput(currentText);
 
-      // If user starts speaking while AI is talking, interrupt TTS immediately
       if (isSpeakingRef.current && currentText.trim().length > 2) {
-        console.log('[Voice] User interruption detected, stopping TTS');
         if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
         isSpeakingRef.current = false;
         setCallState('listening');
@@ -533,7 +566,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
       if (finalTranscript.trim()) {
         if (silenceTimer) clearTimeout(silenceTimer);
-        // Shorter silence timeout (700ms) for faster response
         silenceTimer = setTimeout(() => {
           if (callActiveRef.current && finalTranscript.trim()) {
             pendingSendRef.current = finalTranscript.trim();
@@ -552,7 +584,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         handleSendVoice(text);
         return;
       }
-      // Restart listening immediately if call is active
       if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 200);
     };
 
@@ -563,7 +594,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         return;
       }
       console.error('Speech error:', e.error);
-      // Recover from any error
       if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current) startContinuousListening(); }, 500);
     };
 
@@ -573,7 +603,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   }, []);
 
-  // --- TTS with concurrent listening ---
   const speakText = useCallback(async (text: string) => {
     if (!text) return;
     const clean = stripMarkdown(text);
@@ -581,8 +610,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     try {
       isSpeakingRef.current = true;
       setCallState('speaking');
-
-      // Start listening WHILE we fetch and play TTS (for interruption support)
       startContinuousListening();
 
       const res = await fetch(TTS_URL, {
@@ -591,12 +618,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         body: JSON.stringify({ text: clean }),
       });
       if (!res.ok) throw new Error('TTS failed');
-
-      // If user already interrupted while we were fetching, don't play
-      if (!isSpeakingRef.current) {
-        console.log('[Voice] User interrupted during TTS fetch, skipping playback');
-        return;
-      }
+      if (!isSpeakingRef.current) return;
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -607,13 +629,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       const onFinish = () => {
         URL.revokeObjectURL(url);
         isSpeakingRef.current = false;
-        if (callActiveRef.current) {
-          setInput('');
-          setCallState('listening');
-          // Listening is already active (started before TTS), just update state
-        } else {
-          setCallState('idle');
-        }
+        if (callActiveRef.current) { setInput(''); setCallState('listening'); }
+        else setCallState('idle');
       };
       audio.onended = onFinish;
       audio.onerror = onFinish;
@@ -621,13 +638,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     } catch (err) {
       console.error('[Voice TTS] Error:', err);
       isSpeakingRef.current = false;
-      if (callActiveRef.current) {
-        setInput('');
-        setCallState('listening');
-        startContinuousListening();
-      } else {
-        setCallState('idle');
-      }
+      if (callActiveRef.current) { setInput(''); setCallState('listening'); startContinuousListening(); }
+      else setCallState('idle');
     }
   }, [session, startContinuousListening]);
 
@@ -638,7 +650,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     else setCallState('idle');
   }, [startContinuousListening]);
 
-  // --- Call controls ---
   const startCall = useCallback(async () => {
     setCallState('connecting');
     setCallActive(true);
@@ -672,27 +683,26 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const formatDuration = (s: number) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
 
-  // --- Context builder ---
+  // ─── Context builder ───────────────────────────────────────────────
   const buildContext = () => {
-    const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const projects = getProjectsForEnterprise(enterprise.id);
     const tasks = getTasksForEnterprise(enterprise.id);
-    // Use the session's focus period, not just any active one
-    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : focusPeriods.find(f => f.status === 'active');
+    const sessionFocus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : allFocusPeriods.find(f => f.status === 'active');
     const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
-    const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-    const now = new Date();
-    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
-    const currentYear = now.getFullYear();
     const qStart = new Date(currentYear, (currentQ - 1) * 3, 1);
     const qEnd = new Date(currentYear, currentQ * 3, 0);
+
     return {
-      enterprise: { name: enterprise.name, description: enterprise.description, status: enterprise.status, businessCategory: enterprise.businessCategory, phase: enterprise.phase, timeHorizon: enterprise.timeHorizon, strategicImportance: enterprise.strategicImportance, growthPotential: enterprise.growthPotential, enterpriseType: enterprise.enterpriseType },
-      currentDate: now.toISOString().split('T')[0],
-      currentQuarter: `Q${currentQ} ${currentYear}`,
+      enterprise: {
+        name: enterprise.name, description: enterprise.description, status: enterprise.status,
+        businessCategory: enterprise.businessCategory, phase: enterprise.phase, timeHorizon: enterprise.timeHorizon,
+        strategicImportance: enterprise.strategicImportance, growthPotential: enterprise.growthPotential, enterpriseType: enterprise.enterpriseType,
+      },
+      currentDate: new Date().toISOString().split('T')[0],
+      currentQuarter: quarterLabel,
       quarterStartDate: qStart.toISOString().split('T')[0],
       quarterEndDate: qEnd.toISOString().split('T')[0],
-      focusPeriods: focusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
+      focusPeriods: allFocusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
       activeFocus: sessionFocus ? { name: sessionFocus.name, id: sessionFocus.id, startDate: sessionFocus.startDate, endDate: sessionFocus.endDate } : null,
       objectives: objectives.map(o => ({
         id: o.id, title: o.title, status: o.status, description: o.description, weight: o.weight,
@@ -717,13 +727,59 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       },
       hasFocusPeriodCreated: !!createdFocusId,
       hasObjectiveCreated: !!createdObjectiveId,
-      futureFocusPeriods: focusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
+      futureFocusPeriods: allFocusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
       currentWizardPhase: currentPhase,
       completedWizardPhases: completedPhases,
     };
   };
 
-  // --- Core send (works for both text and voice) ---
+  // ─── Batch completion logic (shared) ───────────────────────────────
+  const checkBatchCompletion = useCallback((updatedActions: WizardAction[], targetMessageIndex: number) => {
+    const siblings = updatedActions.filter(a => a.afterMessageIndex === targetMessageIndex);
+    const allResolved = siblings.every(a => a.applied || a.rejected);
+    if (!allResolved) return;
+
+    const approvedLabels = siblings.filter(a => a.applied).map(a => getEntityLabel(a));
+    const rejectedLabels = siblings.filter(a => a.rejected).map(a => a.data.title || a.data.name || a.type);
+
+    let continuationMsg = '';
+    if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
+    if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
+    continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
+
+    const waitAndSend = () => {
+      const checkInterval = setInterval(() => {
+        if (!isLoadingRef.current) {
+          clearInterval(checkInterval);
+          doSend(continuationMsg.trim(), false);
+        }
+      }, 300);
+      setTimeout(() => clearInterval(checkInterval), 10000);
+    };
+    waitAndSend();
+  }, []);
+
+  // ─── KR resolution helper ─────────────────────────────────────────
+  const resolveKeyResultId = useCallback((rawId: string | undefined): string | undefined => {
+    if (!rawId) return undefined;
+    const targetFocuses = sessionFocusId
+      ? allFocusPeriods.filter(f => f.id === sessionFocusId)
+      : allFocusPeriods;
+    const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
+    const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(rawId);
+    if (!isUUID) {
+      const match = allKRs.find(kr => kr.title.toLowerCase().includes(rawId.toLowerCase()));
+      return match?.id || allKRs[allKRs.length - 1]?.id;
+    }
+    if (!allKRs.find(kr => kr.id === rawId)) {
+      return allKRs[allKRs.length - 1]?.id;
+    }
+    return rawId;
+  }, [sessionFocusId, allFocusPeriods, getObjectivesForFocus, getKeyResultsForObjective]);
+
+  // ─── Core send ─────────────────────────────────────────────────────
   const doSend = async (text: string, isVoiceCall: boolean) => {
     if (!text || isLoading) return;
     hasInteractedRef.current = true;
@@ -731,24 +787,31 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
-    setIsLoading(true); isLoadingRef.current = true;
+    setIsLoading(true);
+    isLoadingRef.current = true;
     if (inputRef.current) inputRef.current.style.height = 'auto';
     let assistantContent = '';
 
     try {
-      // Create abort controller for this request
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
 
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({ type: 'okr_wizard', messages: newMessages, context: buildContext() }),
         signal: abortController.signal,
       });
 
-      if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || `Errore ${resp.status}`);
+      }
       if (!resp.body) throw new Error('No body');
 
       const reader = resp.body.getReader();
@@ -756,7 +819,33 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       let buffer = '';
       let streamDone = false;
       let streamReceivedActions = false;
+      const msgIdx = newMessages.length; // assistant message index
+
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+      const processLine = (line: string) => {
+        if (!line.startsWith('data: ')) return false;
+        const json = line.slice(6).trim();
+        if (json === '[DONE]') return true;
+        try {
+          const p = JSON.parse(json);
+          if (p.type === 'delta' && p.content) {
+            assistantContent += p.content;
+            const snap = assistantContent;
+            setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
+          }
+          if (p.type === 'actions' && p.actions?.length) {
+            streamReceivedActions = true;
+            const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+              ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+            }));
+            setPendingActions(pa => [...pa, ...acts]);
+          }
+        } catch {
+          return false; // incomplete JSON, put back in buffer
+        }
+        return false;
+      };
 
       while (!streamDone) {
         const { done, value } = await reader.read();
@@ -764,75 +853,38 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         buffer += decoder.decode(value, { stream: true });
         let idx: number;
         while ((idx = buffer.indexOf('\n')) !== -1) {
-          let line = buffer.slice(0, idx); buffer = buffer.slice(idx + 1);
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
           if (line.endsWith('\r')) line = line.slice(0, -1);
-          if (!line.startsWith('data: ')) continue;
-          const json = line.slice(6).trim();
-          if (json === '[DONE]') { streamDone = true; break; }
-          try {
-            const p = JSON.parse(json);
-            if (p.type === 'delta' && p.content) {
-              assistantContent += p.content;
-              const snap = assistantContent;
-              setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
-            }
-            if (p.type === 'actions' && p.actions?.length) {
-              streamReceivedActions = true;
-              // Get msgIdx from current messages length (the assistant message we added)
-              const msgIdx = newMessages.length; // newMessages = user messages before assistant was added, so assistant is at this index
-              const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
-                ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
-              }));
-              setPendingActions(pa => [...pa, ...acts]);
-            }
-          } catch { buffer = line + '\n' + buffer; break; }
+          if (processLine(line)) { streamDone = true; break; }
         }
       }
 
-      // Flush remaining
+      // Flush remaining buffer
       if (buffer.trim()) {
         for (let raw of buffer.split('\n')) {
           if (!raw) continue;
           if (raw.endsWith('\r')) raw = raw.slice(0, -1);
-          if (!raw.startsWith('data: ')) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === '[DONE]') continue;
-          try {
-            const p = JSON.parse(jsonStr);
-            if (p.type === 'delta' && p.content) {
-              assistantContent += p.content;
-              const snap = assistantContent;
-              setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m));
-            }
-            if (p.type === 'actions' && p.actions?.length) {
-              streamReceivedActions = true;
-              const msgIdx = newMessages.length;
-              const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
-                ...a, id: `flush-${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
-              }));
-              setPendingActions(pa => [...pa, ...acts]);
-            }
-          } catch { /* ignore */ }
+          processLine(raw);
         }
       }
 
       if (!assistantContent) {
         if (streamReceivedActions) {
-          // Actions came through without text — keep the assistant message as a minimal placeholder
-          // so that action cards (tied to this message index) are rendered
-          setMessages(prev => prev.map((m, i) => 
-            i === prev.length - 1 && m.role === 'assistant' && !m.content 
-              ? { ...m, content: '📋 Ecco le proposte:' } 
+          setMessages(prev => prev.map((m, i) =>
+            i === prev.length - 1 && m.role === 'assistant' && !m.content
+              ? { ...m, content: '📋 Ecco le proposte:' }
               : m
           ));
         } else {
-          setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev;
+          });
         }
         if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 500);
       } else {
-        // Detect if AI described creating entities in text without emitting tool calls
-        const mentionsCreation = /(?:ho creato|ho collegat[oaei]|ecco (?:le|i|la|il)\s+\d|procediamo con la creazione|task creata|progetto creato|task collegat[aei]|fatto!?\s*(?:ho|le|i)|completato!?\s*(?:ho|le|i)|ufficialmente collegat)/i.test(assistantContent);
-
+        const mentionsCreation = GHOST_CREATION_REGEX.test(assistantContent);
         if (mentionsCreation && !streamReceivedActions && !isVoiceCall) {
           console.warn('[Wizard] AI described creation without tool calls — auto-retrying');
           setTimeout(() => {
@@ -846,17 +898,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {
-        // User stopped the response — keep whatever content was streamed
         console.log('[Wizard] Response aborted by user');
       } else {
         console.error(e);
         toast.error(e?.message || 'Errore AI');
-        setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev;
+        });
       }
       if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 1000);
     }
     abortControllerRef.current = null;
-    setIsLoading(false); isLoadingRef.current = false;
+    setIsLoading(false);
+    isLoadingRef.current = false;
   };
 
   const handleStop = useCallback(() => {
@@ -875,17 +930,14 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     await doSend(text, true);
   };
 
-  // --- Action apply ---
+  // ─── Action apply / reject ─────────────────────────────────────────
   const applyAction = async (action: WizardAction) => {
     setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
 
     try {
-      let appliedLabel = '';
       if (action.type === 'create_focus_period') {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
-        appliedLabel = `Focus Period "${action.data.name}"`;
-        // Link focus period to this session after a short delay (to let state update)
         setTimeout(() => {
           const fps = getFocusPeriodsForEnterprise(enterprise.id);
           const newFocus = fps.find(f => f.name === action.data.name && f.enterpriseId === enterprise.id);
@@ -895,12 +947,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           }
         }, 1500);
       } else if (action.type === 'create_objective') {
-        // Use focus_period_id from AI if provided, otherwise fallback to session
         let targetFocusId = action.data.focus_period_id || sessionFocusId || createdFocusId;
-        if (targetFocusId) {
-          // Validate UUID
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetFocusId);
-          if (!isUUID) targetFocusId = sessionFocusId || createdFocusId;
+        if (targetFocusId && !/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetFocusId)) {
+          targetFocusId = sessionFocusId || createdFocusId;
         }
         if (!targetFocusId) {
           toast.error('Crea prima un Focus Period attivo');
@@ -909,17 +958,11 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         }
         addObjective({ focusPeriodId: targetFocusId, enterpriseId: enterprise.id, title: action.data.title, description: action.data.description, weight: 1, status: 'active' });
         toast.success(`Objective "${action.data.title}" creato`);
-        appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
-        // Use objective_id from AI if provided
         let targetObjId = action.data.objective_id;
-        if (targetObjId) {
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetObjId);
-          if (!isUUID) targetObjId = undefined;
-        }
-        // Fallback to session's last objective
+        if (targetObjId && !/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetObjId)) targetObjId = undefined;
         if (!targetObjId) {
-          const sessionFocus = sessionFocusId ? getFocusPeriodsForEnterprise(enterprise.id).find(f => f.id === sessionFocusId) : null;
+          const sessionFocus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
           const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
           targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
         }
@@ -930,47 +973,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         }
         addKeyResult({ objectiveId: targetObjId, enterpriseId: enterprise.id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'percentage', deadline: action.data.deadline, status: 'active' });
         toast.success(`Key Result "${action.data.title}" creato`);
-        appliedLabel = `Key Result "${action.data.title}"`;
       } else if (action.type === 'create_project') {
-        // Resolve key_result_id: AI might send a KR title/name instead of ID
-        let keyResultId = action.data.key_result_id || undefined;
-        if (keyResultId) {
-          // Gather all KRs for this enterprise (from session focus or all focuses)
-          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-          const targetFocuses = sessionFocusId
-            ? focusPeriods.filter(f => f.id === sessionFocusId)
-            : focusPeriods;
-          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
-          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
-
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(keyResultId);
-          if (!isUUID) {
-            const match = allKRs.find(kr => kr.title.toLowerCase().includes(keyResultId!.toLowerCase()));
-            keyResultId = match?.id;
-            if (!keyResultId) {
-              console.warn('[Wizard] Could not resolve KR by title, using last KR');
-              keyResultId = allKRs[allKRs.length - 1]?.id;
-            }
-          } else if (!allKRs.find(kr => kr.id === keyResultId)) {
-            console.warn('[Wizard] KR UUID not found, using last KR');
+        let keyResultId = resolveKeyResultId(action.data.key_result_id);
+        const projectType = action.data.type || 'strategic';
+        // Auto-assign latest KR for strategic projects without one
+        if (projectType === 'strategic' && !keyResultId) {
+          keyResultId = resolveKeyResultId('__fallback__');
+          // If still nothing, try without filter
+          if (!keyResultId) {
+            const targetFocuses = sessionFocusId
+              ? allFocusPeriods.filter(f => f.id === sessionFocusId)
+              : allFocusPeriods.filter(f => f.status === 'active');
+            const allKRs = targetFocuses.flatMap(f => getObjectivesForFocus(f.id)).flatMap(o => getKeyResultsForObjective(o.id));
             keyResultId = allKRs[allKRs.length - 1]?.id;
           }
-        }
-        // If strategic but no KR resolved, try to auto-assign the latest KR
-        const projectType = action.data.type || 'strategic';
-        if (projectType === 'strategic' && !keyResultId) {
-          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-          const targetFocuses = sessionFocusId
-            ? focusPeriods.filter(f => f.id === sessionFocusId)
-            : focusPeriods.filter(f => f.status === 'active');
-          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
-          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
-          keyResultId = allKRs[allKRs.length - 1]?.id;
         }
         try {
           addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
           toast.success(`Progetto "${action.data.name}" creato`);
-          appliedLabel = `Progetto "${action.data.name}"`;
         } catch (projErr) {
           console.error('[Wizard] Project creation error:', projErr);
           toast.error(`Errore creazione progetto: ${projErr}`);
@@ -979,7 +999,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         }
       } else if (action.type === 'create_task') {
         const projects = getProjectsForEnterprise(enterprise.id);
-        // Resolve project_id: AI might send project name instead of UUID
         let targetProjectId = action.data.project_id;
         if (targetProjectId) {
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(targetProjectId);
@@ -990,17 +1009,13 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             targetProjectId = undefined;
           }
         }
-        // Fallback: use the most recently created project for this session or enterprise
         if (!targetProjectId) {
           if (sessionFocusId) {
             const sessionKRIds = getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id);
             const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
             targetProjectId = strategicProject?.id;
           }
-          // Ultimate fallback: any project in this enterprise
-          if (!targetProjectId) {
-            targetProjectId = projects[projects.length - 1]?.id;
-          }
+          if (!targetProjectId) targetProjectId = projects[projects.length - 1]?.id;
         }
         if (!targetProjectId) {
           toast.error('Crea prima un Progetto');
@@ -1015,7 +1030,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             impact: action.data.impact, effort: action.data.effort, isRecurring: false,
           });
           toast.success(`Task "${action.data.title}" creata`);
-          appliedLabel = `Task "${action.data.title}"`;
         } catch (taskErr) {
           console.error('[Wizard] Task creation error:', taskErr);
           toast.error(`Errore creazione task: ${taskErr}`);
@@ -1025,50 +1039,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       }
       onCreated?.();
 
-      // Auto-continue ONLY when ALL actions in the same batch are resolved
-      if (appliedLabel) {
-        // Check if all sibling actions (same afterMessageIndex) are resolved
-        setPendingActions(prev => {
-          const updated = prev.map(a => a.id === action.id ? { ...a, applied: true } : a);
-          const siblings = updated.filter(a => a.afterMessageIndex === action.afterMessageIndex);
-          const allResolved = siblings.every(a => a.applied || a.rejected);
-          
-          if (allResolved) {
-            // Gather all approved labels from this batch
-            const approvedLabels = siblings.filter(a => a.applied).map(a => {
-              switch (a.type) {
-                case 'create_focus_period': return `Focus Period "${a.data.name}"`;
-                case 'create_objective': return `Objective "${a.data.title}"`;
-                case 'create_key_result': return `Key Result "${a.data.title}"`;
-                case 'create_project': return `Progetto "${a.data.name}"`;
-                case 'create_task': return `Task "${a.data.title}"`;
-                default: return a.type;
-              }
-            });
-            const rejectedLabels = siblings.filter(a => a.rejected).map(a => {
-              return a.data.title || a.data.name || a.type;
-            });
-            
-            let continuationMsg = '';
-            if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
-            if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
-            continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
-            
-            const waitAndSend = () => {
-              const checkInterval = setInterval(() => {
-                if (!isLoadingRef.current) {
-                  clearInterval(checkInterval);
-                  doSend(continuationMsg.trim(), false);
-                }
-              }, 300);
-              setTimeout(() => clearInterval(checkInterval), 10000);
-            };
-            waitAndSend();
-          }
-          
-          return updated;
-        });
-      }
+      // Check batch completion
+      setPendingActions(prev => {
+        const updated = prev.map(a => a.id === action.id ? { ...a, applied: true } : a);
+        checkBatchCompletion(updated, action.afterMessageIndex);
+        return updated;
+      });
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
@@ -1076,89 +1052,26 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   };
 
-  // --- Action reject — also check if batch is complete ---
   const rejectAction = (action: WizardAction) => {
     setPendingActions(prev => {
       const updated = prev.map(a => a.id === action.id ? { ...a, rejected: true } : a);
-      const siblings = updated.filter(a => a.afterMessageIndex === action.afterMessageIndex);
-      const allResolved = siblings.every(a => a.applied || a.rejected);
-      
-      if (allResolved) {
-        const approvedLabels = siblings.filter(a => a.applied).map(a => a.data.title || a.data.name || a.type);
-        const rejectedLabels = siblings.filter(a => a.rejected).map(a => a.data.title || a.data.name || a.type);
-        
-        let continuationMsg = '';
-        if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
-        if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
-        continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
-        
-        const waitAndSend = () => {
-          const checkInterval = setInterval(() => {
-            if (!isLoadingRef.current) {
-              clearInterval(checkInterval);
-              doSend(continuationMsg.trim(), false);
-            }
-          }, 300);
-          setTimeout(() => clearInterval(checkInterval), 10000);
-        };
-        waitAndSend();
-      }
-      
+      checkBatchCompletion(updated, action.afterMessageIndex);
       return updated;
     });
   };
 
-  useEffect(() => {
-    // Sync createdFocusId and createdObjectiveId from session's focus period
-    if (sessionFocusId) {
-      if (!createdFocusId || createdFocusId !== sessionFocusId) setCreatedFocusId(sessionFocusId);
-      const objs = getObjectivesForFocus(sessionFocusId);
-      if (objs.length > 0) setCreatedObjectiveId(objs[objs.length - 1].id);
-    }
-  }, [sessionFocusId, getObjectivesForFocus]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
-  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px'; };
-
-  const getActionIcon = (type: string) => {
-    switch (type) {
-      case 'create_focus_period': return <Calendar className="h-3 w-3" />;
-      case 'create_objective': return <Target className="h-3 w-3" />;
-      case 'create_key_result': return <BarChart3 className="h-3 w-3" />;
-      case 'create_project': return <FolderPlus className="h-3 w-3" />;
-      case 'create_task': return <ListTodo className="h-3 w-3" />;
-      default: return <Check className="h-3 w-3" />;
-    }
-  };
-  const getActionLabel = (action: WizardAction) => {
-    switch (action.type) {
-      case 'create_focus_period': return action.data.name;
-      case 'create_objective': return action.data.title;
-      case 'create_key_result': return action.data.title;
-      case 'create_project': return action.data.name;
-      case 'create_task': return action.data.title;
-      default: return action.type;
-    }
-  };
-  const getActionTypeLabel = (type: string) => {
-    switch (type) {
-      case 'create_focus_period': return 'Focus';
-      case 'create_objective': return 'Objective';
-      case 'create_key_result': return 'KR';
-      case 'create_project': return 'Progetto';
-      case 'create_task': return 'Task';
-      default: return '';
-    }
+  // ─── Input handlers ────────────────────────────────────────────────
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const now = new Date();
-  const currentQ = Math.ceil((now.getMonth() + 1) / 3);
-  const currentYear = now.getFullYear();
-  const quarterLabel = `Q${currentQ} ${currentYear}`;
-  const hasActiveFocus = !!getFocusPeriodsForEnterprise(enterprise.id).find(f => f.status === 'active');
-  const allFocusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-  const futureFocusPeriods = allFocusPeriods.filter(f => f.status === 'future');
+  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px';
+  };
 
+  // ─── Opening message ───────────────────────────────────────────────
   const getOpeningMessage = (): string => {
     const stageLabel = PLANNING_STAGES.find(p => p.key === currentPhase)?.label || 'Focus';
     if (currentPhase === 'projects' || currentPhase === 'tasks') {
@@ -1177,16 +1090,13 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
   };
 
-  const activeConvMeta = conversations.find(c => c.id === activeConvId);
-
-  // --- Closed state ---
+  // ─── Closed state ──────────────────────────────────────────────────
   if (!isOpen) {
     return (
       <button
         onClick={() => {
           setIsOpen(true);
           if (conversations.length === 0) {
-            // Create first conversation
             const newId = `conv-${Date.now()}`;
             const newConv: ConversationMeta = {
               id: newId,
@@ -1215,7 +1125,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     );
   }
 
-  // --- Call view ---
+  // ─── Call view ─────────────────────────────────────────────────────
   if (view === 'call') {
     const callStateLabel = { idle: '', connecting: 'Connessione...', listening: 'Ti ascolto...', processing: 'Elaboro...', speaking: 'Parlo...' }[callState];
     return (
@@ -1238,10 +1148,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             ))}
           </div>
 
-          {/* Timer */}
           <div className="text-xs font-mono text-muted-foreground mb-4 z-10">{formatDuration(callDuration)}</div>
 
-          {/* Center icon */}
           <motion.div
             className={`h-20 w-20 rounded-full flex items-center justify-center z-10 mb-4 ${
               callState === 'listening' ? 'bg-primary/20' : callState === 'speaking' ? 'bg-accent' : 'bg-muted'
@@ -1252,7 +1160,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             <Sparkles className={`h-8 w-8 ${callState === 'listening' ? 'text-primary' : 'text-muted-foreground'}`} />
           </motion.div>
 
-          {/* State label */}
           <motion.p
             className="text-sm font-medium text-foreground mb-1 z-10"
             animate={{ opacity: [0.7, 1, 0.7] }}
@@ -1261,12 +1168,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             {callStateLabel}
           </motion.p>
 
-          {/* Live transcript */}
           {input && (
             <p className="text-xs text-muted-foreground text-center max-w-[200px] truncate z-10 mb-2">"{input}"</p>
           )}
 
-          {/* Audio bars for speaking */}
           <AnimatePresence>
             {callState === 'speaking' && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center gap-1 mb-2 z-10">
@@ -1283,6 +1188,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </AnimatePresence>
 
           <p className="text-[10px] text-muted-foreground z-10 mb-2">{enterprise.name} · Radar Strategy</p>
+
           {/* Phase indicator in call */}
           <div className="flex items-center gap-1.5 z-10 mb-4 flex-wrap justify-center">
             {PLANNING_STAGES.map((stage) => {
@@ -1298,7 +1204,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             })}
           </div>
 
-          {/* End call */}
           <button
             onClick={endCall}
             className="h-12 w-12 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90 transition-colors z-10"
@@ -1307,24 +1212,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </button>
         </motion.div>
 
-        {/* Show pending actions even in call view */}
+        {/* Pending actions in call view */}
         {pendingActions.filter(a => !a.applied && !a.rejected).length > 0 && (
           <div className="border-t border-border/50 p-3 space-y-2">
             {pendingActions.filter(a => !a.applied && !a.rejected).map((action) => (
-              <div key={action.id} className="flex flex-wrap items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">{getActionIcon(action.type)}</div>
-                  <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-                  <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{getActionLabel(action)}</span>
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="h-7 w-7 rounded-md bg-primary/15 hover:bg-primary/25 active:bg-primary/35 flex items-center justify-center transition-colors" title="Conferma">
-                    <Check className="h-3.5 w-3.5 text-primary" />
-                  </button>
-                  <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-7 w-7 rounded-md bg-destructive/10 hover:bg-destructive/20 active:bg-destructive/30 flex items-center justify-center transition-colors" title="Rifiuta">
-                    <X className="h-3.5 w-3.5 text-destructive" />
-                  </button>
-                </div>
+              <div key={action.id} className="flex justify-center">
+                <ActionCard action={action} onApply={() => applyAction(action)} onReject={() => rejectAction(action)} />
               </div>
             ))}
           </div>
@@ -1333,7 +1226,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     );
   }
 
-  // --- Chat view ---
+  // ─── Chat view ─────────────────────────────────────────────────────
   return (
     <div className="rounded-xl border border-primary/20 overflow-hidden bg-card shadow-sm">
       {/* Header */}
@@ -1381,7 +1274,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {/* New conversation */}
           <button
             onClick={createNewConversation}
             className="h-6 w-6 rounded-md hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary"
@@ -1389,39 +1281,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
-          {/* Clear conversation */}
           {messages.length > 0 && (
             <button
-              onClick={async () => {
-                setMessages([]);
-                setPendingActions([]);
-                // Remove this conversation from the list
-                if (activeConvId) {
-                  const updated = conversations.filter(c => c.id !== activeConvId);
-                  setConversations(updated);
-                  if (updated.length > 0) {
-                    switchConversation(updated[updated.length - 1].id);
-                  } else {
-                    setActiveConvId(null);
-                    // Save empty state
-                    if (session?.user?.id) {
-                      await supabase
-                        .from('wizard_conversations')
-                        .delete()
-                        .eq('user_id', session.user.id)
-                        .eq('enterprise_id', enterprise.id);
-                    }
-                  }
-                }
-                toast.success('Sessione eliminata');
-              }}
+              onClick={() => activeConvId && deleteConversation(activeConvId)}
               className="h-6 w-6 rounded-md hover:bg-destructive/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-destructive"
               title="Elimina sessione"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}
-          {/* Call button */}
           <button
             onClick={startCall}
             className="h-6 w-6 rounded-md hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary"
@@ -1502,7 +1370,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           const actionsAfterThis = pendingActions.filter(a => a.afterMessageIndex === i);
           return (
             <div key={i}>
-              {/* Message bubble */}
               <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {msg.role === 'assistant' && (
                   <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5">
@@ -1520,47 +1387,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
                 </div>
               </div>
 
-              {/* Inline action cards after this message */}
               {actionsAfterThis.map((action) => (
                 <div key={action.id} className="flex justify-center py-1.5">
-                  {action.applied ? (
-                    <div className="flex items-center gap-1.5 rounded-full bg-primary/[0.08] border border-primary/20 px-3 py-1.5 animate-in fade-in duration-200">
-                      <div className="h-4 w-4 rounded-full bg-primary/20 flex items-center justify-center">{getActionIcon(action.type)}</div>
-                      <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
-                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px]">{getActionLabel(action)}</span>
-                      <Check className="h-3 w-3 text-primary shrink-0" />
-                    </div>
-                  ) : action.rejected ? (
-                    <div className="flex items-center gap-1.5 rounded-full bg-destructive/[0.06] border border-destructive/15 px-3 py-1.5 opacity-60 animate-in fade-in duration-200">
-                      <div className="h-4 w-4 rounded-full bg-destructive/10 flex items-center justify-center">{getActionIcon(action.type)}</div>
-                      <span className="text-[11px] font-medium text-muted-foreground line-through">{getActionTypeLabel(action.type)}</span>
-                      <span className="text-[11px] text-muted-foreground truncate max-w-[160px] md:max-w-[240px] line-through">{getActionLabel(action)}</span>
-                      <X className="h-3 w-3 text-destructive/60 shrink-0" />
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2 shadow-sm animate-in slide-in-from-bottom-2 duration-300 max-w-full">
-                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center shrink-0">{getActionIcon(action.type)}</div>
-                        <span className="text-[11px] font-medium text-foreground shrink-0">{getActionTypeLabel(action.type)}</span>
-                        <span className="text-[11px] text-muted-foreground truncate min-w-0">{getActionLabel(action)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button onClick={(e) => { e.stopPropagation(); applyAction(action); }} className="h-7 w-7 md:h-5 md:w-5 rounded-md bg-primary/15 hover:bg-primary/25 active:bg-primary/35 flex items-center justify-center transition-colors" title="Conferma">
-                          <Check className="h-3.5 w-3.5 md:h-3 md:w-3 text-primary" />
-                        </button>
-                        <button onClick={(e) => { e.stopPropagation(); rejectAction(action); }} className="h-7 w-7 md:h-5 md:w-5 rounded-md bg-destructive/10 hover:bg-destructive/20 active:bg-destructive/30 flex items-center justify-center transition-colors" title="Rifiuta">
-                          <X className="h-3.5 w-3.5 md:h-3 md:w-3 text-destructive" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <ActionCard action={action} onApply={() => applyAction(action)} onReject={() => rejectAction(action)} />
                 </div>
               ))}
             </div>
           );
         })}
 
-        {/* Loading */}
         {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
           <div className="flex justify-start">
             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mr-2">
@@ -1589,7 +1424,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             rows={1}
             disabled={isLoading}
           />
-          {/* Call button in input */}
           <button
             onClick={startCall}
             disabled={isLoading}

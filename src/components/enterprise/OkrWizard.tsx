@@ -1458,9 +1458,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           >
             <Phone className="h-3.5 w-3.5" />
           </button>
-          <Button size="icon" onClick={handleSend} disabled={!input.trim() || isLoading} className="shrink-0 h-7 w-7 rounded-lg">
-            <Send className="h-3.5 w-3.5" />
-          </Button>
+          {isLoading ? (
+            <Button size="icon" onClick={handleStop} variant="destructive" className="shrink-0 h-7 w-7 rounded-lg" title="Ferma risposta">
+              <Square className="h-3 w-3" />
+            </Button>
+          ) : (
+            <Button size="icon" onClick={handleSend} disabled={!input.trim()} className="shrink-0 h-7 w-7 rounded-lg">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

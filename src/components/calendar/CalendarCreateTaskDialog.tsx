@@ -17,29 +17,35 @@ interface Props {
 }
 
 export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defaultTime, defaultEndTime }: Props) {
-  const { enterprises, projects, addTask, scheduleTask } = usePrp();
+  const { enterprises, projects, addTask } = usePrp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [enterpriseId, setEnterpriseId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [estimatedMinutes, setEstimatedMinutes] = useState(30);
+  const [schedDate, setSchedDate] = useState(defaultDate || '');
+  const [schedTime, setSchedTime] = useState(defaultTime || '');
 
   const activeEnterprises = enterprises.filter(e => e.status !== 'paused');
   const availableProjects = projects.filter(p => p.enterpriseId === enterpriseId);
 
-  // Auto-calculate duration from time range on open
+  // Sync defaults when dialog opens
   useEffect(() => {
-    if (open && defaultTime && defaultEndTime) {
-      const [sh, sm] = defaultTime.split(':').map(Number);
-      const [eh, em] = defaultEndTime.split(':').map(Number);
-      let mins = (eh * 60 + em) - (sh * 60 + sm);
-      if (mins <= 0) mins += 24 * 60; // handle overnight
-      if (mins > 0) setEstimatedMinutes(mins);
-    } else if (open && !defaultTime) {
-      setEstimatedMinutes(30);
+    if (open) {
+      setSchedDate(defaultDate || new Date().toISOString().split('T')[0]);
+      setSchedTime(defaultTime || '09:00');
+      if (defaultTime && defaultEndTime) {
+        const [sh, sm] = defaultTime.split(':').map(Number);
+        const [eh, em] = defaultEndTime.split(':').map(Number);
+        let mins = (eh * 60 + em) - (sh * 60 + sm);
+        if (mins <= 0) mins += 24 * 60;
+        if (mins > 0) setEstimatedMinutes(mins);
+      } else {
+        setEstimatedMinutes(30);
+      }
     }
-  }, [open, defaultTime, defaultEndTime]);
+  }, [open, defaultDate, defaultTime, defaultEndTime]);
 
   // Auto-select first enterprise/project
   useEffect(() => {
@@ -54,33 +60,6 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
     }
   }, [enterpriseId, availableProjects]);
 
-  const handleSubmit = () => {
-    if (!title.trim() || !enterpriseId || !projectId) return;
-    addTask({
-      title: title.trim(),
-      estimatedMinutes,
-      priority,
-      enterpriseId,
-      projectId,
-      isRecurring: false,
-    });
-
-    // Schedule the task after creation - we need to get the task ID
-    // Since addTask doesn't return the ID, we schedule via the context after a tick
-    // Better approach: use scheduleTask after finding the newly created task
-    setTimeout(() => {
-      // The task was just added, find it by title match (last added)
-      const allTasks = document.querySelectorAll('[data-task-id]');
-      // Actually, let's just rely on the addTask + immediate schedule pattern
-    }, 0);
-
-    setTitle('');
-    setEstimatedMinutes(30);
-    setPriority('medium');
-    onOpenChange(false);
-  };
-
-  // Modified: addTask and schedule in one go
   const handleCreateAndSchedule = () => {
     if (!title.trim() || !enterpriseId || !projectId) return;
 
@@ -92,8 +71,8 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
       enterpriseId,
       projectId,
       isRecurring: false,
-      scheduledDate: defaultDate,
-      scheduledTime: defaultTime,
+      scheduledDate: schedDate || undefined,
+      scheduledTime: schedTime || undefined,
     });
 
     setTitle('');
@@ -108,11 +87,6 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Nuova Task</DialogTitle>
-          {defaultDate && defaultTime && (
-            <p className="text-xs text-muted-foreground">
-              {defaultDate} · {defaultTime}{defaultEndTime ? ` – ${defaultEndTime}` : ''}
-            </p>
-          )}
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <div className="space-y-2">
@@ -158,6 +132,17 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Data</Label>
+              <Input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Ora inizio</Label>
+              <Input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} />
             </div>
           </div>
 

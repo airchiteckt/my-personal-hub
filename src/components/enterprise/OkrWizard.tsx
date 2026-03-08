@@ -410,7 +410,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const qStart = new Date(currentYear, (currentQ - 1) * 3, 1);
     const qEnd = new Date(currentYear, currentQ * 3, 0);
     return {
-      enterprise: { name: enterprise.name, status: enterprise.status, businessCategory: enterprise.businessCategory, phase: enterprise.phase, timeHorizon: enterprise.timeHorizon },
+      enterprise: { name: enterprise.name, description: enterprise.description, status: enterprise.status, businessCategory: enterprise.businessCategory, phase: enterprise.phase, timeHorizon: enterprise.timeHorizon, strategicImportance: enterprise.strategicImportance, growthPotential: enterprise.growthPotential, enterpriseType: enterprise.enterpriseType },
       currentDate: now.toISOString().split('T')[0],
       currentQuarter: `Q${currentQ} ${currentYear}`,
       quarterStartDate: qStart.toISOString().split('T')[0],

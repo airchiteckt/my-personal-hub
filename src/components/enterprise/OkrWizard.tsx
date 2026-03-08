@@ -811,13 +811,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         speakText(assistantContent);
       }
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'Errore AI');
-      setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+      if (e.name === 'AbortError') {
+        // User stopped the response — keep whatever content was streamed
+        console.log('[Wizard] Response aborted by user');
+      } else {
+        console.error(e);
+        toast.error(e?.message || 'Errore AI');
+        setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+      }
       if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 1000);
     }
+    abortControllerRef.current = null;
     setIsLoading(false); isLoadingRef.current = false;
   };
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
 
   const handleSend = async () => {
     const text = input.trim();

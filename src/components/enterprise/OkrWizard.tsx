@@ -813,8 +813,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         {/* Show pending actions even in call view */}
         {pendingActions.filter(a => !a.applied && !a.rejected).length > 0 && (
           <div className="border-t border-border/50 p-3 space-y-2">
-            {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-              <div key={`cpend-${i}`} className="flex items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
+            {pendingActions.filter(a => !a.applied && !a.rejected).map((action) => (
+              <div key={action.id} className="flex items-center justify-center gap-1.5 rounded-xl bg-accent/50 border border-primary/20 px-3 py-2">
                 <div className="h-4 w-4 rounded-full bg-primary/15 flex items-center justify-center">{getActionIcon(action.type)}</div>
                 <span className="text-[11px] font-medium text-foreground">{getActionTypeLabel(action.type)}</span>
                 <span className="text-[11px] text-muted-foreground truncate max-w-[120px]">{getActionLabel(action)}</span>

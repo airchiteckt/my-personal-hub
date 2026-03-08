@@ -1034,7 +1034,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           
           return updated;
         });
-        return; // Skip the duplicate setPendingActions at the top of applyAction
+      }
     } catch (e) {
       console.error('Error applying action:', e);
       toast.error("Errore nell'applicare l'azione");
@@ -1042,10 +1042,36 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
   };
 
-  // --- Action reject ---
+  // --- Action reject — also check if batch is complete ---
   const rejectAction = (action: WizardAction) => {
-    // Immutable update – don't auto-send, wait for user input
-    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
+    setPendingActions(prev => {
+      const updated = prev.map(a => a.id === action.id ? { ...a, rejected: true } : a);
+      const siblings = updated.filter(a => a.afterMessageIndex === action.afterMessageIndex);
+      const allResolved = siblings.every(a => a.applied || a.rejected);
+      
+      if (allResolved) {
+        const approvedLabels = siblings.filter(a => a.applied).map(a => a.data.title || a.data.name || a.type);
+        const rejectedLabels = siblings.filter(a => a.rejected).map(a => a.data.title || a.data.name || a.type);
+        
+        let continuationMsg = '';
+        if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
+        if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
+        continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
+        
+        const waitAndSend = () => {
+          const checkInterval = setInterval(() => {
+            if (!isLoadingRef.current) {
+              clearInterval(checkInterval);
+              doSend(continuationMsg.trim(), false);
+            }
+          }, 300);
+          setTimeout(() => clearInterval(checkInterval), 10000);
+        };
+        waitAndSend();
+      }
+      
+      return updated;
+    });
   };
 
   useEffect(() => {

@@ -203,7 +203,7 @@ export function PublicLinkSettings() {
                   )}
 
                   {!savedSlug && (
-                    <p className="text-[11px] text-amber-500 mt-1">Configura prima il tuo slug per attivare questo link.</p>
+                    <p className="text-[11px] text-amber-500 mt-1">Configura prima il tuo nome pubblico per attivare questo link.</p>
                   )}
                 </div>
               </div>

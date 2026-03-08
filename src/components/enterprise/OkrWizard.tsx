@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Compass, Rocket } from 'lucide-react';

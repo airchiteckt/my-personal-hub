@@ -76,9 +76,9 @@ export function MobileDayView() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Date nav */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSelectedDate(d => addDays(d, -1))}>
-          <ChevronLeft className="h-5 w-5" />
+      <div className="flex items-center justify-between px-3 py-2 border-b bg-card">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(d => addDays(d, -1))}>
+          <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="text-center">
           <button
@@ -115,14 +115,14 @@ export function MobileDayView() {
             </button>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => setSelectedDate(d => addDays(d, 1))}>
-          <ChevronRight className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(d => addDays(d, 1))}>
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
       {/* Timeline */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="relative" style={{ height: TOTAL_SLOTS * MOBILE_SLOT_HEIGHT, marginLeft: 48 }}>
+        <div className="relative" style={{ height: TOTAL_SLOTS * MOBILE_SLOT_HEIGHT, marginLeft: 40 }}>
           {/* Time labels + grid lines */}
           {Array.from({ length: TOTAL_SLOTS }, (_, i) => {
             const time = slotToTime(i);

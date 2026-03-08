@@ -241,40 +241,41 @@ export function DesktopWeekView() {
   return (
     <div className="flex flex-col h-full">
       {/* Week nav */}
-      <div className="flex items-center justify-between mb-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold">Calendario</h1>
-          <p className="text-sm text-muted-foreground">{weekLabel}</p>
+      <div className="flex items-center justify-between mb-2 shrink-0">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold">Calendario</h1>
+          <span className="text-xs text-muted-foreground">{weekLabel}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
-            <Clock className="h-4 w-4 mr-1" />
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
+            <Clock className="h-3 w-3 mr-1" />
             Task
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
-            <CalendarClock className="h-4 w-4 mr-1" />
-            Appuntamento
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
+            <CalendarClock className="h-3 w-3 mr-1" />
+            Appunt.
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
-            <Bell className="h-4 w-4 mr-1" />
-            Promemoria
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
+            <Bell className="h-3 w-3 mr-1" />
+            Memo
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
-            <ChevronLeft className="h-4 w-4" />
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
             Oggi
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
-            <ChevronRight className="h-4 w-4" />
+          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
       {/* Rituals drag widget */}
       {activeRituals.length > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-1 shrink-0" style={{ overflow: 'visible' }}>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
-            <Repeat className="h-3 w-3 inline mr-1" />Rituali
+        <div className="flex items-center gap-1.5 mb-2 px-1 shrink-0 overflow-x-auto scrollbar-none">
+          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
+            <Repeat className="h-2.5 w-2.5 inline mr-0.5" />Rituali
           </span>
           {activeRituals.map(r => {
             const count = getWeeklyCount(r.id);
@@ -340,19 +341,19 @@ export function DesktopWeekView() {
           {/* Day headers - sticky */}
           <div
             className="grid border-b shrink-0 bg-card"
-            style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}
+            style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}
           >
-            <div className="p-2" />
+            <div className="p-1" />
             {days.map(day => {
               const dayDate = format(day, 'yyyy-MM-dd');
               const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
               const totalMins = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
               return (
-                <div key={day.toISOString()} className="p-2 text-center border-l">
-                  <p className="text-xs text-muted-foreground uppercase font-medium">
+                <div key={day.toISOString()} className="px-1 py-1.5 text-center border-l">
+                  <p className="text-[10px] text-muted-foreground uppercase font-medium leading-none">
                     {format(day, 'EEE', { locale: it })}
                   </p>
-                  <div className={`text-lg font-semibold ${isToday(day) ? 'text-primary' : ''}`}>
+                  <div className={`text-sm font-semibold mt-0.5 ${isToday(day) ? 'text-primary' : ''}`}>
                     {format(day, 'd')}
                     <TooltipProvider delayDuration={200}>
                       <Tooltip>
@@ -394,7 +395,7 @@ export function DesktopWeekView() {
           <div ref={scrollRef} className="flex-1 overflow-auto">
             <div
               className="grid"
-              style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: TOTAL_SLOTS * DESKTOP_SLOT_HEIGHT }}
+              style={{ gridTemplateColumns: '40px repeat(7, 1fr)', height: TOTAL_SLOTS * DESKTOP_SLOT_HEIGHT }}
             >
               {/* Time column */}
               <div className="relative">
@@ -403,8 +404,8 @@ export function DesktopWeekView() {
                   return (
                     <div
                       key={i}
-                      className="absolute right-2 text-[11px] text-muted-foreground tabular-nums"
-                      style={{ top: i * DESKTOP_SLOT_HEIGHT - 7 }}
+                     className="absolute right-1 text-[10px] text-muted-foreground tabular-nums"
+                     style={{ top: i * DESKTOP_SLOT_HEIGHT - 6 }}
                     >
                       {slotToTime(i)}
                     </div>

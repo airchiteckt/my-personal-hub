@@ -942,8 +942,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         </div>
       </div>
 
-      {/* Phase Stepper */}
-      <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
+      {/* Planning Progress Bar */}
+      <PlanningProgressBar currentPhase={currentPhase} completedPhases={completedPhases} />
 
       {/* Messages area with inline actions */}
       <div ref={scrollRef} className="max-h-[60vh] md:max-h-[28rem] overflow-y-auto p-3 md:p-4 space-y-3 overscroll-contain">

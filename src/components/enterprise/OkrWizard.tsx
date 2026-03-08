@@ -817,7 +817,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 500);
       } else {
         // Detect if AI described creating entities in text without emitting tool calls
-        const mentionsCreation = /(?:ho creato|ecco (?:le|i|la|il)\s+\d|procediamo con la creazione|task creata|progetto creato)/i.test(assistantContent);
+        const mentionsCreation = /(?:ho creato|ho collegat[oaei]|ecco (?:le|i|la|il)\s+\d|procediamo con la creazione|task creata|progetto creato|task collegat[aei]|fatto!?\s*(?:ho|le|i)|completato!?\s*(?:ho|le|i)|ufficialmente collegat)/i.test(assistantContent);
 
         if (mentionsCreation && !streamReceivedActions && !isVoiceCall) {
           console.warn('[Wizard] AI described creation without tool calls — auto-retrying');

@@ -1139,7 +1139,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
-      </div>
 
       {/* Planning Progress Bar */}
       <PlanningProgressBar currentPhase={currentPhase} completedPhases={completedPhases} />

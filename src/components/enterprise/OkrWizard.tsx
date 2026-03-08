@@ -82,7 +82,7 @@ const TTS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tt
 export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const { session } = useAuth();
   const {
-    addFocusPeriod, addObjective, addKeyResult,
+    addFocusPeriod, addObjective, addKeyResult, addProject, addTask,
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();

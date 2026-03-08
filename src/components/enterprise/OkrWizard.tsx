@@ -915,7 +915,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       <PhaseStepper currentPhase={currentPhase} completedPhases={completedPhases} />
 
       {/* Messages area with inline actions */}
-      <div ref={scrollRef} className="max-h-[50vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3">
+      <div ref={scrollRef} className="max-h-[45vh] md:max-h-80 overflow-y-auto p-3 md:p-4 space-y-3 overscroll-contain">
         {messages.map((msg, i) => {
           const actionsAfterThis = pendingActions.filter(a => a.afterMessageIndex === i);
           return (

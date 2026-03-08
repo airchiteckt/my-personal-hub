@@ -84,15 +84,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
-  // --- Per-enterprise persistent memory ---
-  const loadMessagesFor = (eid: string): Msg[] => {
-    try {
-      const raw = localStorage.getItem(`radar_strategy_${eid}`);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  };
-
-  const [messages, setMessages] = useState<Msg[]>(() => loadMessagesFor(enterprise.id));
+  // --- Per-enterprise persistent memory via Supabase ---
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [pendingActions, setPendingActions] = useState<WizardAction[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -101,34 +94,70 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isLoadingRef = useRef(false);
+  const [conversationLoaded, setConversationLoaded] = useState(false);
 
   const [createdFocusId, setCreatedFocusId] = useState<string | null>(activeFocusId || null);
   const [createdObjectiveId, setCreatedObjectiveId] = useState<string | null>(null);
 
-  // Persist messages to localStorage whenever they change
   const enterpriseIdRef = useRef(enterprise.id);
-  useEffect(() => {
-    if (messages.length > 0) {
-      localStorage.setItem(`radar_strategy_${enterpriseIdRef.current}`, JSON.stringify(messages));
-    }
-  }, [messages]);
 
-  // Reset state when enterprise changes
-  useEffect(() => {
-    if (enterpriseIdRef.current !== enterprise.id) {
-      // Save current messages before switching
-      if (messages.length > 0) {
-        localStorage.setItem(`radar_strategy_${enterpriseIdRef.current}`, JSON.stringify(messages));
-      }
-      enterpriseIdRef.current = enterprise.id;
-      const loaded = loadMessagesFor(enterprise.id);
-      setMessages(loaded);
-      setPendingActions([]);
-      setInput('');
-      setCreatedFocusId(activeFocusId || null);
-      setCreatedObjectiveId(null);
+  // Load conversation from Supabase
+  const loadConversation = useCallback(async (eid: string) => {
+    if (!session?.user?.id) return;
+    setConversationLoaded(false);
+    try {
+      const { data } = await supabase
+        .from('wizard_conversations')
+        .select('messages')
+        .eq('user_id', session.user.id)
+        .eq('enterprise_id', eid)
+        .maybeSingle();
+      
+      const msgs = data?.messages as Msg[] | null;
+      setMessages(msgs && Array.isArray(msgs) ? msgs : []);
+    } catch (e) {
+      console.error('Error loading wizard conversation:', e);
+      setMessages([]);
     }
-  }, [enterprise.id]);
+    setConversationLoaded(true);
+  }, [session?.user?.id]);
+
+  // Save conversation to Supabase (debounced)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveConversation = useCallback((eid: string, msgs: Msg[]) => {
+    if (!session?.user?.id || msgs.length === 0) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await supabase
+          .from('wizard_conversations')
+          .upsert({
+            user_id: session.user.id,
+            enterprise_id: eid,
+            messages: msgs as any,
+          }, { onConflict: 'user_id,enterprise_id' });
+      } catch (e) {
+        console.error('Error saving wizard conversation:', e);
+      }
+    }, 1000);
+  }, [session?.user?.id]);
+
+  // Persist messages whenever they change
+  useEffect(() => {
+    if (conversationLoaded && messages.length > 0) {
+      saveConversation(enterpriseIdRef.current, messages);
+    }
+  }, [messages, conversationLoaded, saveConversation]);
+
+  // Load on mount and when enterprise changes
+  useEffect(() => {
+    enterpriseIdRef.current = enterprise.id;
+    setPendingActions([]);
+    setInput('');
+    setCreatedFocusId(activeFocusId || null);
+    setCreatedObjectiveId(null);
+    loadConversation(enterprise.id);
+  }, [enterprise.id, loadConversation]);
 
   // Phase detection
   const { currentPhase, completedPhases } = useMemo(() => {

@@ -382,17 +382,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return { minProjectsPerKR: 1, minTasksPerProject: 1 };
   }, []);
 
-  // Phase detection — 5 granular stages (strategic only)
+  // Get the active conversation's focusPeriodId
+  const sessionFocusId = useMemo(() => {
+    const conv = conversations.find(c => c.id === activeConvId);
+    return conv?.focusPeriodId || createdFocusId || null;
+  }, [conversations, activeConvId, createdFocusId]);
+
+  // Phase detection — 5 granular stages, SCOPED to this session's focus period
   const { currentPhase, completedPhases } = useMemo(() => {
+    // Use only the focus period linked to this session
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-    const activeFocus = focusPeriods.find(f => f.status === 'active');
-    const hasFocus = !!activeFocus;
-    const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : null;
+    const hasFocus = !!sessionFocus;
+    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
     const hasObjectives = objectives.length > 0;
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
     const hasKRs = keyResults.length > 0;
 
-    // Only count STRATEGIC projects linked to KRs from active focus
+    // Only count STRATEGIC projects linked to KRs from this session's focus
     const allProjects = getProjectsForEnterprise(enterprise.id);
     const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
     
@@ -435,7 +442,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
 
     return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
+  }, [enterprise.id, sessionFocusId, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');

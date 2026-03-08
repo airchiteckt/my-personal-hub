@@ -741,6 +741,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       const decoder = new TextDecoder();
       let buffer = '';
       let streamDone = false;
+      let streamReceivedActions = false;
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (!streamDone) {

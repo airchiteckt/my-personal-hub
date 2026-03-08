@@ -711,6 +711,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   // --- Core send (works for both text and voice) ---
   const doSend = async (text: string, isVoiceCall: boolean) => {
     if (!text || isLoading) return;
+    hasInteractedRef.current = true;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);

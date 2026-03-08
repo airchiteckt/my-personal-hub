@@ -845,9 +845,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         toast.success(`Objective "${action.data.title}" creato`);
         appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
-        const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-        const activeFocus = focusPeriods.find(f => f.status === 'active');
-        const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+        const sessionFocus = sessionFocusId ? getFocusPeriodsForEnterprise(enterprise.id).find(f => f.id === sessionFocusId) : null;
+        const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
         const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
         if (!targetObjId) {
           toast.error('Crea prima un Objective');

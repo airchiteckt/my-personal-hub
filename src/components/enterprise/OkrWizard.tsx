@@ -28,6 +28,7 @@ type ConversationMeta = {
   title: string;
   createdAt: string;
   status: 'active' | 'completed';
+  focusPeriodId?: string;
 };
 
 const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; icon: typeof Crosshair }[] = [

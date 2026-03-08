@@ -2,8 +2,8 @@ export const SLOT_MINUTES = 30;
 export const START_HOUR = 6;
 export const END_HOUR = 27; // 3:00 AM next day
 export const TOTAL_SLOTS = (END_HOUR - START_HOUR) * (60 / SLOT_MINUTES);
-export const MOBILE_SLOT_HEIGHT = 52;
-export const DESKTOP_SLOT_HEIGHT = 44;
+export const MOBILE_SLOT_HEIGHT = 44;
+export const DESKTOP_SLOT_HEIGHT = 36;
 
 export const slotToTime = (slotIndex: number): string => {
   const totalMinutes = START_HOUR * 60 + slotIndex * SLOT_MINUTES;

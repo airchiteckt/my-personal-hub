@@ -395,7 +395,7 @@ export function DesktopWeekView() {
           <div ref={scrollRef} className="flex-1 overflow-auto">
             <div
               className="grid"
-              style={{ gridTemplateColumns: '52px repeat(7, 1fr)', height: TOTAL_SLOTS * DESKTOP_SLOT_HEIGHT }}
+              style={{ gridTemplateColumns: '40px repeat(7, 1fr)', height: TOTAL_SLOTS * DESKTOP_SLOT_HEIGHT }}
             >
               {/* Time column */}
               <div className="relative">

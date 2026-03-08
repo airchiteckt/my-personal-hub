@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Trash2, FolderPlus, ListTodo, Plus, Clock } from 'lucide-react';
+import { Send, Sparkles, Check, Target, BarChart3, Calendar, X, Loader2, Phone, PhoneOff, Crosshair, Trash2, FolderPlus, ListTodo, Plus, Clock, Square } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
@@ -118,6 +118,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isLoadingRef = useRef(false);
@@ -721,10 +722,16 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     let assistantContent = '';
 
     try {
+      // Create abort controller for this request
+      abortControllerRef.current?.abort();
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
         body: JSON.stringify({ type: 'okr_wizard', messages: newMessages, context: buildContext() }),
+        signal: abortController.signal,
       });
 
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }
@@ -804,13 +811,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         speakText(assistantContent);
       }
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || 'Errore AI');
-      setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+      if (e.name === 'AbortError') {
+        // User stopped the response — keep whatever content was streamed
+        console.log('[Wizard] Response aborted by user');
+      } else {
+        console.error(e);
+        toast.error(e?.message || 'Errore AI');
+        setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
+      }
       if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 1000);
     }
+    abortControllerRef.current = null;
     setIsLoading(false); isLoadingRef.current = false;
   };
+
+  const handleStop = useCallback(() => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -867,23 +885,49 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       } else if (action.type === 'create_project') {
         // Resolve key_result_id: AI might send a KR title/name instead of ID
         let keyResultId = action.data.key_result_id || undefined;
-        if (keyResultId && sessionFocusId) {
-          const objectives = getObjectivesForFocus(sessionFocusId);
-          const allKRs = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-          // If it's not a valid UUID, try matching by title
+        if (keyResultId) {
+          // Gather all KRs for this enterprise (from session focus or all focuses)
+          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+          const targetFocuses = sessionFocusId
+            ? focusPeriods.filter(f => f.id === sessionFocusId)
+            : focusPeriods;
+          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
+          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(keyResultId);
           if (!isUUID) {
             const match = allKRs.find(kr => kr.title.toLowerCase().includes(keyResultId!.toLowerCase()));
             keyResultId = match?.id;
+            if (!keyResultId) {
+              console.warn('[Wizard] Could not resolve KR by title, using last KR');
+              keyResultId = allKRs[allKRs.length - 1]?.id;
+            }
           } else if (!allKRs.find(kr => kr.id === keyResultId)) {
-            // UUID doesn't exist in current KRs, try to find closest match
+            console.warn('[Wizard] KR UUID not found, using last KR');
             keyResultId = allKRs[allKRs.length - 1]?.id;
           }
         }
+        // If strategic but no KR resolved, try to auto-assign the latest KR
         const projectType = action.data.type || 'strategic';
-        addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
-        toast.success(`Progetto "${action.data.name}" creato`);
-        appliedLabel = `Progetto "${action.data.name}"`;
+        if (projectType === 'strategic' && !keyResultId) {
+          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+          const targetFocuses = sessionFocusId
+            ? focusPeriods.filter(f => f.id === sessionFocusId)
+            : focusPeriods.filter(f => f.status === 'active');
+          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
+          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+          keyResultId = allKRs[allKRs.length - 1]?.id;
+        }
+        try {
+          addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
+          toast.success(`Progetto "${action.data.name}" creato`);
+          appliedLabel = `Progetto "${action.data.name}"`;
+        } catch (projErr) {
+          console.error('[Wizard] Project creation error:', projErr);
+          toast.error(`Errore creazione progetto: ${projErr}`);
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
       } else if (action.type === 'create_task') {
         const projects = getProjectsForEnterprise(enterprise.id);
         // Resolve project_id: AI might send project name instead of UUID
@@ -897,27 +941,38 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             targetProjectId = undefined;
           }
         }
-        // Fallback: use the most recently created strategic project for this session
+        // Fallback: use the most recently created project for this session or enterprise
         if (!targetProjectId) {
-          const sessionKRIds = sessionFocusId
-            ? getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id)
-            : [];
-          const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
-          targetProjectId = strategicProject?.id || projects[projects.length - 1]?.id;
+          if (sessionFocusId) {
+            const sessionKRIds = getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id);
+            const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
+            targetProjectId = strategicProject?.id;
+          }
+          // Ultimate fallback: any project in this enterprise
+          if (!targetProjectId) {
+            targetProjectId = projects[projects.length - 1]?.id;
+          }
         }
         if (!targetProjectId) {
           toast.error('Crea prima un Progetto');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
           return;
         }
-        addTask({
-          enterpriseId: enterprise.id, projectId: targetProjectId, title: action.data.title,
-          description: action.data.description, estimatedMinutes: action.data.estimated_minutes || 30,
-          priority: action.data.priority || 'medium',
-          impact: action.data.impact, effort: action.data.effort, isRecurring: false,
-        });
-        toast.success(`Task "${action.data.title}" creata`);
-        appliedLabel = `Task "${action.data.title}"`;
+        try {
+          addTask({
+            enterpriseId: enterprise.id, projectId: targetProjectId, title: action.data.title,
+            description: action.data.description, estimatedMinutes: action.data.estimated_minutes || 30,
+            priority: action.data.priority || 'medium',
+            impact: action.data.impact, effort: action.data.effort, isRecurring: false,
+          });
+          toast.success(`Task "${action.data.title}" creata`);
+          appliedLabel = `Task "${action.data.title}"`;
+        } catch (taskErr) {
+          console.error('[Wizard] Task creation error:', taskErr);
+          toast.error(`Errore creazione task: ${taskErr}`);
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
       }
       onCreated?.();
 
@@ -1407,9 +1462,15 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           >
             <Phone className="h-3.5 w-3.5" />
           </button>
-          <Button size="icon" onClick={handleSend} disabled={!input.trim() || isLoading} className="shrink-0 h-7 w-7 rounded-lg">
-            <Send className="h-3.5 w-3.5" />
-          </Button>
+          {isLoading ? (
+            <Button size="icon" onClick={handleStop} variant="destructive" className="shrink-0 h-7 w-7 rounded-lg" title="Ferma risposta">
+              <Square className="h-3 w-3" />
+            </Button>
+          ) : (
+            <Button size="icon" onClick={handleSend} disabled={!input.trim()} className="shrink-0 h-7 w-7 rounded-lg">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </div>
     </div>

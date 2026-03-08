@@ -93,7 +93,7 @@ export function PublicLinkSettings() {
     } else {
       setSavedSlug(clean);
       setSlug(clean);
-      toast.success('Slug pubblico salvato!');
+      toast.success('Nome pubblico salvato!');
     }
   };
 

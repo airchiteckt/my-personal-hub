@@ -462,8 +462,11 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   useEffect(() => { callActiveRef.current = callActive; }, [callActive]);
 
+  const hasInteractedRef = useRef(false);
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    if (hasInteractedRef.current) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
   }, [messages, pendingActions]);
 
   useEffect(() => {
@@ -708,6 +711,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   // --- Core send (works for both text and voice) ---
   const doSend = async (text: string, isVoiceCall: boolean) => {
     if (!text || isLoading) return;
+    hasInteractedRef.current = true;
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);

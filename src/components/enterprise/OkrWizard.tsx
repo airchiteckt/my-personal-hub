@@ -1115,7 +1115,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       const objs = getObjectivesForFocus(sessionFocusId);
       if (objs.length > 0) setCreatedObjectiveId(objs[objs.length - 1].id);
     }
-  });
+  }, [sessionFocusId, getObjectivesForFocus]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 80) + 'px'; };

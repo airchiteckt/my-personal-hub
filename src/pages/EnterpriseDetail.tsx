@@ -464,7 +464,14 @@ const EnterpriseDetail = () => {
                                       <div className="mt-1.5">
                                         <p className="text-[10px] text-muted-foreground mb-0.5">Progetti collegati:</p>
                                         {linked.map(p => (
-                                          <Badge key={p.id} variant="outline" className="text-[10px] mr-1">{p.name}</Badge>
+                                          <Badge
+                                            key={p.id}
+                                            variant="outline"
+                                            className="text-[10px] mr-1 cursor-pointer hover:bg-primary/10 transition-colors"
+                                            onClick={() => setEditingProject(p)}
+                                          >
+                                            {p.name}
+                                          </Badge>
                                         ))}
                                       </div>
                                     );

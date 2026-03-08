@@ -4,10 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ProjectType, Project } from '@/types/prp';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ProjectType, Project, TASK_STATUS_LABELS } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect, useMemo } from 'react';
-import { AlertTriangle, Link2, Unlink } from 'lucide-react';
+import { AlertTriangle, Link2, Check, Clock, ChevronDown, ListTodo } from 'lucide-react';
+import { formatMinutes } from '@/lib/calendar-utils';
 
 interface Props {
   open: boolean;
@@ -16,7 +18,7 @@ interface Props {
 }
 
 export function EditProjectDialog({ open, onOpenChange, project }: Props) {
-  const { updateProject, deleteProject, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective } = usePrp();
+  const { updateProject, deleteProject, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getTasksForProject } = usePrp();
   const [name, setName] = useState(project.name);
   const [type, setType] = useState<ProjectType>(project.type);
   const [keyResultId, setKeyResultId] = useState<string | undefined>(project.keyResultId);
@@ -27,7 +29,6 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
     setKeyResultId(project.keyResultId);
   }, [project]);
 
-  // Get available KRs from active focus
   const availableKRs = useMemo(() => {
     const focusPeriods = getFocusPeriodsForEnterprise(project.enterpriseId);
     const activeFocus = focusPeriods.find(f => f.status === 'active');
@@ -38,7 +39,10 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
     );
   }, [project.enterpriseId, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective]);
 
-  // Validation: strategic must have KR, operational/maintenance must NOT
+  const projectTasks = getTasksForProject(project.id);
+  const activeTasks = projectTasks.filter(t => t.status !== 'done');
+  const completedTasks = projectTasks.filter(t => t.status === 'done');
+
   const isStrategic = type === 'strategic';
   const hasKR = !!keyResultId;
   const isValid = isStrategic ? hasKR : !hasKR;
@@ -48,7 +52,6 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
     ? `I progetti ${type === 'operational' ? 'Operational' : 'Maintenance'} non possono essere collegati a KR`
     : null;
 
-  // Auto-clear KR when switching to non-strategic
   useEffect(() => {
     if (type !== 'strategic' && keyResultId) {
       setKeyResultId(undefined);
@@ -73,7 +76,7 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Modifica Progetto</DialogTitle>
         </DialogHeader>
@@ -95,7 +98,6 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
             </Select>
           </div>
 
-          {/* KR Linking — only for strategic */}
           {isStrategic && (
             <div className="space-y-2">
               <Label className="flex items-center gap-1.5">
@@ -120,13 +122,54 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
             </div>
           )}
 
-          {/* Validation message */}
           {validationError && (
             <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 rounded-lg p-2.5">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               {validationError}
             </div>
           )}
+
+          {/* Tasks section */}
+          <div className="space-y-2 border-t border-border pt-3">
+            <Label className="flex items-center gap-1.5">
+              <ListTodo className="h-3.5 w-3.5" /> Task ({projectTasks.length})
+            </Label>
+            {projectTasks.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-1">Nessuna task in questo progetto</p>
+            ) : (
+              <div className="space-y-1">
+                {activeTasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-xs">
+                    <div className="h-4 w-4 shrink-0 rounded-full border border-border flex items-center justify-center">
+                      <Clock className="h-2 w-2 text-muted-foreground" />
+                    </div>
+                    <span className="flex-1 truncate">{task.title}</span>
+                    <Badge variant="outline" className="text-[10px]">{TASK_STATUS_LABELS[task.status]}</Badge>
+                    <span className="text-[10px] text-muted-foreground">{formatMinutes(task.estimatedMinutes)}</span>
+                  </div>
+                ))}
+                {completedTasks.length > 0 && (
+                  <Collapsible>
+                    <CollapsibleTrigger className="text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1 pt-1">
+                      <ChevronDown className="h-3 w-3" />
+                      {completedTasks.length} completat{completedTasks.length === 1 ? 'a' : 'e'}
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-1 mt-1">
+                      {completedTasks.map(task => (
+                        <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg bg-muted/30 text-xs">
+                          <div className="h-4 w-4 shrink-0 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="h-2 w-2 text-primary-foreground" />
+                          </div>
+                          <span className="flex-1 truncate line-through text-muted-foreground">{task.title}</span>
+                          <span className="text-[10px] text-muted-foreground">{formatMinutes(task.estimatedMinutes)}</span>
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1" disabled={!name.trim() || !isValid}>

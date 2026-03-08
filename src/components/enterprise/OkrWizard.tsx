@@ -275,6 +275,74 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setShowConvList(false);
   }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
 
+  // Delete a conversation
+  const deleteConversation = useCallback(async (convId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const updated = conversations.filter(c => c.id !== convId);
+    setConversations(updated);
+
+    if (convId === activeConvId) {
+      if (updated.length > 0) {
+        // Switch to the last remaining conversation
+        const lastConv = updated[updated.length - 1];
+        setActiveConvId(lastConv.id);
+        setPendingActions([]);
+        // Load its messages
+        const { data } = await supabase
+          .from('wizard_conversations')
+          .select('messages')
+          .eq('user_id', session?.user?.id!)
+          .eq('enterprise_id', enterpriseIdRef.current)
+          .maybeSingle();
+        const raw = data?.messages as any;
+        if (raw?.conversations) {
+          const target = raw.conversations.find((c: any) => c.id === lastConv.id);
+          setMessages(target?.messages || []);
+        } else {
+          setMessages([]);
+        }
+      } else {
+        setActiveConvId(null);
+        setMessages([]);
+        setPendingActions([]);
+        // Delete from DB entirely
+        if (session?.user?.id) {
+          await supabase
+            .from('wizard_conversations')
+            .delete()
+            .eq('user_id', session.user.id)
+            .eq('enterprise_id', enterpriseIdRef.current);
+        }
+      }
+    }
+
+    // Persist updated list (if there are remaining convos)
+    if (updated.length > 0 && session?.user?.id) {
+      const { data: existing } = await supabase
+        .from('wizard_conversations')
+        .select('messages')
+        .eq('user_id', session.user.id)
+        .eq('enterprise_id', enterpriseIdRef.current)
+        .maybeSingle();
+      const existingRaw = existing?.messages as any;
+      let existingConvs: StoredData['conversations'] = [];
+      if (existingRaw?.conversations) existingConvs = existingRaw.conversations;
+      const stored: StoredData = {
+        conversations: existingConvs.filter(c => c.id !== convId),
+        activeConversationId: convId === activeConvId ? updated[updated.length - 1].id : activeConvId,
+      };
+      await supabase
+        .from('wizard_conversations')
+        .upsert({
+          user_id: session.user.id,
+          enterprise_id: enterpriseIdRef.current,
+          messages: stored as any,
+        }, { onConflict: 'user_id,enterprise_id' });
+    }
+
+    toast.success('Sessione eliminata');
+  }, [activeConvId, conversations, session?.user?.id]);
+
   // Create new conversation
   const createNewConversation = useCallback(() => {
     const newId = `conv-${Date.now()}`;
@@ -1142,22 +1210,33 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           >
             <div className="p-2 space-y-1 bg-muted/20 max-h-40 overflow-y-auto">
               {conversations.map(conv => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => switchConversation(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors text-xs ${
+                  className={`flex items-center gap-1 px-3 py-2 rounded-lg transition-colors text-xs ${
                     conv.id === activeConvId
                       ? 'bg-primary/10 text-primary'
                       : 'hover:bg-muted/60 text-foreground'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium truncate">{conv.title}</span>
-                    <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
-                      {new Date(conv.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                </button>
+                  <button
+                    onClick={() => switchConversation(conv.id)}
+                    className="flex-1 text-left min-w-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium truncate">{conv.title}</span>
+                      <span className="text-[9px] text-muted-foreground shrink-0 ml-2">
+                        {new Date(conv.createdAt).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => deleteConversation(conv.id, e)}
+                    className="h-5 w-5 rounded flex items-center justify-center shrink-0 hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Elimina sessione"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           </motion.div>

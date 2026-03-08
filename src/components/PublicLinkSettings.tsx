@@ -277,7 +277,7 @@ export function PublicLinkSettings() {
                         {e.is_public && (
                           <div className="space-y-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Slug:</span>
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Nome link:</span>
                               <Input
                                 value={e.public_slug || ''}
                                 onChange={ev => {

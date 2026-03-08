@@ -341,9 +341,9 @@ export function DesktopWeekView() {
           {/* Day headers - sticky */}
           <div
             className="grid border-b shrink-0 bg-card"
-            style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}
+            style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}
           >
-            <div className="p-2" />
+            <div className="p-1" />
             {days.map(day => {
               const dayDate = format(day, 'yyyy-MM-dd');
               const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));

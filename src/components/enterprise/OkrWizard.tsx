@@ -1356,7 +1356,27 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
               )}
             </div>
             {activeConvMeta && (
-              <p className="text-[10px] text-muted-foreground truncate">{activeConvMeta.title}</p>
+              editingTitle ? (
+                <form onSubmit={(e) => { e.preventDefault(); renameConversation(activeConvMeta.id, editTitleValue); }} className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={editTitleValue}
+                    onChange={e => setEditTitleValue(e.target.value)}
+                    onBlur={() => renameConversation(activeConvMeta.id, editTitleValue)}
+                    onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+                    className="text-[10px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 outline-none ring-1 ring-primary/30 w-full max-w-[180px]"
+                  />
+                </form>
+              ) : (
+                <button
+                  onClick={() => { setEditTitleValue(activeConvMeta.title); setEditingTitle(true); }}
+                  className="text-[10px] text-muted-foreground truncate hover:text-foreground transition-colors flex items-center gap-1 group"
+                  title="Clicca per modificare il titolo"
+                >
+                  {activeConvMeta.title}
+                  <Pencil className="h-2 w-2 opacity-0 group-hover:opacity-60 transition-opacity" />
+                </button>
+              )
             )}
           </div>
         </div>

@@ -13,11 +13,11 @@ import type { Enterprise } from '@/types/prp';
 type Msg = { role: 'user' | 'assistant'; content: string };
 type WizardAction = {
   id: string;
-  type: 'create_focus_period' | 'create_objective' | 'create_key_result';
+  type: 'create_focus_period' | 'create_objective' | 'create_key_result' | 'create_project' | 'create_task';
   data: any;
   applied?: boolean;
   rejected?: boolean;
-  afterMessageIndex: number; // which message index this action follows
+  afterMessageIndex: number;
 };
 type WizardView = 'chat' | 'call';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';

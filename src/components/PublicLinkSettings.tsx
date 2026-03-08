@@ -256,22 +256,71 @@ export function PublicLinkSettings() {
               </div>
 
               {/* Enterprise visibility toggles */}
-              <div className="space-y-2 pt-2 border-t">
+              <div className="space-y-3 pt-2 border-t">
                 <Label className="text-sm">Imprese visibili nello Showcase</Label>
                 {enterprises.length === 0 ? (
                   <p className="text-xs text-muted-foreground">Nessuna impresa creata</p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {enterprises.map(e => (
-                      <div key={e.id} className="flex items-center justify-between py-1.5 px-2 rounded-md hover:bg-muted/50">
-                        <div className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${e.color})` }} />
-                          <span className="text-sm">{e.name}</span>
+                      <div key={e.id} className="py-2 px-3 rounded-md border bg-background space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${e.color})` }} />
+                            <span className="text-sm font-medium">{e.name}</span>
+                          </div>
+                          <Switch
+                            checked={e.is_public || false}
+                            onCheckedChange={() => toggleEnterprisePublic(e.id, e.is_public || false)}
+                          />
                         </div>
-                        <Switch
-                          checked={(e as any).is_public || false}
-                          onCheckedChange={() => toggleEnterprisePublic(e.id, (e as any).is_public || false)}
-                        />
+                        {e.is_public && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-muted-foreground whitespace-nowrap">Slug:</span>
+                              <Input
+                                value={e.public_slug || ''}
+                                onChange={ev => {
+                                  const clean = ev.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 40);
+                                  updateEnterprise(e.id, { public_slug: clean } as any);
+                                }}
+                                onBlur={async () => {
+                                  const val = e.public_slug?.trim() || null;
+                                  const { error } = await supabase.from('enterprises').update({ public_slug: val } as any).eq('id', e.id);
+                                  if (error) {
+                                    if (error.message.includes('duplicate') || error.message.includes('unique')) {
+                                      toast.error('Slug già in uso');
+                                    } else {
+                                      toast.error('Errore salvataggio slug');
+                                    }
+                                  } else if (val) {
+                                    toast.success('Slug impresa salvato');
+                                  }
+                                }}
+                                placeholder="es. nome-impresa"
+                                className="h-7 text-xs font-mono flex-1"
+                              />
+                            </div>
+                            {e.public_slug && savedSlug && (
+                              <div className="flex items-center gap-1.5">
+                                <code className="text-[10px] bg-muted px-1.5 py-0.5 rounded truncate flex-1">
+                                  /{savedSlug}/showcase/{e.public_slug}
+                                </code>
+                                <Button
+                                  variant="ghost" size="icon" className="h-6 w-6 shrink-0"
+                                  onClick={() => copyUrl(`/showcase/${e.public_slug}`)}
+                                >
+                                  {copied === `/showcase/${e.public_slug}` ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" asChild>
+                                  <a href={`${window.location.origin}/${savedSlug}/showcase/${e.public_slug}`} target="_blank" rel="noopener noreferrer">
+                                    <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

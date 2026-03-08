@@ -28,6 +28,7 @@ type ConversationMeta = {
   title: string;
   createdAt: string;
   status: 'active' | 'completed';
+  focusPeriodId?: string;
 };
 
 const PLANNING_STAGES: { key: WizardPhase; label: string; shortLabel: string; icon: typeof Crosshair }[] = [
@@ -128,7 +129,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const enterpriseIdRef = useRef(enterprise.id);
 
   type StoredData = {
-    conversations: { id: string; title: string; createdAt: string; status: string; messages: Msg[] }[];
+    conversations: { id: string; title: string; createdAt: string; status: string; focusPeriodId?: string; messages: Msg[] }[];
     activeConversationId: string | null;
   };
 
@@ -164,6 +165,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           title: c.title,
           createdAt: c.createdAt,
           status: (c.status as 'active' | 'completed') || 'active',
+          focusPeriodId: c.focusPeriodId,
         }));
         setConversations(convMetas);
         const activeId = stored.activeConversationId || convMetas[convMetas.length - 1]?.id || null;
@@ -273,6 +275,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setActiveConvId(convId);
     setPendingActions([]);
     setShowConvList(false);
+    // Restore the session's focus period
+    const targetConv = conversations.find(c => c.id === convId);
+    setCreatedFocusId(targetConv?.focusPeriodId || null);
+    setCreatedObjectiveId(null);
   }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
 
   // Delete a conversation
@@ -364,6 +370,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setMessages([]);
     setPendingActions([]);
     setShowConvList(false);
+    // Reset focus tracking for new session (fresh progress bar)
+    setCreatedFocusId(null);
+    setCreatedObjectiveId(null);
     // Opening message will be set when chat opens
   }, [activeConvId, conversations, messages, saveConversation]);
 
@@ -376,17 +385,24 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     return { minProjectsPerKR: 1, minTasksPerProject: 1 };
   }, []);
 
-  // Phase detection — 5 granular stages (strategic only)
+  // Get the active conversation's focusPeriodId
+  const sessionFocusId = useMemo(() => {
+    const conv = conversations.find(c => c.id === activeConvId);
+    return conv?.focusPeriodId || createdFocusId || null;
+  }, [conversations, activeConvId, createdFocusId]);
+
+  // Phase detection — 5 granular stages, SCOPED to this session's focus period
   const { currentPhase, completedPhases } = useMemo(() => {
+    // Use only the focus period linked to this session
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-    const activeFocus = focusPeriods.find(f => f.status === 'active');
-    const hasFocus = !!activeFocus;
-    const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : null;
+    const hasFocus = !!sessionFocus;
+    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
     const hasObjectives = objectives.length > 0;
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
     const hasKRs = keyResults.length > 0;
 
-    // Only count STRATEGIC projects linked to KRs from active focus
+    // Only count STRATEGIC projects linked to KRs from this session's focus
     const allProjects = getProjectsForEnterprise(enterprise.id);
     const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
     
@@ -429,7 +445,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     }
 
     return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
+  }, [enterprise.id, sessionFocusId, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions, planningThresholds]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');
@@ -643,8 +659,9 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const projects = getProjectsForEnterprise(enterprise.id);
     const tasks = getTasksForEnterprise(enterprise.id);
-    const activeFocus = focusPeriods.find(f => f.status === 'active');
-    const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+    // Use the session's focus period, not just any active one
+    const sessionFocus = sessionFocusId ? focusPeriods.find(f => f.id === sessionFocusId) : focusPeriods.find(f => f.status === 'active');
+    const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
     const now = new Date();
     const currentQ = Math.ceil((now.getMonth() + 1) / 3);
@@ -658,7 +675,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       quarterStartDate: qStart.toISOString().split('T')[0],
       quarterEndDate: qEnd.toISOString().split('T')[0],
       focusPeriods: focusPeriods.map(f => ({ name: f.name, status: f.status, startDate: f.startDate, endDate: f.endDate })),
-      activeFocus: activeFocus ? { name: activeFocus.name, id: activeFocus.id, startDate: activeFocus.startDate, endDate: activeFocus.endDate } : null,
+      activeFocus: sessionFocus ? { name: sessionFocus.name, id: sessionFocus.id, startDate: sessionFocus.startDate, endDate: sessionFocus.endDate } : null,
       objectives: objectives.map(o => ({
         title: o.title, status: o.status, description: o.description, weight: o.weight,
         keyResults: getKeyResultsForObjective(o.id).map(kr => ({
@@ -812,9 +829,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         addFocusPeriod({ enterpriseId: enterprise.id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' });
         toast.success(`Focus Period "${action.data.name}" creato`);
         appliedLabel = `Focus Period "${action.data.name}"`;
+        // Link focus period to this session after a short delay (to let state update)
+        setTimeout(() => {
+          const fps = getFocusPeriodsForEnterprise(enterprise.id);
+          const newFocus = fps.find(f => f.name === action.data.name && f.enterpriseId === enterprise.id);
+          if (newFocus && activeConvId) {
+            setCreatedFocusId(newFocus.id);
+            setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, focusPeriodId: newFocus.id } : c));
+          }
+        }, 1500);
       } else if (action.type === 'create_objective') {
-        const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-        const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
+        const targetFocusId = sessionFocusId || createdFocusId;
         if (!targetFocusId) {
           toast.error('Crea prima un Focus Period attivo');
           setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
@@ -824,9 +849,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         toast.success(`Objective "${action.data.title}" creato`);
         appliedLabel = `Objective "${action.data.title}"`;
       } else if (action.type === 'create_key_result') {
-        const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-        const activeFocus = focusPeriods.find(f => f.status === 'active');
-        const objectives = activeFocus ? getObjectivesForFocus(activeFocus.id) : [];
+        const sessionFocus = sessionFocusId ? getFocusPeriodsForEnterprise(enterprise.id).find(f => f.id === sessionFocusId) : null;
+        const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
         const targetObjId = createdObjectiveId || objectives[objectives.length - 1]?.id;
         if (!targetObjId) {
           toast.error('Crea prima un Objective');
@@ -889,11 +913,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   };
 
   useEffect(() => {
-    const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
-    const active = focusPeriods.find(f => f.status === 'active');
-    if (active && !createdFocusId) setCreatedFocusId(active.id);
-    if (active) {
-      const objs = getObjectivesForFocus(active.id);
+    // Sync createdFocusId and createdObjectiveId from session's focus period
+    if (sessionFocusId) {
+      if (!createdFocusId || createdFocusId !== sessionFocusId) setCreatedFocusId(sessionFocusId);
+      const objs = getObjectivesForFocus(sessionFocusId);
       if (objs.length > 0) setCreatedObjectiveId(objs[objs.length - 1].id);
     }
   });
@@ -946,7 +969,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       return `🚀 **Fase: ${stageLabel}** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
     }
     if (currentPhase === 'objectives' || currentPhase === 'key_results') {
-      const focus = allFocusPeriods.find(f => f.status === 'active');
+      const focus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
       if (!focus) return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
       const objs = getObjectivesForFocus(focus.id);
       if (objs.length === 0) return `🧭 **Fase: Obiettivi** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;

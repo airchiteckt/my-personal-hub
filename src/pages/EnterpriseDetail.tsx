@@ -139,34 +139,35 @@ const EnterpriseDetail = () => {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="w-full grid grid-cols-5 h-auto p-1 relative overflow-hidden">
-          {/* Progress track behind tabs */}
-          <div className="absolute inset-y-0 left-0 right-0 flex items-center px-[6%] pointer-events-none z-0">
-            <div className="w-full h-1 rounded-full bg-border relative">
-              <div
-                className="absolute h-full rounded-full bg-primary transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+        <div className="space-y-2">
+          <TabsList className="w-full grid grid-cols-5 h-9">
+            {planningSteps.map((step) => (
+              <TabsTrigger
+                key={step.key}
+                value={step.key}
+                className="text-[10px] md:text-xs gap-1"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
+                  step.done ? 'bg-primary' : 'bg-muted-foreground/30'
+                }`} />
+                {step.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {/* Progress bar below tabs */}
+          <div className="flex items-center gap-1 px-1">
+            {planningSteps.map((step, i) => (
+              <div key={step.key} className="flex-1 flex flex-col items-center gap-0.5">
+                <div className={`w-full h-1 rounded-full transition-colors duration-300 ${
+                  step.done ? 'bg-primary' : 'bg-muted'
+                }`} />
+                {step.count !== undefined && (
+                  <span className="text-[8px] text-muted-foreground leading-none">{step.count}</span>
+                )}
+              </div>
+            ))}
           </div>
-          {planningSteps.map((step) => (
-            <TabsTrigger
-              key={step.key}
-              value={step.key}
-              className="text-[10px] md:text-xs flex flex-col items-center gap-0.5 py-1.5 relative z-10 data-[state=active]:bg-background"
-            >
-              <span className={`h-2.5 w-2.5 md:h-3 md:w-3 rounded-full border-2 mb-0.5 transition-colors ${
-                step.done
-                  ? 'bg-primary border-primary'
-                  : 'bg-background border-muted-foreground/40'
-              }`} />
-              <span>{step.label}</span>
-              {step.count !== undefined && (
-                <span className="text-[8px] md:text-[9px] text-muted-foreground leading-none">{step.count}</span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        </div>
 
         {/* ===== OVERVIEW ===== */}
         <TabsContent value="overview" className="space-y-4">

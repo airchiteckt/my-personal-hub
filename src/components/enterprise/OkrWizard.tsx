@@ -966,7 +966,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       return `🚀 **Fase: ${stageLabel}** — Focus e strategia definiti per **${enterprise.name}**.\n\nOra creiamo i progetti e le task concrete per muovere i KR. Da quale Objective vuoi partire?`;
     }
     if (currentPhase === 'objectives' || currentPhase === 'key_results') {
-      const focus = allFocusPeriods.find(f => f.status === 'active');
+      const focus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
       if (!focus) return `🎯 **Fase: Focus** — Iniziamo la pianificazione strategica di **${enterprise.name}**.\n\n📅 Il trimestre corrente è **${quarterLabel}**. Lavoriamo su questo o preferisci pianificare il prossimo?`;
       const objs = getObjectivesForFocus(focus.id);
       if (objs.length === 0) return `🧭 **Fase: Obiettivi** — Focus attivo: **${focus.name}**.\n\nDefiniamo gli Objective. Qual è la cosa **più importante** che ${enterprise.name} deve raggiungere questo trimestre?`;

@@ -250,6 +250,7 @@ export type Database = {
           enterprise_type: string
           growth_potential: number
           id: string
+          is_public: boolean
           name: string
           phase: string
           priority_until: string | null
@@ -266,6 +267,7 @@ export type Database = {
           enterprise_type?: string
           growth_potential?: number
           id?: string
+          is_public?: boolean
           name: string
           phase?: string
           priority_until?: string | null
@@ -282,6 +284,7 @@ export type Database = {
           enterprise_type?: string
           growth_potential?: number
           id?: string
+          is_public?: boolean
           name?: string
           phase?: string
           priority_until?: string | null
@@ -556,6 +559,8 @@ export type Database = {
           display_name: string | null
           id: string
           public_slug: string | null
+          showcase_enabled: boolean
+          showcase_password: string | null
           updated_at: string
           user_id: string
         }
@@ -565,6 +570,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           public_slug?: string | null
+          showcase_enabled?: boolean
+          showcase_password?: string | null
           updated_at?: string
           user_id: string
         }
@@ -574,6 +581,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           public_slug?: string | null
+          showcase_enabled?: boolean
+          showcase_password?: string | null
           updated_at?: string
           user_id?: string
         }

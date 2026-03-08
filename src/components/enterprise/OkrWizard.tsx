@@ -807,8 +807,29 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       if (!assistantContent) {
         setMessages(prev => { const last = prev[prev.length - 1]; return last?.role === 'assistant' && !last.content ? prev.slice(0, -1) : prev; });
         if (isVoiceCall && callActiveRef.current) setTimeout(() => startContinuousListening(), 500);
-      } else if (isVoiceCall) {
-        speakText(assistantContent);
+      } else {
+        // Detect if AI described creating entities in text without emitting tool calls
+        const mentionsCreation = /(?:ho creato|task:|progetto:|ecco (?:le|i|la|il)|procediamo con la creazione)/i.test(assistantContent);
+        const hasNewActions = pendingActions.some(a => !a.applied && !a.rejected);
+        
+        // Check if new actions were added during this stream
+        let streamAddedActions = false;
+        setPendingActions(prev => {
+          streamAddedActions = prev.some(a => !a.applied && !a.rejected);
+          return prev;
+        });
+
+        if (mentionsCreation && !streamAddedActions && !isVoiceCall) {
+          console.warn('[Wizard] AI described creation without tool calls — auto-retrying');
+          // Auto-retry with correction
+          setTimeout(() => {
+            if (!isLoadingRef.current) {
+              doSend('[ERRORE SISTEMA] Hai descritto la creazione di entità nel testo ma NON hai emesso i tool call. Il testo da solo NON crea nulla. DEVI emettere i tool call (create_project, create_task, etc.) per ogni entità. Riprova emettendo i tool call corretti.', false);
+            }
+          }, 500);
+        } else if (isVoiceCall) {
+          speakText(assistantContent);
+        }
       }
     } catch (e: any) {
       if (e.name === 'AbortError') {

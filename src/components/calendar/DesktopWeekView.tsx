@@ -273,9 +273,9 @@ export function DesktopWeekView() {
       </div>
       {/* Rituals drag widget */}
       {activeRituals.length > 0 && (
-        <div className="flex items-center gap-2 mb-3 px-1 shrink-0" style={{ overflow: 'visible' }}>
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
-            <Repeat className="h-3 w-3 inline mr-1" />Rituali
+        <div className="flex items-center gap-1.5 mb-2 px-1 shrink-0 overflow-x-auto scrollbar-none">
+          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
+            <Repeat className="h-2.5 w-2.5 inline mr-0.5" />Rituali
           </span>
           {activeRituals.map(r => {
             const count = getWeeklyCount(r.id);

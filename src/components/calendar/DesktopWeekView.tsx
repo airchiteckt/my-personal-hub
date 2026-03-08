@@ -208,7 +208,7 @@ export function DesktopWeekView() {
     handleDragEnd(); // reset drag state on drop
     
     const rect = e.currentTarget.getBoundingClientRect();
-    const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+    const relativeY = e.clientY - rect.top;
     const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
 
@@ -431,7 +431,7 @@ export function DesktopWeekView() {
                       if (e.button !== 0) return;
                       if ((e.target as HTMLElement).closest('[draggable]')) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+                      const relativeY = e.clientY - rect.top;
                       const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
                       isDraggingCreate.current = true;
                       setDragCreate({ dayDate, startSlot: slot, endSlot: slot + 1 });
@@ -439,7 +439,7 @@ export function DesktopWeekView() {
                     onMouseMove={e => {
                       if (!isDraggingCreate.current || !dragCreate || dragCreate.dayDate !== dayDate) return;
                       const rect = e.currentTarget.getBoundingClientRect();
-                      const relativeY = e.clientY - rect.top + (scrollRef.current?.scrollTop || 0);
+                      const relativeY = e.clientY - rect.top;
                       const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT) + 1, TOTAL_SLOTS));
                       if (slot !== dragCreate.endSlot) {
                         setDragCreate(prev => prev ? { ...prev, endSlot: Math.max(prev.startSlot + 1, slot) } : null);

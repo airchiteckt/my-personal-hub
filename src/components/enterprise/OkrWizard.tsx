@@ -941,13 +941,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             targetProjectId = undefined;
           }
         }
-        // Fallback: use the most recently created strategic project for this session
+        // Fallback: use the most recently created project for this session or enterprise
         if (!targetProjectId) {
-          const sessionKRIds = sessionFocusId
-            ? getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id)
-            : [];
-          const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
-          targetProjectId = strategicProject?.id || projects[projects.length - 1]?.id;
+          if (sessionFocusId) {
+            const sessionKRIds = getObjectivesForFocus(sessionFocusId).flatMap(o => getKeyResultsForObjective(o.id)).map(kr => kr.id);
+            const strategicProject = projects.filter(p => p.type === 'strategic' && p.keyResultId && sessionKRIds.includes(p.keyResultId)).pop();
+            targetProjectId = strategicProject?.id;
+          }
+          // Ultimate fallback: any project in this enterprise
+          if (!targetProjectId) {
+            targetProjectId = projects[projects.length - 1]?.id;
+          }
         }
         if (!targetProjectId) {
           toast.error('Crea prima un Progetto');

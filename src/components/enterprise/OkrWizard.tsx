@@ -834,6 +834,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             setConversations(prev => prev.map(c => c.id === activeConvId ? { ...c, focusPeriodId: newFocus.id } : c));
           }
         }, 1500);
+      } else if (action.type === 'create_objective') {
         const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
         const targetFocusId = createdFocusId || focusPeriods.find(f => f.status === 'active')?.id;
         if (!targetFocusId) {

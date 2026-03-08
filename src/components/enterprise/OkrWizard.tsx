@@ -885,23 +885,49 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       } else if (action.type === 'create_project') {
         // Resolve key_result_id: AI might send a KR title/name instead of ID
         let keyResultId = action.data.key_result_id || undefined;
-        if (keyResultId && sessionFocusId) {
-          const objectives = getObjectivesForFocus(sessionFocusId);
-          const allKRs = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-          // If it's not a valid UUID, try matching by title
+        if (keyResultId) {
+          // Gather all KRs for this enterprise (from session focus or all focuses)
+          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+          const targetFocuses = sessionFocusId
+            ? focusPeriods.filter(f => f.id === sessionFocusId)
+            : focusPeriods;
+          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
+          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+
           const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/.test(keyResultId);
           if (!isUUID) {
             const match = allKRs.find(kr => kr.title.toLowerCase().includes(keyResultId!.toLowerCase()));
             keyResultId = match?.id;
+            if (!keyResultId) {
+              console.warn('[Wizard] Could not resolve KR by title, using last KR');
+              keyResultId = allKRs[allKRs.length - 1]?.id;
+            }
           } else if (!allKRs.find(kr => kr.id === keyResultId)) {
-            // UUID doesn't exist in current KRs, try to find closest match
+            console.warn('[Wizard] KR UUID not found, using last KR');
             keyResultId = allKRs[allKRs.length - 1]?.id;
           }
         }
+        // If strategic but no KR resolved, try to auto-assign the latest KR
         const projectType = action.data.type || 'strategic';
-        addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
-        toast.success(`Progetto "${action.data.name}" creato`);
-        appliedLabel = `Progetto "${action.data.name}"`;
+        if (projectType === 'strategic' && !keyResultId) {
+          const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
+          const targetFocuses = sessionFocusId
+            ? focusPeriods.filter(f => f.id === sessionFocusId)
+            : focusPeriods.filter(f => f.status === 'active');
+          const allObjectives = targetFocuses.flatMap(f => getObjectivesForFocus(f.id));
+          const allKRs = allObjectives.flatMap(o => getKeyResultsForObjective(o.id));
+          keyResultId = allKRs[allKRs.length - 1]?.id;
+        }
+        try {
+          addProject({ enterpriseId: enterprise.id, name: action.data.name, type: projectType, keyResultId, isStrategicLever: projectType === 'strategic' && !!keyResultId });
+          toast.success(`Progetto "${action.data.name}" creato`);
+          appliedLabel = `Progetto "${action.data.name}"`;
+        } catch (projErr) {
+          console.error('[Wizard] Project creation error:', projErr);
+          toast.error(`Errore creazione progetto: ${projErr}`);
+          setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: false } : a));
+          return;
+        }
       } else if (action.type === 'create_task') {
         const projects = getProjectsForEnterprise(enterprise.id);
         // Resolve project_id: AI might send project name instead of UUID

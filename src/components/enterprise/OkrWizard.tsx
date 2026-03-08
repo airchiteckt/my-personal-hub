@@ -275,6 +275,74 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setShowConvList(false);
   }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
 
+  // Delete a conversation
+  const deleteConversation = useCallback(async (convId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const updated = conversations.filter(c => c.id !== convId);
+    setConversations(updated);
+
+    if (convId === activeConvId) {
+      if (updated.length > 0) {
+        // Switch to the last remaining conversation
+        const lastConv = updated[updated.length - 1];
+        setActiveConvId(lastConv.id);
+        setPendingActions([]);
+        // Load its messages
+        const { data } = await supabase
+          .from('wizard_conversations')
+          .select('messages')
+          .eq('user_id', session?.user?.id!)
+          .eq('enterprise_id', enterpriseIdRef.current)
+          .maybeSingle();
+        const raw = data?.messages as any;
+        if (raw?.conversations) {
+          const target = raw.conversations.find((c: any) => c.id === lastConv.id);
+          setMessages(target?.messages || []);
+        } else {
+          setMessages([]);
+        }
+      } else {
+        setActiveConvId(null);
+        setMessages([]);
+        setPendingActions([]);
+        // Delete from DB entirely
+        if (session?.user?.id) {
+          await supabase
+            .from('wizard_conversations')
+            .delete()
+            .eq('user_id', session.user.id)
+            .eq('enterprise_id', enterpriseIdRef.current);
+        }
+      }
+    }
+
+    // Persist updated list (if there are remaining convos)
+    if (updated.length > 0 && session?.user?.id) {
+      const { data: existing } = await supabase
+        .from('wizard_conversations')
+        .select('messages')
+        .eq('user_id', session.user.id)
+        .eq('enterprise_id', enterpriseIdRef.current)
+        .maybeSingle();
+      const existingRaw = existing?.messages as any;
+      let existingConvs: StoredData['conversations'] = [];
+      if (existingRaw?.conversations) existingConvs = existingRaw.conversations;
+      const stored: StoredData = {
+        conversations: existingConvs.filter(c => c.id !== convId),
+        activeConversationId: convId === activeConvId ? updated[updated.length - 1].id : activeConvId,
+      };
+      await supabase
+        .from('wizard_conversations')
+        .upsert({
+          user_id: session.user.id,
+          enterprise_id: enterpriseIdRef.current,
+          messages: stored as any,
+        }, { onConflict: 'user_id,enterprise_id' });
+    }
+
+    toast.success('Sessione eliminata');
+  }, [activeConvId, conversations, session?.user?.id]);
+
   // Create new conversation
   const createNewConversation = useCallback(() => {
     const newId = `conv-${Date.now()}`;

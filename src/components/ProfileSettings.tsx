@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
-import { User, Mail, Lock, Save, Loader2 } from 'lucide-react';
+import { User, Mail, Lock, Save, Loader2, Upload, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export function ProfileSettings() {
@@ -14,12 +13,13 @@ export function ProfileSettings() {
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Email change
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
 
-  // Password change
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [pwLoading, setPwLoading] = useState(false);
@@ -39,12 +39,57 @@ export function ProfileSettings() {
       });
   }, [user]);
 
+  const uploadAvatar = useCallback(async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'File non valido', description: 'Carica un\'immagine (JPG, PNG, WebP).', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'File troppo grande', description: 'Massimo 5MB.', variant: 'destructive' });
+      return;
+    }
+
+    setAvatarUploading(true);
+    const ext = file.name.split('.').pop() || 'jpg';
+    const path = `${user.id}/avatar.${ext}`;
+
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: 'Errore upload', description: error.message, variant: 'destructive' });
+      setAvatarUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+    const url = `${urlData.publicUrl}?t=${Date.now()}`;
+    setAvatarUrl(url);
+
+    await supabase.from('profiles').update({ avatar_url: url }).eq('user_id', user.id);
+    setAvatarUploading(false);
+    toast({ title: 'Avatar aggiornato' });
+  }, [user]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) uploadAvatar(file);
+  }, [uploadAvatar]);
+
+  const removeAvatar = async () => {
+    if (!user) return;
+    setAvatarUrl('');
+    await supabase.from('profiles').update({ avatar_url: null }).eq('user_id', user.id);
+    toast({ title: 'Avatar rimosso' });
+  };
+
   const saveProfile = async () => {
     if (!user) return;
     setLoading(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ display_name: displayName.trim(), avatar_url: avatarUrl.trim() || null })
+      .update({ display_name: displayName.trim() })
       .eq('user_id', user.id);
     setLoading(false);
     if (error) {
@@ -96,7 +141,75 @@ export function ProfileSettings() {
           <User className="h-5 w-5 text-primary" />
           <h3 className="font-semibold">Informazioni Profilo</h3>
         </div>
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {/* Avatar upload */}
+          <div className="space-y-2">
+            <Label>Foto profilo</Label>
+            <div className="flex items-center gap-4">
+              {/* Preview */}
+              <div className="relative shrink-0">
+                {avatarUrl ? (
+                  <div className="relative">
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar"
+                      className="h-20 w-20 rounded-full object-cover border-2 border-border"
+                    />
+                    <button
+                      onClick={removeAvatar}
+                      className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:opacity-80 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center border-2 border-dashed border-border">
+                    <User className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+
+              {/* Drop zone */}
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`flex-1 border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                  dragOver
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                }`}
+              >
+                {avatarUploading ? (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Caricamento...</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-1">
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Trascina un'immagine o <span className="text-primary font-medium">clicca per caricare</span>
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">JPG, PNG, WebP • Max 5MB</span>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) uploadAvatar(file);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="email-display">Email</Label>
             <Input id="email-display" value={user?.email || ''} disabled className="bg-muted" />
@@ -104,10 +217,6 @@ export function ProfileSettings() {
           <div className="space-y-2">
             <Label htmlFor="display-name">Nome visualizzato</Label>
             <Input id="display-name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Il tuo nome" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="avatar-url">URL Avatar</Label>
-            <Input id="avatar-url" value={avatarUrl} onChange={e => setAvatarUrl(e.target.value)} placeholder="https://..." />
           </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">
             {loading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}

@@ -107,7 +107,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     getFocusPeriodsForEnterprise, getObjectivesForFocus,
     getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise,
   } = usePrp();
-  // --- Per-enterprise persistent memory via Supabase ---
+  // --- Multi-conversation support ---
+  const [conversations, setConversations] = useState<ConversationMeta[]>([]);
+  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [showConvList, setShowConvList] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [pendingActions, setPendingActions] = useState<WizardAction[]>([]);
   const [input, setInput] = useState('');
@@ -124,7 +127,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   const enterpriseIdRef = useRef(enterprise.id);
 
-  // Load conversation from Supabase
+  type StoredData = {
+    conversations: { id: string; title: string; createdAt: string; status: string; messages: Msg[] }[];
+    activeConversationId: string | null;
+  };
+
+  // Load all conversations from Supabase
   const loadConversation = useCallback(async (eid: string) => {
     if (!session?.user?.id) return;
     setConversationLoaded(false);
@@ -135,29 +143,89 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
         .eq('user_id', session.user.id)
         .eq('enterprise_id', eid)
         .maybeSingle();
-      
-      const msgs = data?.messages as Msg[] | null;
-      setMessages(msgs && Array.isArray(msgs) ? msgs : []);
+
+      const raw = data?.messages as any;
+
+      // Migrate from old format (plain array) to new format
+      if (Array.isArray(raw)) {
+        const defaultConv: ConversationMeta = {
+          id: 'conv-migrated',
+          title: 'Sessione iniziale',
+          createdAt: new Date().toISOString(),
+          status: 'active',
+        };
+        setConversations([defaultConv]);
+        setActiveConvId(defaultConv.id);
+        setMessages(raw as Msg[]);
+      } else if (raw && raw.conversations) {
+        const stored = raw as StoredData;
+        const convMetas: ConversationMeta[] = stored.conversations.map(c => ({
+          id: c.id,
+          title: c.title,
+          createdAt: c.createdAt,
+          status: (c.status as 'active' | 'completed') || 'active',
+        }));
+        setConversations(convMetas);
+        const activeId = stored.activeConversationId || convMetas[convMetas.length - 1]?.id || null;
+        setActiveConvId(activeId);
+        const activeConv = stored.conversations.find(c => c.id === activeId);
+        setMessages(activeConv?.messages || []);
+      } else {
+        setConversations([]);
+        setActiveConvId(null);
+        setMessages([]);
+      }
     } catch (e) {
       console.error('Error loading wizard conversation:', e);
+      setConversations([]);
       setMessages([]);
     }
     setConversationLoaded(true);
   }, [session?.user?.id]);
 
-  // Save conversation to Supabase (debounced)
+  // Save all conversations to Supabase (debounced)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const saveConversation = useCallback((eid: string, msgs: Msg[]) => {
-    if (!session?.user?.id || msgs.length === 0) return;
+  const saveConversation = useCallback((eid: string, convs: ConversationMeta[], activeId: string | null, msgs: Msg[]) => {
+    if (!session?.user?.id) return;
+    if (convs.length === 0 && msgs.length === 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       try {
+        // Rebuild full stored data
+        // We need the previous stored data to not lose other conversations' messages
+        const { data: existing } = await supabase
+          .from('wizard_conversations')
+          .select('messages')
+          .eq('user_id', session.user.id!)
+          .eq('enterprise_id', eid)
+          .maybeSingle();
+
+        let existingConvs: StoredData['conversations'] = [];
+        const existingRaw = existing?.messages as any;
+        if (existingRaw && !Array.isArray(existingRaw) && existingRaw.conversations) {
+          existingConvs = existingRaw.conversations;
+        }
+
+        // Merge: update active conversation messages, keep others
+        const allConvs = convs.map(c => {
+          if (c.id === activeId) {
+            return { ...c, messages: msgs };
+          }
+          const prev = existingConvs.find(ec => ec.id === c.id);
+          return { ...c, messages: prev?.messages || [] };
+        });
+
+        const stored: StoredData = {
+          conversations: allConvs,
+          activeConversationId: activeId,
+        };
+
         await supabase
           .from('wizard_conversations')
           .upsert({
-            user_id: session.user.id,
+            user_id: session.user.id!,
             enterprise_id: eid,
-            messages: msgs as any,
+            messages: stored as any,
           }, { onConflict: 'user_id,enterprise_id' });
       } catch (e) {
         console.error('Error saving wizard conversation:', e);
@@ -167,10 +235,10 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
 
   // Persist messages whenever they change
   useEffect(() => {
-    if (conversationLoaded && messages.length > 0) {
-      saveConversation(enterpriseIdRef.current, messages);
+    if (conversationLoaded && (messages.length > 0 || conversations.length > 0)) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
     }
-  }, [messages, conversationLoaded, saveConversation]);
+  }, [messages, conversationLoaded, saveConversation, conversations, activeConvId]);
 
   // Load on mount and when enterprise changes
   useEffect(() => {
@@ -179,8 +247,57 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     setInput('');
     setCreatedFocusId(activeFocusId || null);
     setCreatedObjectiveId(null);
+    setShowConvList(false);
     loadConversation(enterprise.id);
   }, [enterprise.id, loadConversation]);
+
+  // Switch conversation
+  const switchConversation = useCallback(async (convId: string) => {
+    if (convId === activeConvId) { setShowConvList(false); return; }
+    // Save current first
+    if (activeConvId && conversationLoaded) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    // Load target conversation messages
+    const { data } = await supabase
+      .from('wizard_conversations')
+      .select('messages')
+      .eq('user_id', session?.user?.id!)
+      .eq('enterprise_id', enterpriseIdRef.current)
+      .maybeSingle();
+    const raw = data?.messages as any;
+    if (raw && raw.conversations) {
+      const target = raw.conversations.find((c: any) => c.id === convId);
+      setMessages(target?.messages || []);
+    }
+    setActiveConvId(convId);
+    setPendingActions([]);
+    setShowConvList(false);
+  }, [activeConvId, conversationLoaded, conversations, messages, saveConversation, session?.user?.id]);
+
+  // Create new conversation
+  const createNewConversation = useCallback(() => {
+    const newId = `conv-${Date.now()}`;
+    const now = new Date();
+    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+    const title = `Sessione Q${currentQ} ${now.getFullYear()} — ${now.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}`;
+    const newConv: ConversationMeta = {
+      id: newId,
+      title,
+      createdAt: now.toISOString(),
+      status: 'active',
+    };
+    // Save current messages before switching
+    if (activeConvId && messages.length > 0) {
+      saveConversation(enterpriseIdRef.current, conversations, activeConvId, messages);
+    }
+    setConversations(prev => [...prev, newConv]);
+    setActiveConvId(newId);
+    setMessages([]);
+    setPendingActions([]);
+    setShowConvList(false);
+    // Opening message will be set when chat opens
+  }, [activeConvId, conversations, messages, saveConversation]);
 
   // Phase detection — 5 granular stages
   const { currentPhase, completedPhases } = useMemo(() => {

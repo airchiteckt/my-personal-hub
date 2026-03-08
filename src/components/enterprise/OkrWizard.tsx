@@ -129,7 +129,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const enterpriseIdRef = useRef(enterprise.id);
 
   type StoredData = {
-    conversations: { id: string; title: string; createdAt: string; status: string; messages: Msg[] }[];
+    conversations: { id: string; title: string; createdAt: string; status: string; focusPeriodId?: string; messages: Msg[] }[];
     activeConversationId: string | null;
   };
 

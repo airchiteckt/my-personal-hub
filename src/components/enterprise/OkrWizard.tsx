@@ -764,14 +764,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             }
             if (p.type === 'actions' && p.actions?.length) {
               streamReceivedActions = true;
-              setMessages(prev => {
-                const msgIdx = prev.length - 1;
-                const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
-                  ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
-                }));
-                setPendingActions(pa => [...pa, ...acts]);
-                return prev;
-              });
+              // Get msgIdx from current messages length (the assistant message we added)
+              const msgIdx = newMessages.length; // newMessages = user messages before assistant was added, so assistant is at this index
+              const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+                ...a, id: `${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+              }));
+              setPendingActions(pa => [...pa, ...acts]);
             }
           } catch { buffer = line + '\n' + buffer; break; }
         }
@@ -794,14 +792,11 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
             }
             if (p.type === 'actions' && p.actions?.length) {
               streamReceivedActions = true;
-              setMessages(prev => {
-                const msgIdx = prev.length - 1;
-                const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
-                  ...a, id: `flush-${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
-                }));
-                setPendingActions(pa => [...pa, ...acts]);
-                return prev;
-              });
+              const msgIdx = newMessages.length;
+              const acts: WizardAction[] = p.actions.map((a: any, ai: number) => ({
+                ...a, id: `flush-${Date.now()}-${ai}`, applied: false, rejected: false, afterMessageIndex: msgIdx,
+              }));
+              setPendingActions(pa => [...pa, ...acts]);
             }
           } catch { /* ignore */ }
         }

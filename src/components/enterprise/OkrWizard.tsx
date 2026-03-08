@@ -182,7 +182,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     loadConversation(enterprise.id);
   }, [enterprise.id, loadConversation]);
 
-  // Phase detection
+  // Phase detection — 5 granular stages
   const { currentPhase, completedPhases } = useMemo(() => {
     const focusPeriods = getFocusPeriodsForEnterprise(enterprise.id);
     const activeFocus = focusPeriods.find(f => f.status === 'active');
@@ -193,24 +193,34 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const hasKRs = keyResults.length > 0;
     const projects = getProjectsForEnterprise(enterprise.id);
     const hasProjects = projects.length > 0;
+    const tasks = getTasksForEnterprise(enterprise.id);
+    const hasTasks = tasks.length > 0;
 
     const completed: WizardPhase[] = [];
     let current: WizardPhase = 'focus';
 
     if (hasFocus) {
       completed.push('focus');
-      current = 'strategy';
+      current = 'objectives';
     }
-    if (hasObjectives && hasKRs) {
-      completed.push('strategy');
-      current = 'execution';
+    if (hasObjectives) {
+      completed.push('objectives');
+      current = 'key_results';
+    }
+    if (hasKRs) {
+      completed.push('key_results');
+      current = 'projects';
     }
     if (hasProjects) {
-      completed.push('execution');
+      completed.push('projects');
+      current = 'tasks';
+    }
+    if (hasTasks) {
+      completed.push('tasks');
     }
 
     return { currentPhase: current, completedPhases: completed };
-  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, pendingActions]);
+  }, [enterprise.id, getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective, getProjectsForEnterprise, getTasksForEnterprise, pendingActions]);
 
   // View & Call state
   const [view, setView] = useState<WizardView>('chat');

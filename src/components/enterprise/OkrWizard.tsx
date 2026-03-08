@@ -803,7 +803,6 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       }
 
       if (!assistantContent) {
-      if (!assistantContent) {
         if (streamReceivedActions) {
           // Actions came through without text — keep the assistant message as a minimal placeholder
           // so that action cards (tied to this message index) are rendered

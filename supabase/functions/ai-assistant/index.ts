@@ -828,6 +828,44 @@ CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal conte
             },
           },
         },
+        {
+          type: "function",
+          function: {
+            name: "create_project",
+            description: "Crea un Progetto collegato a un Key Result per far avanzare la strategia",
+            parameters: {
+              type: "object",
+              properties: {
+                name: { type: "string", description: "Nome del progetto (leva operativa)" },
+                type: { type: "string", enum: ["strategic", "operational", "maintenance"], description: "Tipo di progetto" },
+                key_result_id: { type: "string", description: "ID del Key Result collegato (per progetti strategic)" },
+              },
+              required: ["name", "type"],
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "create_task",
+            description: "Crea una Task eseguibile dentro un progetto",
+            parameters: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Titolo della task (Verbo + oggetto)" },
+                description: { type: "string", description: "Descrizione opzionale" },
+                project_id: { type: "string", description: "ID del progetto di appartenenza" },
+                priority: { type: "string", enum: ["high", "medium", "low"] },
+                estimated_minutes: { type: "number", description: "Durata stimata in minuti" },
+                impact: { type: "number", description: "Impatto 1-3" },
+                effort: { type: "number", description: "Sforzo 1-3" },
+              },
+              required: ["title", "priority", "estimated_minutes"],
+              additionalProperties: false,
+            },
+          },
+        },
       ];
 
       const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {

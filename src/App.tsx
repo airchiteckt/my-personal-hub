@@ -23,6 +23,7 @@ import PublicBooking from "./pages/PublicBooking";
 import PublicTaskRequest from "./pages/PublicTaskRequest";
 import ResetPassword from "./pages/ResetPassword";
 import PublicShowcase from "./pages/PublicShowcase";
+import PublicSlotPicker from "./pages/PublicSlotPicker";
 import { AiAssistant } from "./components/AiAssistant";
 
 const queryClient = new QueryClient();

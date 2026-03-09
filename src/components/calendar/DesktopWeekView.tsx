@@ -612,21 +612,21 @@ export function DesktopWeekView() {
                                 onDragStart={e => !isDone && handleDragStart(e, task.id)}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 backdrop-blur-sm ${isDone ? 'opacity-40' : ''}`}
+                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
                                 style={{
                                   top: top + 1,
                                   height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
                                   ...sty,
-                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.28)`,
-                                  borderLeft: `4px solid hsl(${ent?.color || '0 0% 50%'})`,
+                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
+                                  borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className={`font-bold text-[11px] leading-tight truncate ${isDone ? 'line-through' : ''}`} style={{ color: 'hsl(var(--foreground))' }}>
+                                  <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
                                     {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
                                     {task.title}
                                   </p>
-                                  <p className="text-[10px] mt-0.5 truncate font-semibold" style={{ color: 'hsl(var(--foreground) / 0.7)' }}>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                                   </p>
                                 </div>

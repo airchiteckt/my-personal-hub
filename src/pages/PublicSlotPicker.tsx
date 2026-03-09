@@ -115,14 +115,14 @@ export default function PublicSlotPicker() {
     if (!invitation || !name.trim() || !email.trim()) return;
     setSubmitting(true);
 
-    const { error } = await supabase.from('slot_responses').insert({
+    const { error } = await supabase.from('slot_responses' as any).insert({
       invitation_id: invitation.id,
       respondent_name: name.trim(),
       respondent_email: email.trim(),
       selected_slot: selectedSlot,
       extra_availability: extraAvailability,
       notes: notes.trim() || null,
-    });
+    } as any);
 
     setSubmitting(false);
     if (error) {

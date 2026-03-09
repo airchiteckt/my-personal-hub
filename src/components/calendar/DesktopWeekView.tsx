@@ -473,6 +473,19 @@ export function DesktopWeekView() {
                       isDraggingCreate.current = false;
                       const startSlot = Math.min(dragCreate.startSlot, dragCreate.endSlot);
                       const endSlot = Math.max(dragCreate.startSlot, dragCreate.endSlot);
+
+                      if (slotSelectMode) {
+                        // In slot selection mode: add the slot to the list
+                        const newSlot: SelectedSlot = {
+                          date: dragCreate.dayDate,
+                          startTime: slotToTime(startSlot),
+                          endTime: slotToTime(Math.max(startSlot + 1, endSlot)),
+                        };
+                        setSelectedSlots(prev => [...prev, newSlot]);
+                        setDragCreate(null);
+                        return;
+                      }
+
                       setApptDefaults({
                         date: dragCreate.dayDate,
                         startTime: slotToTime(startSlot),

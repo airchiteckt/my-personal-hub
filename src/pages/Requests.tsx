@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   ClipboardList, Check, X, Archive, Inbox, Clock, User, Mail,
   AlertTriangle, TrendingUp, Calendar as CalendarIcon, Building2, FolderKanban,
+  Send, Trash2, ChevronDown, ChevronUp, Copy,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';

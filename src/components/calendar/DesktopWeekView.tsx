@@ -265,6 +265,22 @@ export function DesktopWeekView() {
             <Bell className="h-3 w-3 mr-1" />
             Memo
           </Button>
+          <Button
+            variant={slotSelectMode ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => {
+              if (slotSelectMode && selectedSlots.length > 0) {
+                setShowSlotDialog(true);
+              } else {
+                setSlotSelectMode(!slotSelectMode);
+                if (!slotSelectMode) setSelectedSlots([]);
+              }
+            }}
+          >
+            <Send className="h-3 w-3 mr-1" />
+            {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
+          </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-3.5 w-3.5" />

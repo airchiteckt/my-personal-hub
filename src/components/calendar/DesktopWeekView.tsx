@@ -877,6 +877,15 @@ export function DesktopWeekView() {
           date={moonDate}
         />
       )}
+
+      <SlotSelectionDialog
+        open={showSlotDialog}
+        onClose={() => { setShowSlotDialog(false); setSlotSelectMode(false); }}
+        selectedSlots={selectedSlots}
+        onRemoveSlot={(i) => setSelectedSlots(prev => prev.filter((_, idx) => idx !== i))}
+        onClearSlots={() => setSelectedSlots([])}
+        weekDays={days}
+      />
     </div>
   );
 }

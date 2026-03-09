@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import {
   ClipboardList, Check, X, Archive, Inbox, Clock, User, Mail,
   AlertTriangle, TrendingUp, Calendar as CalendarIcon, Building2, FolderKanban,
+  Send, Trash2, ChevronDown, ChevronUp, Copy,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -45,12 +46,41 @@ const STATUS_TABS = [
   { key: 'archived', label: 'Archiviate', icon: Archive },
 ] as const;
 
+interface SlotInvitation {
+  id: string;
+  title: string;
+  slug: string;
+  slots: { date: string; start_time: string; end_time: string }[];
+  extra_dates: string[];
+  meeting_type: string;
+  duration_minutes: number;
+  status: string;
+  created_at: string;
+}
+
+interface SlotResponse {
+  id: string;
+  invitation_id: string;
+  respondent_name: string;
+  respondent_email: string;
+  selected_slot: { date: string; start_time: string; end_time: string } | null;
+  extra_availability: string[];
+  notes: string | null;
+  created_at: string;
+}
+
 export default function Requests() {
   const { user } = useAuth();
   const { enterprises, projects, addTask } = usePrp();
   const [requests, setRequests] = useState<TaskRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('pending');
+
+  // Slot invitations
+  const [slotInvitations, setSlotInvitations] = useState<SlotInvitation[]>([]);
+  const [slotResponses, setSlotResponses] = useState<SlotResponse[]>([]);
+  const [showSlotSection, setShowSlotSection] = useState(false);
+  const [expandedInvitation, setExpandedInvitation] = useState<string | null>(null);
 
   // Approve dialog
   const [approving, setApproving] = useState<TaskRequest | null>(null);
@@ -69,7 +99,28 @@ export default function Requests() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchRequests(); }, [user]);
+  const fetchSlotInvitations = async () => {
+    if (!user) return;
+    const { data: invitations } = await supabase
+      .from('slot_invitations' as any)
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }) as any;
+    const invs = (invitations ?? []) as SlotInvitation[];
+    setSlotInvitations(invs);
+
+    if (invs.length > 0) {
+      const invIds = invs.map(i => i.id);
+      const { data: responses } = await supabase
+        .from('slot_responses' as any)
+        .select('*')
+        .in('invitation_id', invIds)
+        .order('created_at', { ascending: false }) as any;
+      setSlotResponses((responses ?? []) as SlotResponse[]);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchSlotInvitations(); }, [user]);
 
   const filteredRequests = requests.filter(r => r.status === activeTab);
   const pendingCount = requests.filter(r => r.status === 'pending').length;
@@ -254,6 +305,127 @@ export default function Requests() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Slot Invitations Section */}
+      {slotInvitations.length > 0 && (
+        <div className="mt-8">
+          <button
+            onClick={() => setShowSlotSection(!showSlotSection)}
+            className="flex items-center gap-2 mb-4 w-full text-left"
+          >
+            <Send className="h-5 w-5 text-primary" />
+            <h2 className="text-lg font-bold flex-1">Proposte slot</h2>
+            <Badge variant="secondary" className="text-xs">{slotInvitations.length}</Badge>
+            {showSlotSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+
+          {showSlotSection && (
+            <div className="space-y-3">
+              {slotInvitations.map(inv => {
+                const responses = slotResponses.filter(r => r.invitation_id === inv.id);
+                const expanded = expandedInvitation === inv.id;
+                return (
+                  <Card key={inv.id} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium text-sm">{inv.title}</h3>
+                          <Badge variant={inv.status === 'active' ? 'default' : 'secondary'} className="text-[10px]">
+                            {inv.status === 'active' ? 'Attiva' : 'Chiusa'}
+                          </Badge>
+                          {responses.length > 0 && (
+                            <Badge variant="destructive" className="text-[10px]">{responses.length} rispost{responses.length === 1 ? 'a' : 'e'}</Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                          <span>{inv.slots.length} slot proposti</span>
+                          <span>·</span>
+                          <span>{inv.duration_minutes} min</span>
+                          <span>·</span>
+                          <span>{format(new Date(inv.created_at), 'd MMM, HH:mm', { locale: it })}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            (async () => {
+                              const { data: profile } = await supabase.from('profiles').select('public_slug').eq('user_id', user!.id).maybeSingle();
+                              if (profile?.public_slug) {
+                                navigator.clipboard.writeText(`${window.location.origin}/${profile.public_slug}/slots/${inv.slug}`);
+                                toast.success('Link copiato!');
+                              }
+                            })();
+                          }}
+                          title="Copia link"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setExpandedInvitation(expanded ? null : inv.id)}
+                        >
+                          {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {expanded && (
+                      <div className="mt-4 space-y-3 border-t pt-3">
+                        {responses.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-3">Nessuna risposta ancora</p>
+                        ) : (
+                          responses.map(resp => (
+                            <Card key={resp.id} className="p-3 bg-muted/30">
+                              <div className="flex items-start gap-2">
+                                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                  <User className="h-3.5 w-3.5 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium">{resp.respondent_name}</span>
+                                    <span className="text-[10px] text-muted-foreground">{resp.respondent_email}</span>
+                                  </div>
+                                  {resp.selected_slot && (
+                                    <Badge variant="outline" className="text-[10px] gap-1">
+                                      <CalendarIcon className="h-3 w-3" />
+                                      {format(new Date(resp.selected_slot.date + 'T00:00:00'), 'EEE d MMM', { locale: it })} · {resp.selected_slot.start_time}–{resp.selected_slot.end_time}
+                                    </Badge>
+                                  )}
+                                  {resp.extra_availability.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      <span className="text-[10px] text-muted-foreground">📊 Altre date:</span>
+                                      {resp.extra_availability.map(d => (
+                                        <Badge key={d} variant="secondary" className="text-[10px]">
+                                          {format(new Date(d + 'T00:00:00'), 'EEE d MMM', { locale: it })}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {resp.notes && (
+                                    <p className="text-[11px] text-muted-foreground italic">"{resp.notes}"</p>
+                                  )}
+                                  <p className="text-[10px] text-muted-foreground/50">
+                                    {format(new Date(resp.created_at), 'd MMM, HH:mm', { locale: it })}
+                                  </p>
+                                </div>
+                              </div>
+                            </Card>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

@@ -808,6 +808,89 @@ export type Database = {
           },
         ]
       }
+      slot_invitations: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          expires_at: string | null
+          extra_dates: Json
+          id: string
+          meeting_type: string
+          slots: Json
+          slug: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number
+          expires_at?: string | null
+          extra_dates?: Json
+          id?: string
+          meeting_type?: string
+          slots?: Json
+          slug?: string
+          status?: string
+          title?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          expires_at?: string | null
+          extra_dates?: Json
+          id?: string
+          meeting_type?: string
+          slots?: Json
+          slug?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      slot_responses: {
+        Row: {
+          created_at: string
+          extra_availability: Json
+          id: string
+          invitation_id: string
+          notes: string | null
+          respondent_email: string
+          respondent_name: string
+          selected_slot: Json | null
+        }
+        Insert: {
+          created_at?: string
+          extra_availability?: Json
+          id?: string
+          invitation_id: string
+          notes?: string | null
+          respondent_email: string
+          respondent_name: string
+          selected_slot?: Json | null
+        }
+        Update: {
+          created_at?: string
+          extra_availability?: Json
+          id?: string
+          invitation_id?: string
+          notes?: string | null
+          respondent_email?: string
+          respondent_name?: string
+          selected_slot?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_responses_invitation_id_fkey"
+            columns: ["invitation_id"]
+            isOneToOne: false
+            referencedRelation: "slot_invitations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_requests: {
         Row: {
           admin_notes: string | null

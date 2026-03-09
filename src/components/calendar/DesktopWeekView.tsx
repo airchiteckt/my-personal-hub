@@ -3,7 +3,8 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send } from 'lucide-react';
+import { SlotSelectionDialog, SelectedSlot } from './SlotSelectionMode';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
@@ -134,6 +135,11 @@ export function DesktopWeekView() {
   const [isDraggingItem, setIsDraggingItem] = useState(false);
   const dragNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Slot selection mode
+  const [slotSelectMode, setSlotSelectMode] = useState(false);
+  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+  const [showSlotDialog, setShowSlotDialog] = useState(false);
+
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
   const isDraggingCreate = useRef(false);
@@ -258,6 +264,22 @@ export function DesktopWeekView() {
           <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
             <Bell className="h-3 w-3 mr-1" />
             Memo
+          </Button>
+          <Button
+            variant={slotSelectMode ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => {
+              if (slotSelectMode && selectedSlots.length > 0) {
+                setShowSlotDialog(true);
+              } else {
+                setSlotSelectMode(!slotSelectMode);
+                if (!slotSelectMode) setSelectedSlots([]);
+              }
+            }}
+          >
+            <Send className="h-3 w-3 mr-1" />
+            {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
@@ -451,6 +473,19 @@ export function DesktopWeekView() {
                       isDraggingCreate.current = false;
                       const startSlot = Math.min(dragCreate.startSlot, dragCreate.endSlot);
                       const endSlot = Math.max(dragCreate.startSlot, dragCreate.endSlot);
+
+                      if (slotSelectMode) {
+                        // In slot selection mode: add the slot to the list
+                        const newSlot: SelectedSlot = {
+                          date: dragCreate.dayDate,
+                          startTime: slotToTime(startSlot),
+                          endTime: slotToTime(Math.max(startSlot + 1, endSlot)),
+                        };
+                        setSelectedSlots(prev => [...prev, newSlot]);
+                        setDragCreate(null);
+                        return;
+                      }
+
                       setApptDefaults({
                         date: dragCreate.dayDate,
                         startTime: slotToTime(startSlot),
@@ -473,6 +508,26 @@ export function DesktopWeekView() {
                         style={{ top: i * DESKTOP_SLOT_HEIGHT }}
                       />
                     ))}
+
+                    {/* Selected slots indicators (slot selection mode) */}
+                    {slotSelectMode && selectedSlots.filter(s => s.date === dayDate).map((slot, i) => {
+                      const startS = timeToSlot(slot.startTime);
+                      const endS = timeToSlot(slot.endTime);
+                      return (
+                        <div
+                          key={`sel-${i}`}
+                          className="absolute left-1 right-1 rounded-lg bg-primary/25 border-2 border-primary/50 z-25 pointer-events-none flex items-center justify-center"
+                          style={{
+                            top: startS * DESKTOP_SLOT_HEIGHT,
+                            height: (endS - startS) * DESKTOP_SLOT_HEIGHT,
+                          }}
+                        >
+                          <span className="text-[10px] font-bold text-primary">
+                            ✓ {slot.startTime}–{slot.endTime}
+                          </span>
+                        </div>
+                      );
+                    })}
 
                     {/* Drag-to-create selection */}
                     {dragCreate && dragCreate.dayDate === dayDate && (
@@ -822,6 +877,15 @@ export function DesktopWeekView() {
           date={moonDate}
         />
       )}
+
+      <SlotSelectionDialog
+        open={showSlotDialog}
+        onClose={() => { setShowSlotDialog(false); setSlotSelectMode(false); }}
+        selectedSlots={selectedSlots}
+        onRemoveSlot={(i) => setSelectedSlots(prev => prev.filter((_, idx) => idx !== i))}
+        onClearSlots={() => setSelectedSlots([])}
+        weekDays={days}
+      />
     </div>
   );
 }

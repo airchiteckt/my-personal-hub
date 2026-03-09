@@ -107,6 +107,7 @@ const App = () => (
             <Route path="/admin" element={<AdminRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />
+            <Route path="/:slug/slots/:invitationSlug" element={<PublicSlotPicker />} />
             <Route path="/:slug/showcase" element={<PublicShowcase />} />
             <Route path="/:slug/showcase/:enterpriseId" element={<PublicShowcase />} />
             <Route path="/*" element={<ProtectedRoutes />} />

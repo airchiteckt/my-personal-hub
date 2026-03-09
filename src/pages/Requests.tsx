@@ -46,12 +46,41 @@ const STATUS_TABS = [
   { key: 'archived', label: 'Archiviate', icon: Archive },
 ] as const;
 
+interface SlotInvitation {
+  id: string;
+  title: string;
+  slug: string;
+  slots: { date: string; start_time: string; end_time: string }[];
+  extra_dates: string[];
+  meeting_type: string;
+  duration_minutes: number;
+  status: string;
+  created_at: string;
+}
+
+interface SlotResponse {
+  id: string;
+  invitation_id: string;
+  respondent_name: string;
+  respondent_email: string;
+  selected_slot: { date: string; start_time: string; end_time: string } | null;
+  extra_availability: string[];
+  notes: string | null;
+  created_at: string;
+}
+
 export default function Requests() {
   const { user } = useAuth();
   const { enterprises, projects, addTask } = usePrp();
   const [requests, setRequests] = useState<TaskRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('pending');
+
+  // Slot invitations
+  const [slotInvitations, setSlotInvitations] = useState<SlotInvitation[]>([]);
+  const [slotResponses, setSlotResponses] = useState<SlotResponse[]>([]);
+  const [showSlotSection, setShowSlotSection] = useState(false);
+  const [expandedInvitation, setExpandedInvitation] = useState<string | null>(null);
 
   // Approve dialog
   const [approving, setApproving] = useState<TaskRequest | null>(null);

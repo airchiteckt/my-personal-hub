@@ -84,7 +84,7 @@ export function SlotSelectionDialog({ open, onClose, selectedSlots, onRemoveSlot
     }));
 
     const { data, error } = await supabase
-      .from('slot_invitations')
+      .from('slot_invitations' as any)
       .insert({
         user_id: user.id,
         title: title.trim() || 'Proposta orari',
@@ -92,7 +92,7 @@ export function SlotSelectionDialog({ open, onClose, selectedSlots, onRemoveSlot
         extra_dates: extraDatesEnabled ? extraDates : [],
         meeting_type: meetingType,
         duration_minutes: duration,
-      })
+      } as any)
       .select('slug')
       .single();
 

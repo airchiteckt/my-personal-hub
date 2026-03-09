@@ -76,7 +76,7 @@ export default function PublicSlotPicker() {
 
       // Get invitation
       const { data, error } = await supabase
-        .from('slot_invitations')
+        .from('slot_invitations' as any)
         .select('id, title, slots, extra_dates, meeting_type, duration_minutes, status')
         .eq('slug', invitationSlug)
         .eq('status', 'active')

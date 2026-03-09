@@ -99,7 +99,28 @@ export default function Requests() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchRequests(); }, [user]);
+  const fetchSlotInvitations = async () => {
+    if (!user) return;
+    const { data: invitations } = await supabase
+      .from('slot_invitations' as any)
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }) as any;
+    const invs = (invitations ?? []) as SlotInvitation[];
+    setSlotInvitations(invs);
+
+    if (invs.length > 0) {
+      const invIds = invs.map(i => i.id);
+      const { data: responses } = await supabase
+        .from('slot_responses' as any)
+        .select('*')
+        .in('invitation_id', invIds)
+        .order('created_at', { ascending: false }) as any;
+      setSlotResponses((responses ?? []) as SlotResponse[]);
+    }
+  };
+
+  useEffect(() => { fetchRequests(); fetchSlotInvitations(); }, [user]);
 
   const filteredRequests = requests.filter(r => r.status === activeTab);
   const pendingCount = requests.filter(r => r.status === 'pending').length;

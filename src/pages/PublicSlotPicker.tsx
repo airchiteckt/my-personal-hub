@@ -80,7 +80,7 @@ export default function PublicSlotPicker() {
         .select('id, title, slots, extra_dates, meeting_type, duration_minutes, status')
         .eq('slug', invitationSlug)
         .eq('status', 'active')
-        .maybeSingle();
+        .maybeSingle() as any;
 
       if (error || !data) {
         setNotFound(true);

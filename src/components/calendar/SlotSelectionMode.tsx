@@ -94,7 +94,7 @@ export function SlotSelectionDialog({ open, onClose, selectedSlots, onRemoveSlot
         duration_minutes: duration,
       } as any)
       .select('slug')
-      .single();
+      .single() as any;
 
     setSaving(false);
 

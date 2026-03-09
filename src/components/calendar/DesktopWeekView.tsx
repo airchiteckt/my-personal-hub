@@ -617,16 +617,16 @@ export function DesktopWeekView() {
                                   top: top + 1,
                                   height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
                                   ...sty,
-                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
-                                  borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
+                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.22)`,
+                                  borderLeft: `4px solid hsl(${ent?.color || '0 0% 50%'})`,
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                                  <p className={`font-semibold text-[11px] leading-tight truncate text-foreground ${isDone ? 'line-through' : ''}`}>
                                     {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
                                     {task.title}
                                   </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate font-medium">
                                     {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                                   </p>
                                 </div>

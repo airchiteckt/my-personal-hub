@@ -135,6 +135,11 @@ export function DesktopWeekView() {
   const [isDraggingItem, setIsDraggingItem] = useState(false);
   const dragNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Slot selection mode
+  const [slotSelectMode, setSlotSelectMode] = useState(false);
+  const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
+  const [showSlotDialog, setShowSlotDialog] = useState(false);
+
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
   const isDraggingCreate = useRef(false);

@@ -509,6 +509,26 @@ export function DesktopWeekView() {
                       />
                     ))}
 
+                    {/* Selected slots indicators (slot selection mode) */}
+                    {slotSelectMode && selectedSlots.filter(s => s.date === dayDate).map((slot, i) => {
+                      const startS = timeToSlot(slot.startTime);
+                      const endS = timeToSlot(slot.endTime);
+                      return (
+                        <div
+                          key={`sel-${i}`}
+                          className="absolute left-1 right-1 rounded-lg bg-primary/25 border-2 border-primary/50 z-25 pointer-events-none flex items-center justify-center"
+                          style={{
+                            top: startS * DESKTOP_SLOT_HEIGHT,
+                            height: (endS - startS) * DESKTOP_SLOT_HEIGHT,
+                          }}
+                        >
+                          <span className="text-[10px] font-bold text-primary">
+                            ✓ {slot.startTime}–{slot.endTime}
+                          </span>
+                        </div>
+                      );
+                    })}
+
                     {/* Drag-to-create selection */}
                     {dragCreate && dragCreate.dayDate === dayDate && (
                       <div

@@ -604,9 +604,9 @@ export function DesktopWeekView() {
                         allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
                       });
                       // Reminders
-                      dayReminders.forEach(rem => {
-                        const ss = timeToSlot(rem.reminderTime || '09:00');
-                        allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
+                       dayReminders.forEach(rem => {
+                         const ss = timeToSlot(rem.reminderTime || '09:00');
+                         allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
                       });
 
                       const uLayout = computeOverlapLayout(allTimeInfos);

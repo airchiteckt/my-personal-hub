@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { usePrp } from '@/context/PrpContext';
 import { useState } from 'react';
@@ -16,6 +17,7 @@ interface Props {
 export function TaskFollowUpDialog({ open, onOpenChange, task }: Props) {
   const { addReminder } = usePrp();
   const [title, setTitle] = useState(`Follow-up: ${task.title}`);
+  const [description, setDescription] = useState('');
   const [reminderDate, setReminderDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
   const [reminderTime, setReminderTime] = useState('09:00');
 
@@ -23,7 +25,7 @@ export function TaskFollowUpDialog({ open, onOpenChange, task }: Props) {
     if (!title.trim() || !reminderDate) return;
     addReminder({
       title: title.trim(),
-      description: `Follow-up automatico della task "${task.title}"`,
+      description: description.trim() || `Follow-up automatico della task "${task.title}"`,
       reminderDate,
       reminderTime: reminderTime || undefined,
       enterpriseId: task.enterpriseId,
@@ -52,6 +54,10 @@ export function TaskFollowUpDialog({ open, onOpenChange, task }: Props) {
           <div className="space-y-2">
             <Label>Titolo promemoria</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+          </div>
+          <div className="space-y-2">
+            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note aggiuntive per il follow-up..." rows={2} className="resize-none" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

@@ -231,6 +231,11 @@ export function DesktopWeekView() {
       if (ritualId) planRitualOnDate(ritualId, dayDate, time);
       return;
     }
+    if (payload.startsWith('reminder:')) {
+      const reminderId = payload.slice(9);
+      if (reminderId) updateReminder(reminderId, { reminderDate: dayDate, reminderTime: time });
+      return;
+    }
     if (payload.startsWith('task:')) {
       const taskId = payload.slice(5);
       if (taskId) scheduleTask(taskId, dayDate, time);

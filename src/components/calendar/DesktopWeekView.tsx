@@ -282,6 +282,15 @@ export function DesktopWeekView() {
             <Send className="h-3 w-3 mr-1" />
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setBacklogOpen(v => !v)}
+            title={backlogOpen ? 'Chiudi backlog' : 'Apri backlog'}
+          >
+            {backlogOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+          </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-3.5 w-3.5" />

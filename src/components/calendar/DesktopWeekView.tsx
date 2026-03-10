@@ -761,7 +761,7 @@ export function DesktopWeekView() {
                                 onDragStart={e => { e.stopPropagation(); handleReminderDragStart(e, rem.id); }}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingReminder(rem); }}
-                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-pointer group"
+                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
                                 style={{
                                   top: topPos + 1,
                                   height: Math.max(DESKTOP_SLOT_HEIGHT - 2, DESKTOP_SLOT_HEIGHT - 4),

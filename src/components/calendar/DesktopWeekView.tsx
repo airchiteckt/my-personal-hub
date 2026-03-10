@@ -139,6 +139,7 @@ export function DesktopWeekView() {
   const [slotSelectMode, setSlotSelectMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(true);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);

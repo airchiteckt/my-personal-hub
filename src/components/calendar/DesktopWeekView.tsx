@@ -764,7 +764,7 @@ export function DesktopWeekView() {
                                 className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
                                 style={{
                                   top: topPos + 1,
-                                  height: Math.max(DESKTOP_SLOT_HEIGHT - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(DESKTOP_SLOT_HEIGHT * 2 - 2, DESKTOP_SLOT_HEIGHT - 4),
                                   ...sty,
                                   backgroundColor: `hsl(${color} / 0.12)`,
                                   borderColor: `hsl(${color} / 0.5)`,

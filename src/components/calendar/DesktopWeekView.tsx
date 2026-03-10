@@ -118,7 +118,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -179,6 +179,12 @@ export function DesktopWeekView() {
     setIsDraggingItem(true);
   };
 
+  const handleReminderDragStart = (e: React.DragEvent, reminderId: string) => {
+    e.dataTransfer.setData('text/plain', `reminder:${reminderId}`);
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDraggingItem(true);
+  };
+
   const handleDragEnd = () => {
     setIsDraggingItem(false);
     if (dragNavTimerRef.current) {
@@ -223,6 +229,11 @@ export function DesktopWeekView() {
     if (payload.startsWith('ritual:')) {
       const ritualId = payload.slice(7);
       if (ritualId) planRitualOnDate(ritualId, dayDate, time);
+      return;
+    }
+    if (payload.startsWith('reminder:')) {
+      const reminderId = payload.slice(9);
+      if (reminderId) updateReminder(reminderId, { reminderDate: dayDate, reminderTime: time });
       return;
     }
     if (payload.startsWith('task:')) {
@@ -746,9 +757,11 @@ export function DesktopWeekView() {
                             return (
                               <div
                                 key={`rem-${rem.id}`}
+                                draggable
+                                onDragStart={e => { e.stopPropagation(); handleReminderDragStart(e, rem.id); }}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingReminder(rem); }}
-                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-pointer group"
+                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
                                 style={{
                                   top: topPos + 1,
                                   height: Math.max(DESKTOP_SLOT_HEIGHT - 2, DESKTOP_SLOT_HEIGHT - 4),

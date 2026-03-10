@@ -179,6 +179,12 @@ export function DesktopWeekView() {
     setIsDraggingItem(true);
   };
 
+  const handleReminderDragStart = (e: React.DragEvent, reminderId: string) => {
+    e.dataTransfer.setData('text/plain', `reminder:${reminderId}`);
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDraggingItem(true);
+  };
+
   const handleDragEnd = () => {
     setIsDraggingItem(false);
     if (dragNavTimerRef.current) {

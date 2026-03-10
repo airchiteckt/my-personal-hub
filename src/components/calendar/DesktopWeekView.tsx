@@ -3,7 +3,7 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { SlotSelectionDialog, SelectedSlot } from './SlotSelectionMode';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -139,6 +139,7 @@ export function DesktopWeekView() {
   const [slotSelectMode, setSlotSelectMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(true);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -280,6 +281,15 @@ export function DesktopWeekView() {
           >
             <Send className="h-3 w-3 mr-1" />
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setBacklogOpen(v => !v)}
+            title={backlogOpen ? 'Chiudi backlog' : 'Apri backlog'}
+          >
+            {backlogOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
@@ -771,11 +781,13 @@ export function DesktopWeekView() {
           </div>
         </div>
 
-        <SmartBacklog
-          onDragStart={handleDragStart}
-          onDrop={handleBacklogDrop}
-          onTaskClick={task => setEditingTask(task)}
-        />
+        {backlogOpen && (
+          <SmartBacklog
+            onDragStart={handleDragStart}
+            onDrop={handleBacklogDrop}
+            onTaskClick={task => setEditingTask(task)}
+          />
+        )}
       </div>
 
       <CalendarCreateChoice

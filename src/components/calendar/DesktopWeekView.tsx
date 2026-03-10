@@ -604,9 +604,9 @@ export function DesktopWeekView() {
                         allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
                       });
                       // Reminders
-                      dayReminders.forEach(rem => {
-                        const ss = timeToSlot(rem.reminderTime || '09:00');
-                        allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
+                       dayReminders.forEach(rem => {
+                         const ss = timeToSlot(rem.reminderTime || '09:00');
+                         allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
                       });
 
                       const uLayout = computeOverlapLayout(allTimeInfos);
@@ -764,7 +764,7 @@ export function DesktopWeekView() {
                                 className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
                                 style={{
                                   top: topPos + 1,
-                                  height: Math.max(DESKTOP_SLOT_HEIGHT - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(DESKTOP_SLOT_HEIGHT * 2 - 2, DESKTOP_SLOT_HEIGHT - 4),
                                   ...sty,
                                   backgroundColor: `hsl(${color} / 0.12)`,
                                   borderColor: `hsl(${color} / 0.5)`,

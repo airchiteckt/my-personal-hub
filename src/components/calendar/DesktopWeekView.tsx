@@ -781,11 +781,13 @@ export function DesktopWeekView() {
           </div>
         </div>
 
-        <SmartBacklog
-          onDragStart={handleDragStart}
-          onDrop={handleBacklogDrop}
-          onTaskClick={task => setEditingTask(task)}
-        />
+        {backlogOpen && (
+          <SmartBacklog
+            onDragStart={handleDragStart}
+            onDrop={handleBacklogDrop}
+            onTaskClick={task => setEditingTask(task)}
+          />
+        )}
       </div>
 
       <CalendarCreateChoice

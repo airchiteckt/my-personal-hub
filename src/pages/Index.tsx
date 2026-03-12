@@ -407,7 +407,7 @@ const Index = () => {
                           exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
                           layout
                           draggable={!isDone}
-                          onDragStart={e => !isDone && handleDragStart(e, task.id)}
+                          onDragStart={e => !isDone && handleDragStart(e as unknown as React.DragEvent, task.id)}
                           className={`flex items-center gap-2.5 p-2 md:p-2.5 rounded-lg transition-colors cursor-pointer ${isDone ? 'opacity-50' : 'hover:bg-accent/50'}`}
                           style={{ borderLeft: `3px solid hsl(${isCompleting ? '142 70% 45%' : color})` }}
                           onClick={() => setEditingTask(task)}

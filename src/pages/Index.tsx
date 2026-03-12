@@ -877,6 +877,12 @@ const Index = () => {
           date={today}
         />
       )}
+      <TodayBacklog
+        open={backlogOpen}
+        onOpenChange={setBacklogOpen}
+        onDragStart={handleDragStart}
+        onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
+      />
     </div>
   );
 };

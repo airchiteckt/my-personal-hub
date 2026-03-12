@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Target, FolderPlus, ListTodo, Crosshair, BarChart3, CalendarDays } from 'lucide-react';
+import { RotateCcw, Target, FolderPlus, ListTodo, Crosshair, BarChart3, CalendarDays, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const STORAGE_KEY = 'planning_thresholds';

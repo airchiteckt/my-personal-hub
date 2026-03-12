@@ -166,58 +166,162 @@ const EnterpriseDetail = () => {
             </Card>
           </div>
 
-          {/* Active Focus summary */}
-          {activeFocus ? (
-            <Card className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
-                </div>
-                {focusProgress && (
-                  <Badge variant="outline" className="text-[10px]">
-                    {focusProgress.classificationEmoji} {focusProgress.progress}%
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                {fnsFormat(parseISO(activeFocus.startDate), 'd MMM', { locale: it })} – {fnsFormat(parseISO(activeFocus.endDate), 'd MMM yyyy', { locale: it })}
-                {' · '}
-                {differenceInDays(parseISO(activeFocus.endDate), new Date())} giorni rimanenti
-              </p>
+          {/* Active Focus — full strategic hierarchy */}
+          {activeFocus ? (() => {
+            const objectives = getObjectivesForFocus(activeFocus.id);
+            const daysRemaining = differenceInDays(parseISO(activeFocus.endDate), new Date());
+            const totalDays = differenceInDays(parseISO(activeFocus.endDate), parseISO(activeFocus.startDate));
+            const timePct = Math.max(0, Math.min(100, Math.round(((totalDays - daysRemaining) / totalDays) * 100)));
 
-              {/* Focus overall progress bar */}
-              {focusProgress && focusProgress.objectives.length > 0 && (
+            return (
+              <Card className="p-4 ring-1 ring-primary/20">
+                {/* Focus header */}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
+                  </div>
+                  {focusProgress && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {focusProgress.classificationEmoji} {focusProgress.progress}%
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">
+                  {fnsFormat(parseISO(activeFocus.startDate), 'd MMM', { locale: it })} – {fnsFormat(parseISO(activeFocus.endDate), 'd MMM yyyy', { locale: it })}
+                  {' · '}{daysRemaining} giorni rimanenti
+                </p>
+
+                {/* Time progress */}
                 <div className="mb-3">
                   <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-muted-foreground">Progresso Focus</span>
-                    <span className="font-medium">{focusProgress.classificationEmoji} {focusProgress.classificationLabel}</span>
+                    <span className="text-muted-foreground">⏱️ Progresso temporale</span>
+                    <span className="text-muted-foreground">{timePct}%</span>
                   </div>
-                  <Progress value={focusProgress.progress} className="h-2.5" />
+                  <Progress value={timePct} className="h-1.5" />
                 </div>
-              )}
 
-              {focusProgress?.objectives.map(obj => (
-                <div key={obj.id} className="mb-2">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="flex items-center gap-1">
-                      {obj.completed ? '✅' : '🎯'} {obj.title}
-                    </span>
-                    <span className="text-muted-foreground">{obj.progress}%</span>
+                {/* OKR progress */}
+                {focusProgress && focusProgress.objectives.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-muted-foreground">🎯 Progresso OKR</span>
+                      <span className="font-medium">{focusProgress.classificationEmoji} {focusProgress.classificationLabel}</span>
+                    </div>
+                    <Progress value={focusProgress.progress} className="h-2.5" />
                   </div>
-                  <Progress value={obj.progress} className="h-1.5" />
-                </div>
-              ))}
-              {getObjectivesForFocus(activeFocus.id).length === 0 && (
-                <p className="text-xs text-muted-foreground">Nessun objective definito</p>
-              )}
-            </Card>
-          ) : (
+                )}
+
+                {/* Objectives → KR → Projects */}
+                {objectives.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">Nessun Objective definito per questo Focus.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {objectives.map(obj => {
+                      const krs = getKeyResultsForObjective(obj.id);
+                      const objProg = focusProgress?.objectives.find(o => o.id === obj.id);
+                      return (
+                        <div key={obj.id} className="rounded-lg border border-border p-3">
+                          {/* Objective */}
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-semibold flex items-center gap-1.5">
+                              {objProg?.completed ? '✅' : '🎯'} {obj.title}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-medium">{objProg?.progress ?? 0}%</span>
+                          </div>
+                          <Progress value={objProg?.progress ?? 0} className="h-1.5 mb-2" />
+
+                          {/* Key Results */}
+                          {krs.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground ml-4">Nessun KR definito</p>
+                          ) : (
+                            <div className="space-y-2 ml-2">
+                              {krs.map(kr => {
+                                const krPct = kr.metricType === 'boolean'
+                                  ? (kr.currentValue >= 1 ? 100 : 0)
+                                  : Math.min(100, Math.round((kr.currentValue / kr.targetValue) * 100));
+                                const linkedProjects = getProjectsForKeyResult(kr.id);
+                                return (
+                                  <div key={kr.id} className="rounded-lg bg-muted/40 p-2">
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[11px] font-medium flex items-center gap-1">
+                                        <BarChart3 className="h-3 w-3 text-primary/70" /> {kr.title}
+                                      </span>
+                                      <div className="flex items-center gap-1.5">
+                                        <Badge variant="outline" className="text-[9px] h-4">{KR_STATUS_LABELS[kr.status]}</Badge>
+                                        <span className="text-[10px] text-muted-foreground font-medium">
+                                          {kr.metricType === 'boolean' ? (kr.currentValue >= 1 ? '✅' : '⬜') :
+                                            kr.metricType === 'percentage' ? `${kr.currentValue}/${kr.targetValue}%` :
+                                            `${kr.currentValue}/${kr.targetValue}`}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <Progress value={krPct} className="h-1 mb-1" />
+
+                                    {/* Linked Strategic Projects */}
+                                    {linkedProjects.length > 0 && (
+                                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                                        <Layers className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
+                                        {linkedProjects.map(p => {
+                                          const pTasks = getTasksForProject(p.id);
+                                          const pDone = pTasks.filter(t => t.status === 'done').length;
+                                          return (
+                                            <Badge
+                                              key={p.id}
+                                              variant="outline"
+                                              className="text-[9px] cursor-pointer hover:bg-primary/10 transition-colors gap-0.5"
+                                              onClick={() => setEditingProject(p)}
+                                            >
+                                              {p.name}
+                                              {pTasks.length > 0 && (
+                                                <span className="text-muted-foreground ml-0.5">({pDone}/{pTasks.length})</span>
+                                              )}
+                                            </Badge>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            );
+          })() : (
             <Card className="p-4 border-dashed text-center">
               <p className="text-sm text-muted-foreground mb-2">Nessun Focus Period attivo</p>
               <Button size="sm" variant="outline" onClick={() => setShowCreateFocus(true)}>
                 <Plus className="h-3.5 w-3.5 mr-1" /> Crea Focus Period
               </Button>
+            </Card>
+          )}
+
+          {/* Project allocation breakdown */}
+          {enterpriseProjects.length > 0 && (
+            <Card className="p-4">
+              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <Layers className="h-4 w-4" /> Allocazione Progetti
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                {(['strategic', 'operational', 'maintenance'] as const).map(type => {
+                  const count = enterpriseProjects.filter(p => p.type === type).length;
+                  const pct = Math.round((count / enterpriseProjects.length) * 100);
+                  const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
+                  return (
+                    <div key={type} className="text-center">
+                      <p className="text-lg font-bold">{count}</p>
+                      <p className="text-[10px] text-muted-foreground">{labels[type]}</p>
+                      <p className="text-[10px] text-muted-foreground">{pct}%</p>
+                    </div>
+                  );
+                })}
+              </div>
             </Card>
           )}
 

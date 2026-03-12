@@ -736,6 +736,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       futureFocusPeriods: allFocusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
       currentWizardPhase: currentPhase,
       completedWizardPhases: completedPhases,
+      planningLimits: {
+        maxFocusPerEnterprise: planningThresholds.maxFocusPerEnterprise,
+        minObjectivesPerFocus: planningThresholds.minObjectivesPerFocus,
+        maxObjectivesPerFocus: planningThresholds.maxObjectivesPerFocus,
+        minKRsPerObjective: planningThresholds.minKRsPerObjective,
+        maxKRsPerObjective: planningThresholds.maxKRsPerObjective,
+        minProjectsPerKR: planningThresholds.minProjectsPerKR,
+        maxProjectsPerKR: planningThresholds.maxProjectsPerKR,
+        minTasksPerProject: planningThresholds.minTasksPerProject,
+        maxTasksPerProject: planningThresholds.maxTasksPerProject,
+        maxTasksPerDay: planningThresholds.maxTasksPerDay,
+        warnProjectsPerFocus: planningThresholds.warnProjectsPerFocus,
+        warnTasksPerFocus: planningThresholds.warnTasksPerFocus,
+      },
     };
   };
 

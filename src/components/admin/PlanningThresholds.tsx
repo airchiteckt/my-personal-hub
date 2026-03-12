@@ -28,6 +28,9 @@ export const THRESHOLD_DEFAULTS = {
   // Overload warnings
   warnProjectsPerFocus: 10,
   warnTasksPerFocus: 30,
+  // Completion thresholds (%)
+  objectiveCompletionPct: 70,
+  focusCompletionPct: 70,
 };
 
 export type PlanningThresholdsConfig = typeof THRESHOLD_DEFAULTS;

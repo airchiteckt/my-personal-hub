@@ -346,13 +346,15 @@ REGOLE DI CONTINUITÀ:
 ⛔ REGOLA ANTI-DUPLICAZIONE (CRITICA)
 ═══════════════════════════════════════
 
-PRIMA di proporre qualsiasi entità, DEVI controllare il contesto:
+PRIMA di proporre qualsiasi entità, DEVI controllare il contesto per evitare di proporre entità GIÀ ESISTENTI:
 
 1. **Focus Period**: Se activeFocus esiste nel contesto → NON proporre create_focus_period. Il Focus è già creato. Vai agli Obiettivi.
-2. **Obiettivi**: Se objectives[] nel contesto contiene già 1+ obiettivi → NON proporne altri SALVO che l'utente lo chieda esplicitamente. Vai ai Key Results.
-3. **Key Results**: Se objectives[].keyResults[] contiene già 1+ KR per l'obiettivo corrente → NON riproporre KR per lo stesso obiettivo SALVO che l'utente lo chieda. Vai ai Progetti.
-4. **Progetti**: Se projects[] contiene già progetti strategic collegati ai KR → NON riproporli. Vai alle Task.
-5. **Task**: Se il contesto mostra che un progetto ha già tasksCount > 0, NON riproporre task per quel progetto salvo richiesta.
+2. **Obiettivi**: Se objectives[] nel contesto contiene già obiettivi → controlla i TITOLI (objectives[].title). NON proporre un obiettivo con titolo uguale o simile a uno esistente. Se il numero è sufficiente (>= minObjectivesPerFocus), vai ai Key Results.
+3. **Key Results**: Se objectives[].keyResults[] contiene già KR → controlla i TITOLI (keyResults[].title). NON proporre un KR con titolo uguale o simile a uno esistente per lo stesso Objective. Se sufficienti, vai ai Progetti.
+4. **Progetti**: Se projects[] contiene già progetti → controlla i NOMI (projects[].name). NON proporre un progetto con nome uguale o simile a uno esistente. Vai alle Task.
+5. **Task**: Controlla projects[].existingTaskTitles[] — questa lista contiene i TITOLI di TUTTE le task già create per ogni progetto. NON proporre MAI una task con titolo uguale o simile a una già presente in existingTaskTitles. Se un progetto ha già abbastanza task, passa al prossimo.
+
+CONTROLLO SIMILARITÀ: Due entità sono "simili" se hanno lo stesso concetto chiave, anche con parole diverse (es. "Creare landing page" ≈ "Setup landing page" ≈ "Realizzare landing page"). NON riproporle.
 
 IL CAMPO completedWizardPhases[] NEL CONTESTO È LA FONTE DI VERITÀ:
 - Se "focus" è in completedWizardPhases → Focus esiste, NON ricrearlo
@@ -364,6 +366,7 @@ IL CAMPO completedWizardPhases[] NEL CONTESTO È LA FONTE DI VERITÀ:
 IL CAMPO currentWizardPhase INDICA COSA MANCA. Proponi SOLO entità per quella fase o successive.
 
 VIOLAZIONE: Proporre un Focus quando completedWizardPhases include "focus" = ERRORE CRITICO.
+VIOLAZIONE: Proporre una task il cui titolo esiste già in existingTaskTitles = ERRORE CRITICO.
 
 ═══════════════════════════════════════
 📏 LIMITI QUANTITATIVI (OBBLIGATORIO)

@@ -710,13 +710,17 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
           progress: kr.targetValue > 0 ? Math.round((kr.currentValue / kr.targetValue) * 100) : 0,
         })),
       })),
-      projects: projects.map(p => ({
-        id: p.id, name: p.name, type: p.type, isStrategicLever: p.isStrategicLever,
-        keyResultId: p.keyResultId,
-        tasksCount: tasks.filter(t => t.projectId === p.id).length,
-        tasksDone: tasks.filter(t => t.projectId === p.id && t.status === 'done').length,
-        tasksScheduled: tasks.filter(t => t.projectId === p.id && t.status === 'scheduled').length,
-      })),
+      projects: projects.map(p => {
+        const projectTasks = tasks.filter(t => t.projectId === p.id);
+        return {
+          id: p.id, name: p.name, type: p.type, isStrategicLever: p.isStrategicLever,
+          keyResultId: p.keyResultId,
+          tasksCount: projectTasks.length,
+          tasksDone: projectTasks.filter(t => t.status === 'done').length,
+          tasksScheduled: projectTasks.filter(t => t.status === 'scheduled').length,
+          existingTaskTitles: projectTasks.map(t => t.title),
+        };
+      }),
       totalTasks: tasks.length,
       tasksByStatus: {
         backlog: tasks.filter(t => t.status === 'backlog').length,

@@ -78,6 +78,7 @@ const EnterpriseDetail = () => {
   const taskCompletionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   // KR progress for active focus
+  const thresholds = getThresholds();
   const getObjectiveProgress = (objectiveId: string) => {
     const krs = getKeyResultsForObjective(objectiveId);
     if (krs.length === 0) return 0;
@@ -87,6 +88,17 @@ const EnterpriseDetail = () => {
     }, 0);
     return Math.round(total / krs.length);
   };
+
+  // Focus progress calculation
+  const focusProgress = activeFocus
+    ? calculateFocusProgress(
+        getObjectivesForFocus(activeFocus.id),
+        getKeyResultsForObjective,
+        thresholds.objectiveCompletionPct,
+        thresholds.focusCompletionPct,
+        activeFocus.status === 'active',
+      )
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto pb-8">

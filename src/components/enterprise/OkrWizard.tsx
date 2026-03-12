@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Enterprise } from '@/types/prp';
+import { getThresholds } from '@/components/admin/PlanningThresholds';
 
 // ─── Types ───────────────────────────────────────────────────────────
 type Msg = { role: 'user' | 'assistant'; content: string };

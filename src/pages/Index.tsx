@@ -3,7 +3,7 @@ import { format, addDays, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen } from 'lucide-react';
+import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Enterprise } from '@/types/prp';
+import { getThresholds } from '@/components/admin/PlanningThresholds';
 
 // ─── Types ───────────────────────────────────────────────────────────
 type Msg = { role: 'user' | 'assistant'; content: string };
@@ -235,16 +236,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   );
 
   // Planning thresholds from localStorage (configurable in admin)
-  const planningThresholds = useMemo(() => {
-    try {
-      const stored = localStorage.getItem('planning_thresholds');
-      if (stored) {
-        const defaults = { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
-        return { ...defaults, ...JSON.parse(stored) };
-      }
-    } catch {}
-    return { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
-  }, []);
+  const planningThresholds = useMemo(() => getThresholds(), []);
 
   // The active conversation's focusPeriodId (scoped to session)
   const sessionFocusId = useMemo(() => {

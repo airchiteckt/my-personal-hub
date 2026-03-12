@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Target, FolderPlus, ListTodo, Crosshair, BarChart3, CalendarDays } from 'lucide-react';
+import { RotateCcw, Target, FolderPlus, ListTodo, Crosshair, BarChart3, CalendarDays, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const STORAGE_KEY = 'planning_thresholds';
@@ -28,6 +28,9 @@ export const THRESHOLD_DEFAULTS = {
   // Overload warnings
   warnProjectsPerFocus: 10,
   warnTasksPerFocus: 30,
+  // Completion thresholds (%)
+  objectiveCompletionPct: 70,
+  focusCompletionPct: 70,
 };
 
 export type PlanningThresholdsConfig = typeof THRESHOLD_DEFAULTS;
@@ -99,6 +102,14 @@ const sections: { title: string; emoji: string; fields: FieldConfig[] }[] = [
       { key: 'maxTasksPerDay', label: 'Max task pianificate/giorno', icon: CalendarDays, min: 1, max: 15, description: 'Evita agende irrealistiche (5-7 consigliato)' },
       { key: 'warnProjectsPerFocus', label: 'Avviso: progetti per focus', icon: FolderPlus, min: 3, max: 30, description: 'Oltre questo numero → "Focus troppo ampio"' },
       { key: 'warnTasksPerFocus', label: 'Avviso: task attive per focus', icon: ListTodo, min: 10, max: 100, description: 'Oltre questo numero → "Focus troppo ampio"' },
+    ],
+  },
+  {
+    title: 'Soglie di completamento',
+    emoji: '🏆',
+    fields: [
+      { key: 'objectiveCompletionPct', label: '% KR per completare Objective', icon: Trophy, min: 50, max: 100, description: 'Un Objective è completato quando questa % dei KR è raggiunta (70% consigliato)' },
+      { key: 'focusCompletionPct', label: '% Objective per completare Focus', icon: Trophy, min: 50, max: 100, description: 'Un Focus è completato quando questa % degli Objective è completata (70% consigliato)' },
     ],
   },
 ];

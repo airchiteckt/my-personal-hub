@@ -16,6 +16,8 @@ import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS, FOCUS_STATUS_LABELS, KR_STATUS_LABELS, METRIC_TYPE_LABELS } from '@/types/prp';
 import type { FocusPeriod, Objective, KeyResult, Project, Task } from '@/types/prp';
 import { formatMinutes } from '@/lib/calendar-utils';
+import { calculateFocusProgress } from '@/lib/focus-progress';
+import { getThresholds } from '@/components/admin/PlanningThresholds';
 import { getDisplayPriority, getPriorityEmoji, getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 import { CreateFocusPeriodDialog } from '@/components/enterprise/CreateFocusPeriodDialog';
 import { CreateObjectiveDialog } from '@/components/enterprise/CreateObjectiveDialog';
@@ -76,6 +78,7 @@ const EnterpriseDetail = () => {
   const taskCompletionPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   // KR progress for active focus
+  const thresholds = getThresholds();
   const getObjectiveProgress = (objectiveId: string) => {
     const krs = getKeyResultsForObjective(objectiveId);
     if (krs.length === 0) return 0;
@@ -85,6 +88,17 @@ const EnterpriseDetail = () => {
     }, 0);
     return Math.round(total / krs.length);
   };
+
+  // Focus progress calculation
+  const focusProgress = activeFocus
+    ? calculateFocusProgress(
+        getObjectivesForFocus(activeFocus.id),
+        getKeyResultsForObjective,
+        thresholds.objectiveCompletionPct,
+        thresholds.focusCompletionPct,
+        activeFocus.status === 'active',
+      )
+    : null;
 
   return (
     <div className="max-w-4xl mx-auto pb-8">
@@ -155,27 +169,45 @@ const EnterpriseDetail = () => {
           {/* Active Focus summary */}
           {activeFocus ? (
             <Card className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Target className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
+                </div>
+                {focusProgress && (
+                  <Badge variant="outline" className="text-[10px]">
+                    {focusProgress.classificationEmoji} {focusProgress.progress}%
+                  </Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 {fnsFormat(parseISO(activeFocus.startDate), 'd MMM', { locale: it })} – {fnsFormat(parseISO(activeFocus.endDate), 'd MMM yyyy', { locale: it })}
                 {' · '}
                 {differenceInDays(parseISO(activeFocus.endDate), new Date())} giorni rimanenti
               </p>
-              {getObjectivesForFocus(activeFocus.id).map(obj => {
-                const progress = getObjectiveProgress(obj.id);
-                return (
-                  <div key={obj.id} className="mb-2">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span>{obj.title}</span>
-                      <span className="text-muted-foreground">{progress}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
+
+              {/* Focus overall progress bar */}
+              {focusProgress && focusProgress.objectives.length > 0 && (
+                <div className="mb-3">
+                  <div className="flex justify-between text-[10px] mb-1">
+                    <span className="text-muted-foreground">Progresso Focus</span>
+                    <span className="font-medium">{focusProgress.classificationEmoji} {focusProgress.classificationLabel}</span>
                   </div>
-                );
-              })}
+                  <Progress value={focusProgress.progress} className="h-2.5" />
+                </div>
+              )}
+
+              {focusProgress?.objectives.map(obj => (
+                <div key={obj.id} className="mb-2">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="flex items-center gap-1">
+                      {obj.completed ? '✅' : '🎯'} {obj.title}
+                    </span>
+                    <span className="text-muted-foreground">{obj.progress}%</span>
+                  </div>
+                  <Progress value={obj.progress} className="h-1.5" />
+                </div>
+              ))}
               {getObjectivesForFocus(activeFocus.id).length === 0 && (
                 <p className="text-xs text-muted-foreground">Nessun objective definito</p>
               )}

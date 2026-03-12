@@ -216,14 +216,15 @@ const EnterpriseDetail = () => {
                       <Progress value={focusProgress.progress} className="h-2.5" />
                     </div>
                   )}
-                </Card>
 
-                {/* === OBIETTIVI → KR → PROGETTI === */}
-                <Card className="p-4">
+                  {/* Separator */}
+                  <div className="border-t my-3" />
+
+                  {/* Obiettivi & KR header */}
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      🎯 Obiettivi & Key Results
-                    </h3>
+                    <h4 className="text-xs font-semibold flex items-center gap-1.5 text-muted-foreground uppercase tracking-wider">
+                      Obiettivi & Key Results
+                    </h4>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-[10px]">
                         {completedObjs}/{objectives.length} obj

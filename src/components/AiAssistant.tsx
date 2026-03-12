@@ -13,6 +13,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 type GlobalAction = { type: string; data: any; applied?: boolean; rejected?: boolean };
+
+/** Strip raw <tool_call> XML blocks that the model sometimes leaks into text */
+function stripToolCallTags(text: string): string {
+  return text.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').replace(/<\/?tool_call>/g, '').trim();
+}
 type RadarView = 'home' | 'chat' | 'voice';
 type CallState = 'idle' | 'connecting' | 'listening' | 'processing' | 'speaking';
 

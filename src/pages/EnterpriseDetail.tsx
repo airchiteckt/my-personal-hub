@@ -166,88 +166,131 @@ const EnterpriseDetail = () => {
             </Card>
           </div>
 
-          {/* Active Focus — full strategic hierarchy */}
+          {/* Active Focus header */}
           {activeFocus ? (() => {
             const objectives = getObjectivesForFocus(activeFocus.id);
             const daysRemaining = differenceInDays(parseISO(activeFocus.endDate), new Date());
             const totalDays = differenceInDays(parseISO(activeFocus.endDate), parseISO(activeFocus.startDate));
             const timePct = Math.max(0, Math.min(100, Math.round(((totalDays - daysRemaining) / totalDays) * 100)));
 
+            // Collect all KRs and projects for counters
+            const allKRs = objectives.flatMap(o => getKeyResultsForObjective(o.id));
+            const completedKRs = allKRs.filter(kr => kr.status === 'completed').length;
+            const allLinkedProjects = allKRs.flatMap(kr => getProjectsForKeyResult(kr.id));
+            const completedObjs = focusProgress?.objectives.filter(o => o.completed).length ?? 0;
+
             return (
-              <Card className="p-4 ring-1 ring-primary/20">
-                {/* Focus header */}
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary" />
-                    <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
-                  </div>
-                  {focusProgress && (
-                    <Badge variant="outline" className="text-[10px]">
-                      {focusProgress.classificationEmoji} {focusProgress.progress}%
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">
-                  {fnsFormat(parseISO(activeFocus.startDate), 'd MMM', { locale: it })} – {fnsFormat(parseISO(activeFocus.endDate), 'd MMM yyyy', { locale: it })}
-                  {' · '}{daysRemaining} giorni rimanenti
-                </p>
-
-                {/* Time progress */}
-                <div className="mb-3">
-                  <div className="flex justify-between text-[10px] mb-1">
-                    <span className="text-muted-foreground">⏱️ Progresso temporale</span>
-                    <span className="text-muted-foreground">{timePct}%</span>
-                  </div>
-                  <Progress value={timePct} className="h-1.5" />
-                </div>
-
-                {/* OKR progress */}
-                {focusProgress && focusProgress.objectives.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-muted-foreground">🎯 Progresso OKR</span>
-                      <span className="font-medium">{focusProgress.classificationEmoji} {focusProgress.classificationLabel}</span>
+              <>
+                {/* Focus Card */}
+                <Card className="p-4 ring-1 ring-primary/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-primary" />
+                      <h3 className="font-semibold text-sm">Focus Attivo: {activeFocus.name}</h3>
                     </div>
-                    <Progress value={focusProgress.progress} className="h-2.5" />
+                    {focusProgress && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {focusProgress.classificationEmoji} {focusProgress.progress}%
+                      </Badge>
+                    )}
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {fnsFormat(parseISO(activeFocus.startDate), 'd MMM', { locale: it })} – {fnsFormat(parseISO(activeFocus.endDate), 'd MMM yyyy', { locale: it })}
+                    {' · '}{daysRemaining} giorni rimanenti
+                  </p>
 
-                {/* Objectives → KR → Projects */}
-                {objectives.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2">Nessun Objective definito per questo Focus.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {objectives.map(obj => {
-                      const krs = getKeyResultsForObjective(obj.id);
-                      const objProg = focusProgress?.objectives.find(o => o.id === obj.id);
-                      return (
-                        <div key={obj.id} className="rounded-lg border border-border p-3">
-                          {/* Objective */}
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-xs font-semibold flex items-center gap-1.5">
-                              {objProg?.completed ? '✅' : '🎯'} {obj.title}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-medium">{objProg?.progress ?? 0}%</span>
+                  <div className="mb-3">
+                    <div className="flex justify-between text-[10px] mb-1">
+                      <span className="text-muted-foreground">⏱️ Progresso temporale</span>
+                      <span className="text-muted-foreground">{timePct}%</span>
+                    </div>
+                    <Progress value={timePct} className="h-1.5" />
+                  </div>
+
+                  {focusProgress && focusProgress.objectives.length > 0 && (
+                    <div>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="text-muted-foreground">🎯 Progresso OKR</span>
+                        <span className="font-medium">{focusProgress.classificationEmoji} {focusProgress.classificationLabel}</span>
+                      </div>
+                      <Progress value={focusProgress.progress} className="h-2.5" />
+                    </div>
+                  )}
+                </Card>
+
+                {/* === SEZIONE OBIETTIVI === */}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      🎯 Obiettivi
+                    </h3>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {completedObjs}/{objectives.length} completati
+                    </Badge>
+                  </div>
+                  {objectives.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">Nessun Objective definito per questo Focus.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {objectives.map(obj => {
+                        const objProg = focusProgress?.objectives.find(o => o.id === obj.id);
+                        const objKRs = getKeyResultsForObjective(obj.id);
+                        return (
+                          <div key={obj.id} className="flex items-center gap-3 rounded-lg border p-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-xs">{objProg?.completed ? '✅' : '🎯'}</span>
+                                <span className="text-xs font-medium truncate">{obj.title}</span>
+                              </div>
+                              <Progress value={objProg?.progress ?? 0} className="h-1.5" />
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold">{objProg?.progress ?? 0}%</p>
+                              <p className="text-[10px] text-muted-foreground">{objKRs.length} KR</p>
+                            </div>
                           </div>
-                          <Progress value={objProg?.progress ?? 0} className="h-1.5 mb-2" />
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
 
-                          {/* Key Results */}
-                          {krs.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground ml-4">Nessun KR definito</p>
-                          ) : (
-                            <div className="space-y-2 ml-2">
+                {/* === SEZIONE KEY RESULTS === */}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-primary" /> Key Results
+                    </h3>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {completedKRs}/{allKRs.length} completati
+                    </Badge>
+                  </div>
+                  {allKRs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">Nessun Key Result definito.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {objectives.map(obj => {
+                        const krs = getKeyResultsForObjective(obj.id);
+                        if (krs.length === 0) return null;
+                        return (
+                          <div key={obj.id}>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                              {obj.title}
+                            </p>
+                            <div className="space-y-1.5 ml-1">
                               {krs.map(kr => {
                                 const krPct = kr.metricType === 'boolean'
                                   ? (kr.currentValue >= 1 ? 100 : 0)
                                   : Math.min(100, Math.round((kr.currentValue / kr.targetValue) * 100));
                                 const linkedProjects = getProjectsForKeyResult(kr.id);
+                                const isAtRisk = kr.status === 'at_risk' || (kr.deadline && differenceInDays(parseISO(kr.deadline), new Date()) < 7 && kr.status !== 'completed');
                                 return (
-                                  <div key={kr.id} className="rounded-lg bg-muted/40 p-2">
+                                  <div key={kr.id} className={`rounded-lg p-2.5 border ${isAtRisk ? 'border-destructive/40 bg-destructive/5' : 'bg-muted/40'}`}>
                                     <div className="flex items-center justify-between mb-1">
-                                      <span className="text-[11px] font-medium flex items-center gap-1">
-                                        <BarChart3 className="h-3 w-3 text-primary/70" /> {kr.title}
+                                      <span className="text-[11px] font-medium flex items-center gap-1 flex-1 min-w-0 truncate">
+                                        <BarChart3 className="h-3 w-3 text-primary/70 shrink-0" /> {kr.title}
                                       </span>
-                                      <div className="flex items-center gap-1.5">
+                                      <div className="flex items-center gap-1.5 shrink-0">
                                         <Badge variant="outline" className="text-[9px] h-4">{KR_STATUS_LABELS[kr.status]}</Badge>
                                         <span className="text-[10px] text-muted-foreground font-medium">
                                           {kr.metricType === 'boolean' ? (kr.currentValue >= 1 ? '✅' : '⬜') :
@@ -256,42 +299,98 @@ const EnterpriseDetail = () => {
                                         </span>
                                       </div>
                                     </div>
-                                    <Progress value={krPct} className="h-1 mb-1" />
-
-                                    {/* Linked Strategic Projects */}
+                                    <Progress value={krPct} className="h-1" />
+                                    {kr.deadline && (
+                                      <p className="text-[9px] text-muted-foreground mt-1">
+                                        Scadenza: {fnsFormat(parseISO(kr.deadline), 'd MMM yyyy', { locale: it })}
+                                      </p>
+                                    )}
                                     {linkedProjects.length > 0 && (
-                                      <div className="flex items-center gap-1 flex-wrap mt-1">
+                                      <div className="flex items-center gap-1 flex-wrap mt-1.5">
                                         <Layers className="h-2.5 w-2.5 text-muted-foreground shrink-0" />
-                                        {linkedProjects.map(p => {
-                                          const pTasks = getTasksForProject(p.id);
-                                          const pDone = pTasks.filter(t => t.status === 'done').length;
-                                          return (
-                                            <Badge
-                                              key={p.id}
-                                              variant="outline"
-                                              className="text-[9px] cursor-pointer hover:bg-primary/10 transition-colors gap-0.5"
-                                              onClick={() => setEditingProject(p)}
-                                            >
-                                              {p.name}
-                                              {pTasks.length > 0 && (
-                                                <span className="text-muted-foreground ml-0.5">({pDone}/{pTasks.length})</span>
-                                              )}
-                                            </Badge>
-                                          );
-                                        })}
+                                        {linkedProjects.map(p => (
+                                          <Badge key={p.id} variant="outline" className="text-[9px] cursor-pointer hover:bg-primary/10 transition-colors" onClick={() => setEditingProject(p)}>
+                                            {p.name}
+                                          </Badge>
+                                        ))}
                                       </div>
                                     )}
                                   </div>
                                 );
                               })}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
+
+                {/* === SEZIONE PROGETTI === */}
+                <Card className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <Layers className="h-4 w-4" /> Progetti
+                    </h3>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {enterpriseProjects.length} totali
+                    </Badge>
                   </div>
-                )}
-              </Card>
+                  {enterpriseProjects.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">Nessun progetto creato.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(['strategic', 'operational', 'maintenance'] as const).map(type => {
+                        const projs = enterpriseProjects.filter(p => p.type === type);
+                        if (projs.length === 0) return null;
+                        const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
+                        return (
+                          <div key={type}>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                              {labels[type]} ({projs.length})
+                            </p>
+                            <div className="space-y-1.5 ml-1">
+                              {projs.map(p => {
+                                const pTasks = getTasksForProject(p.id);
+                                const pDone = pTasks.filter(t => t.status === 'done').length;
+                                const pScheduled = pTasks.filter(t => t.status === 'scheduled').length;
+                                const pPct = pTasks.length > 0 ? Math.round((pDone / pTasks.length) * 100) : 0;
+                                // Check if linked to a KR
+                                const linkedKR = p.keyResultId ? allKRs.find(kr => kr.id === p.keyResultId) : null;
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className="rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                                    onClick={() => setEditingProject(p)}
+                                  >
+                                    <div className="flex items-center justify-between mb-1">
+                                      <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {linkedKR && (
+                                          <Badge variant="outline" className="text-[9px] h-4 gap-0.5">
+                                            <BarChart3 className="h-2.5 w-2.5" /> {linkedKR.title.slice(0, 20)}…
+                                          </Badge>
+                                        )}
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {pDone}/{pTasks.length} task
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {pTasks.length > 0 && <Progress value={pPct} className="h-1" />}
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-[9px] text-muted-foreground">{pScheduled} pianificate · {pDone} completate</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </Card>
+              </>
             );
           })() : (
             <Card className="p-4 border-dashed text-center">
@@ -301,52 +400,6 @@ const EnterpriseDetail = () => {
               </Button>
             </Card>
           )}
-
-          {/* Project allocation breakdown */}
-          {enterpriseProjects.length > 0 && (
-            <Card className="p-4">
-              <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                <Layers className="h-4 w-4" /> Allocazione Progetti
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {(['strategic', 'operational', 'maintenance'] as const).map(type => {
-                  const count = enterpriseProjects.filter(p => p.type === type).length;
-                  const pct = Math.round((count / enterpriseProjects.length) * 100);
-                  const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
-                  return (
-                    <div key={type} className="text-center">
-                      <p className="text-lg font-bold">{count}</p>
-                      <p className="text-[10px] text-muted-foreground">{labels[type]}</p>
-                      <p className="text-[10px] text-muted-foreground">{pct}%</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          )}
-
-          {/* KR critici */}
-          {(() => {
-            const allKRs = focusPeriods.flatMap(fp =>
-              getObjectivesForFocus(fp.id).flatMap(o => getKeyResultsForObjective(o.id))
-            );
-            const atRisk = allKRs.filter(kr => kr.status === 'at_risk' || (kr.deadline && differenceInDays(parseISO(kr.deadline), new Date()) < 7 && kr.status !== 'completed'));
-            if (atRisk.length === 0) return null;
-            return (
-              <Card className="p-4 border-destructive/30">
-                <h3 className="font-semibold text-sm text-destructive mb-2">⚠️ KR Critici</h3>
-                {atRisk.map(kr => (
-                  <div key={kr.id} className="flex justify-between text-xs py-1">
-                    <span>{kr.title}</span>
-                    <span className="text-muted-foreground">
-                      {kr.currentValue}/{kr.targetValue} {kr.metricType === 'percentage' ? '%' : ''}
-                    </span>
-                  </div>
-                ))}
-              </Card>
-            );
-          })()}
-
         </TabsContent>
 
         {/* ===== FOCUS PERIOD ===== */}

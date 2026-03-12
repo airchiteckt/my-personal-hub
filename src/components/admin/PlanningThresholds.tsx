@@ -104,6 +104,14 @@ const sections: { title: string; emoji: string; fields: FieldConfig[] }[] = [
       { key: 'warnTasksPerFocus', label: 'Avviso: task attive per focus', icon: ListTodo, min: 10, max: 100, description: 'Oltre questo numero → "Focus troppo ampio"' },
     ],
   },
+  {
+    title: 'Soglie di completamento',
+    emoji: '🏆',
+    fields: [
+      { key: 'objectiveCompletionPct', label: '% KR per completare Objective', icon: Trophy, min: 50, max: 100, description: 'Un Objective è completato quando questa % dei KR è raggiunta (70% consigliato)' },
+      { key: 'focusCompletionPct', label: '% Objective per completare Focus', icon: Trophy, min: 50, max: 100, description: 'Un Focus è completato quando questa % degli Objective è completata (70% consigliato)' },
+    ],
+  },
 ];
 
 export function PlanningThresholds() {

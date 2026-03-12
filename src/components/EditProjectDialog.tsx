@@ -76,11 +76,11 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg flex flex-col max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>Modifica Progetto</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-2 overflow-y-auto flex-1 min-h-0 pr-1">
           <div className="space-y-2">
             <Label>Nome progetto</Label>
             <Input value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSave()} />
@@ -170,15 +170,15 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
               </div>
             )}
           </div>
+        </div>
 
-          <div className="flex gap-2">
-            <Button onClick={handleSave} className="flex-1" disabled={!name.trim() || !isValid}>
-              Salva
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              Elimina
-            </Button>
-          </div>
+        <div className="flex gap-2 pt-3 border-t border-border shrink-0">
+          <Button onClick={handleSave} className="flex-1" disabled={!name.trim() || !isValid}>
+            Salva
+          </Button>
+          <Button variant="destructive" onClick={handleDelete}>
+            Elimina
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

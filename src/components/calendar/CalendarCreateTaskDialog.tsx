@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect } from 'react';
+import { useAiInline } from '@/hooks/use-ai-inline';
+import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -16,8 +19,16 @@ interface Props {
   defaultEndTime?: string;
 }
 
+interface EffortEstimate {
+  estimated_minutes: number;
+  priority: TaskPriority;
+  impact: number;
+  effort: number;
+  reason: string;
+}
+
 export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defaultTime, defaultEndTime }: Props) {
-  const { enterprises, projects, addTask } = usePrp();
+  const { enterprises, projects, addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [enterpriseId, setEnterpriseId] = useState('');
@@ -26,9 +37,60 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
   const [estimatedMinutes, setEstimatedMinutes] = useState(30);
   const [schedDate, setSchedDate] = useState(defaultDate || '');
   const [schedTime, setSchedTime] = useState(defaultTime || '');
+  const [aiApplied, setAiApplied] = useState(false);
 
   const activeEnterprises = enterprises.filter(e => e.status !== 'paused');
   const availableProjects = projects.filter(p => p.enterpriseId === enterpriseId);
+
+  const enterprise = getEnterprise(enterpriseId);
+  const project = getProject(projectId);
+  const existingTasks = projectId ? getTasksForProject(projectId) : [];
+
+  // Effort estimation AI
+  const { data: effortData, loading: effortLoading, debouncedFetch: fetchEffort, clear: clearEffort } = useAiInline<EffortEstimate>({
+    type: 'effort_inline',
+    debounceMs: 1000,
+  });
+
+  // Task quality validation AI
+  const { data: taskValidation, loading: taskValidating, debouncedFetch: fetchTaskValidation, clear: clearTaskValidation } = useAiInline<any>({
+    type: 'validate_task',
+    debounceMs: 1200,
+  });
+
+  // Trigger AI when title changes
+  useEffect(() => {
+    if (title.trim().length >= 5 && enterprise && project) {
+      setAiApplied(false);
+      fetchEffort(
+        {
+          enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory, phase: enterprise.phase },
+          project: { name: project.name, type: project.type },
+          existingTasks: existingTasks.filter(t => t.status !== 'done').map(t => t.title).slice(0, 10),
+        },
+        `Stima effort per la task: "${title.trim()}"`
+      );
+      fetchTaskValidation(
+        {
+          enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory },
+          project: { name: project.name, type: project.type },
+        },
+        `Valida questa task del progetto "${project.name}": "${title.trim()}"`
+      );
+    } else {
+      clearEffort();
+      clearTaskValidation();
+    }
+  }, [title, enterpriseId, projectId]);
+
+  // Auto-apply AI effort suggestion
+  useEffect(() => {
+    if (effortData && !aiApplied) {
+      setEstimatedMinutes(effortData.estimated_minutes);
+      setPriority(effortData.priority);
+      setAiApplied(true);
+    }
+  }, [effortData, aiApplied]);
 
   // Sync defaults when dialog opens
   useEffect(() => {
@@ -44,6 +106,9 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
       } else {
         setEstimatedMinutes(30);
       }
+      setAiApplied(false);
+      clearEffort();
+      clearTaskValidation();
     }
   }, [open, defaultDate, defaultTime, defaultEndTime]);
 
@@ -84,11 +149,11 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md flex flex-col max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>Nuova Task</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-2 overflow-y-auto flex-1 min-h-0 pr-1">
           <div className="space-y-2">
             <Label>Titolo</Label>
             <Input
@@ -99,6 +164,28 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
               autoFocus
             />
           </div>
+
+          {/* AI Validation Feedback */}
+          <OkrValidationFeedback
+            data={taskValidation}
+            loading={taskValidating}
+            type="task"
+            onApplySuggestion={(improved) => setTitle(improved)}
+          />
+
+          {/* AI Effort Estimate */}
+          {effortLoading && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Stima AI in corso...
+            </div>
+          )}
+          {effortData && !effortLoading && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Sparkles className="h-3 w-3 text-primary" />
+              AI: {effortData.estimated_minutes}min, {effortData.priority} priority, impatto {effortData.impact}/sforzo {effortData.effort}
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
@@ -163,7 +250,9 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
               </Select>
             </div>
           </div>
+        </div>
 
+        <div className="pt-3 border-t border-border shrink-0">
           <Button onClick={handleCreateAndSchedule} className="w-full" disabled={!title.trim() || !enterpriseId || !projectId}>
             Crea e Pianifica
           </Button>

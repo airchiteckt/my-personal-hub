@@ -238,9 +238,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const planningThresholds = useMemo(() => {
     try {
       const stored = localStorage.getItem('planning_thresholds');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const defaults = { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
+        return { ...defaults, ...JSON.parse(stored) };
+      }
     } catch {}
-    return { minProjectsPerKR: 1, minTasksPerProject: 1 };
+    return { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
   }, []);
 
   // The active conversation's focusPeriodId (scoped to session)
@@ -254,16 +257,19 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const sessionFocus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
     const hasFocus = !!sessionFocus;
     const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
-    const hasObjectives = objectives.length > 0;
+    const hasEnoughObjectives = objectives.length >= (planningThresholds.minObjectivesPerFocus || 1);
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-    const hasKRs = keyResults.length > 0;
+    const hasEnoughKRs = objectives.length > 0 && objectives.every(o => {
+      const krs = getKeyResultsForObjective(o.id);
+      return krs.length >= (planningThresholds.minKRsPerObjective || 2);
+    });
 
     // Only count STRATEGIC projects linked to KRs from this session's focus
     const allProjects = getProjectsForEnterprise(enterprise.id);
     const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
 
     const { minProjectsPerKR, minTasksPerProject } = planningThresholds;
-    const allKRsCovered = hasKRs && keyResults.every(kr =>
+    const allKRsCovered = hasEnoughKRs && keyResults.every(kr =>
       strategicProjects.filter(p => p.keyResultId === kr.id).length >= minProjectsPerKR
     );
 
@@ -277,8 +283,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     let current: WizardPhase = 'focus';
 
     if (hasFocus) { completed.push('focus'); current = 'objectives'; }
-    if (hasObjectives) { completed.push('objectives'); current = 'key_results'; }
-    if (hasKRs) { completed.push('key_results'); current = 'projects'; }
+    if (hasEnoughObjectives) { completed.push('objectives'); current = 'key_results'; }
+    if (hasEnoughKRs) { completed.push('key_results'); current = 'projects'; }
     if (allKRsCovered) { completed.push('projects'); current = 'tasks'; }
     if (allProjectsCovered) { completed.push('tasks'); }
 
@@ -730,6 +736,20 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       futureFocusPeriods: allFocusPeriods.filter(f => f.status === 'future').map(f => ({ name: f.name, startDate: f.startDate, endDate: f.endDate })),
       currentWizardPhase: currentPhase,
       completedWizardPhases: completedPhases,
+      planningLimits: {
+        maxFocusPerEnterprise: planningThresholds.maxFocusPerEnterprise,
+        minObjectivesPerFocus: planningThresholds.minObjectivesPerFocus,
+        maxObjectivesPerFocus: planningThresholds.maxObjectivesPerFocus,
+        minKRsPerObjective: planningThresholds.minKRsPerObjective,
+        maxKRsPerObjective: planningThresholds.maxKRsPerObjective,
+        minProjectsPerKR: planningThresholds.minProjectsPerKR,
+        maxProjectsPerKR: planningThresholds.maxProjectsPerKR,
+        minTasksPerProject: planningThresholds.minTasksPerProject,
+        maxTasksPerProject: planningThresholds.maxTasksPerProject,
+        maxTasksPerDay: planningThresholds.maxTasksPerDay,
+        warnProjectsPerFocus: planningThresholds.warnProjectsPerFocus,
+        warnTasksPerFocus: planningThresholds.warnTasksPerFocus,
+      },
     };
   };
 

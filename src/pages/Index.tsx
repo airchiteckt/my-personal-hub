@@ -88,6 +88,7 @@ const Index = () => {
 
   // Drag & drop
   const [isDraggingItem, setIsDraggingItem] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(false);
 
   // Visible time window
   const { visibleStart, visibleEnd } = useMemo(() => {

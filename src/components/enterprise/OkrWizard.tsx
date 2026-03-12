@@ -257,16 +257,19 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const sessionFocus = sessionFocusId ? allFocusPeriods.find(f => f.id === sessionFocusId) : null;
     const hasFocus = !!sessionFocus;
     const objectives = sessionFocus ? getObjectivesForFocus(sessionFocus.id) : [];
-    const hasObjectives = objectives.length > 0;
+    const hasEnoughObjectives = objectives.length >= (planningThresholds.minObjectivesPerFocus || 1);
     const keyResults = objectives.flatMap(o => getKeyResultsForObjective(o.id));
-    const hasKRs = keyResults.length > 0;
+    const hasEnoughKRs = objectives.length > 0 && objectives.every(o => {
+      const krs = getKeyResultsForObjective(o.id);
+      return krs.length >= (planningThresholds.minKRsPerObjective || 2);
+    });
 
     // Only count STRATEGIC projects linked to KRs from this session's focus
     const allProjects = getProjectsForEnterprise(enterprise.id);
     const strategicProjects = allProjects.filter(p => p.type === 'strategic' && p.keyResultId && keyResults.some(kr => kr.id === p.keyResultId));
 
     const { minProjectsPerKR, minTasksPerProject } = planningThresholds;
-    const allKRsCovered = hasKRs && keyResults.every(kr =>
+    const allKRsCovered = hasEnoughKRs && keyResults.every(kr =>
       strategicProjects.filter(p => p.keyResultId === kr.id).length >= minProjectsPerKR
     );
 
@@ -280,8 +283,8 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     let current: WizardPhase = 'focus';
 
     if (hasFocus) { completed.push('focus'); current = 'objectives'; }
-    if (hasObjectives) { completed.push('objectives'); current = 'key_results'; }
-    if (hasKRs) { completed.push('key_results'); current = 'projects'; }
+    if (hasEnoughObjectives) { completed.push('objectives'); current = 'key_results'; }
+    if (hasEnoughKRs) { completed.push('key_results'); current = 'projects'; }
     if (allKRsCovered) { completed.push('projects'); current = 'tasks'; }
     if (allProjectsCovered) { completed.push('tasks'); }
 

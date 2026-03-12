@@ -1403,7 +1403,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
                 <div className={`max-w-[80%] md:max-w-[75%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted/70 text-foreground rounded-bl-md'}`}>
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown>{msg.content.replace(/<tool_call>[\s\S]*?<\/tool_call>/g, '').replace(/<\/?tool_call>/g, '').trim()}</ReactMarkdown>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>

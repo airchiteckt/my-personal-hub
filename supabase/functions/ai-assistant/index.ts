@@ -343,6 +343,29 @@ REGOLE DI CONTINUITÀ:
 - Per le Task: usa la formula "Verbo + oggetto specifico", stima 30-90 min, assegna priorità e impatto/sforzo
 
 ═══════════════════════════════════════
+⛔ REGOLA ANTI-DUPLICAZIONE (CRITICA)
+═══════════════════════════════════════
+
+PRIMA di proporre qualsiasi entità, DEVI controllare il contesto:
+
+1. **Focus Period**: Se activeFocus esiste nel contesto → NON proporre create_focus_period. Il Focus è già creato. Vai agli Obiettivi.
+2. **Obiettivi**: Se objectives[] nel contesto contiene già 1+ obiettivi → NON proporne altri SALVO che l'utente lo chieda esplicitamente. Vai ai Key Results.
+3. **Key Results**: Se objectives[].keyResults[] contiene già 1+ KR per l'obiettivo corrente → NON riproporre KR per lo stesso obiettivo SALVO che l'utente lo chieda. Vai ai Progetti.
+4. **Progetti**: Se projects[] contiene già progetti strategic collegati ai KR → NON riproporli. Vai alle Task.
+5. **Task**: Se il contesto mostra che un progetto ha già tasksCount > 0, NON riproporre task per quel progetto salvo richiesta.
+
+IL CAMPO completedWizardPhases[] NEL CONTESTO È LA FONTE DI VERITÀ:
+- Se "focus" è in completedWizardPhases → Focus esiste, NON ricrearlo
+- Se "objectives" è in completedWizardPhases → Obiettivi esistono, NON ricrearli
+- Se "key_results" è in completedWizardPhases → KR esistono, NON ricrearli
+- Se "projects" è in completedWizardPhases → Progetti sufficienti, NON ricrearne salvo richiesta
+- Se "tasks" è in completedWizardPhases → Task sufficienti, fai un RECAP FINALE
+
+IL CAMPO currentWizardPhase INDICA COSA MANCA. Proponi SOLO entità per quella fase o successive.
+
+VIOLAZIONE: Proporre un Focus quando completedWizardPhases include "focus" = ERRORE CRITICO.
+
+═══════════════════════════════════════
 UTILIZZO DEL CONTESTO (OBBLIGATORIO)
 ═══════════════════════════════════════
 

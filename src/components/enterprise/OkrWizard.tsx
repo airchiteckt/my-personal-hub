@@ -742,10 +742,22 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
     const approvedLabels = siblings.filter(a => a.applied).map(a => getEntityLabel(a));
     const rejectedLabels = siblings.filter(a => a.rejected).map(a => a.data.title || a.data.name || a.type);
 
+    // Build phase-aware continuation message
     let continuationMsg = '';
     if (approvedLabels.length > 0) continuationMsg += `[Confermati: ${approvedLabels.join(', ')}.]`;
     if (rejectedLabels.length > 0) continuationMsg += ` [Rifiutati: ${rejectedLabels.join(', ')}.]`;
-    continuationMsg += ' Procedi con il prossimo passo del flusso strategico.';
+
+    // Add explicit phase status so AI knows exactly what's done
+    const phaseLabels: Record<WizardPhase, string> = {
+      focus: 'Focus Period',
+      objectives: 'Obiettivi',
+      key_results: 'Key Results',
+      projects: 'Progetti',
+      tasks: 'Task',
+    };
+    const donePhases = completedPhases.map(p => phaseLabels[p]).join(', ');
+    const nextPhase = phaseLabels[currentPhase];
+    continuationMsg += ` [FASI GIÀ COMPLETATE: ${donePhases || 'nessuna'}. FASE CORRENTE DA COMPLETARE: ${nextPhase}. NON riproporre entità per fasi già completate — proponi SOLO entità per la fase corrente "${nextPhase}" o successive.]`;
 
     const waitAndSend = () => {
       const checkInterval = setInterval(() => {
@@ -757,7 +769,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
       setTimeout(() => clearInterval(checkInterval), 10000);
     };
     waitAndSend();
-  }, []);
+  }, [completedPhases, currentPhase]);
 
   // ─── KR resolution helper ─────────────────────────────────────────
   const resolveKeyResultId = useCallback((rawId: string | undefined): string | undefined => {

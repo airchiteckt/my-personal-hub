@@ -3,7 +3,7 @@ import { format, addDays, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen } from 'lucide-react';
+import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen, Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -30,6 +30,7 @@ import { MoonDetailDialog } from '@/components/calendar/MoonDetailDialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Task, Appointment, Reminder } from '@/types/prp';
+import { TodayBacklog } from '@/components/today/TodayBacklog';
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -87,6 +88,7 @@ const Index = () => {
 
   // Drag & drop
   const [isDraggingItem, setIsDraggingItem] = useState(false);
+  const [backlogOpen, setBacklogOpen] = useState(false);
 
   // Visible time window
   const { visibleStart, visibleEnd } = useMemo(() => {
@@ -312,6 +314,10 @@ const Index = () => {
                 <TooltipContent>Journal di oggi</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <Button variant="outline" size="sm" onClick={() => setBacklogOpen(true)} className="flex items-center gap-1.5">
+              <Inbox className="h-3.5 w-3.5" />
+              <span className="hidden md:inline text-xs">Backlog</span>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/calendar" className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />
@@ -871,6 +877,12 @@ const Index = () => {
           date={today}
         />
       )}
+      <TodayBacklog
+        open={backlogOpen}
+        onOpenChange={setBacklogOpen}
+        onDragStart={handleDragStart}
+        onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
+      />
     </div>
   );
 };

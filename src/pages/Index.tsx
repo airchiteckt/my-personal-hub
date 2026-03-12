@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, ExternalLink } from 'lucide-react';
+import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
-  TOTAL_SLOTS, MOBILE_SLOT_HEIGHT, DESKTOP_SLOT_HEIGHT,
+  MOBILE_SLOT_HEIGHT, DESKTOP_SLOT_HEIGHT, SLOT_MINUTES, START_HOUR,
   slotToTime, timeToSlot, getTaskPosition, formatMinutes,
   computeOverlapLayout, TaskTimeInfo,
 } from '@/lib/calendar-utils';
@@ -17,6 +17,9 @@ import { getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@/lib/ritual-utils';
 import { getMoonPhase } from '@/lib/moon-utils';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
+import { CalendarCreateChoice } from '@/components/calendar/CalendarCreateChoice';
+import { CalendarCreateTaskDialog } from '@/components/calendar/CalendarCreateTaskDialog';
+import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import type { Task } from '@/types/prp';
 
@@ -33,32 +36,84 @@ const Index = () => {
     getRitualsForDate, isRitualCompleted, completeRitualOnDate, skipRitualOnDate,
   } = usePrp();
 
-  const todayTasks = useMemo(() =>
+  // Split tasks: scheduled with time vs without time
+  const allTodayTasks = useMemo(() =>
     tasks.filter(t => t.scheduledDate === todayStr && (t.status === 'scheduled' || t.status === 'done')),
     [tasks, todayStr]
   );
+  const scheduledTasks = useMemo(() => allTodayTasks.filter(t => t.scheduledTime), [allTodayTasks]);
+  const unscheduledTasks = useMemo(() => allTodayTasks.filter(t => !t.scheduledTime), [allTodayTasks]);
+
   const dayAppts = getAppointmentsForDate(todayStr);
   const dayReminders = getRemindersForDate(todayStr);
   const dayRituals = getRitualsForDate(today).filter(r => r.planning_mode === 'fixed');
 
-  const pendingTasks = todayTasks.filter(t => t.status !== 'done');
-  const doneTasks = todayTasks.filter(t => t.status === 'done');
+  const pendingTasks = allTodayTasks.filter(t => t.status !== 'done');
+  const doneTasks = allTodayTasks.filter(t => t.status === 'done');
   const totalMinutes = pendingTasks.reduce((sum, t) => sum + t.estimatedMinutes, 0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
 
+  // Slot creation state
+  const [choiceSlot, setChoiceSlot] = useState<number | null>(null);
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [createTime, setCreateTime] = useState<string>('09:00');
+
+  // Compute visible time window: 1h margin around all items, clamped
+  const { visibleStart, visibleEnd } = useMemo(() => {
+    const allSlots: number[] = [];
+
+    // Current time
+    const nowS = timeToSlot(format(new Date(), 'HH:mm'));
+    allSlots.push(nowS);
+
+    scheduledTasks.forEach(t => {
+      const ss = timeToSlot(t.scheduledTime!);
+      allSlots.push(ss, ss + Math.ceil(t.estimatedMinutes / 30));
+    });
+    dayAppts.forEach(a => {
+      allSlots.push(timeToSlot(a.startTime), timeToSlot(a.endTime));
+    });
+    dayRituals.forEach(r => {
+      const ss = timeToSlot(r.suggested_time || '07:00');
+      allSlots.push(ss, ss + Math.ceil(r.estimated_minutes / 30));
+    });
+    dayReminders.forEach(r => {
+      allSlots.push(timeToSlot(r.reminderTime || '09:00'));
+    });
+
+    if (allSlots.length === 0) {
+      // Default: 7am to 8pm
+      return { visibleStart: timeToSlot('07:00'), visibleEnd: timeToSlot('20:00') };
+    }
+
+    const margin = 2; // 1 hour = 2 slots
+    const minSlot = Math.max(0, Math.min(...allSlots) - margin);
+    // Round down to even (hour boundary)
+    const start = minSlot - (minSlot % 2);
+    const maxSlot = Math.min(42, Math.max(...allSlots) + margin); // 42 = TOTAL_SLOTS max
+    const end = Math.min(42, maxSlot + (maxSlot % 2 === 0 ? 0 : 1));
+
+    return { visibleStart: start, visibleEnd: Math.max(end, start + 8) };
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders]);
+
+  const visibleSlots = visibleEnd - visibleStart;
+
   // Auto-scroll to current time
   useEffect(() => {
     if (!scrollRef.current) return;
-    const nowSlot = Math.max(0, timeToSlot(format(new Date(), 'HH:mm')) - 2);
-    scrollRef.current.scrollTop = nowSlot * SLOT_H;
-  }, [SLOT_H]);
+    const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
+    const relativeSlot = Math.max(0, nowSlot - visibleStart - 2);
+    scrollRef.current.scrollTop = relativeSlot * SLOT_H;
+  }, [SLOT_H, visibleStart]);
 
-  // Current time position
+  // Current time position (relative to visible window)
   const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
-  const nowTop = nowSlot * SLOT_H;
+  const nowRelative = nowSlot - visibleStart;
+  const nowTop = nowRelative * SLOT_H;
 
   const handleComplete = useCallback((task: Task) => {
     setCompletingIds(prev => new Set(prev).add(task.id));
@@ -73,15 +128,47 @@ const Index = () => {
     }, 600);
   }, [completeTask]);
 
-  const hasContent = todayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
+  const hasTimelineContent = scheduledTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
+  const hasContent = allTodayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
   const moon = getMoonPhase(today);
 
-  // Compute unified overlap layout
+  // Next upcoming event widget
+  const nextEvent = useMemo(() => {
+    const nowTime = format(new Date(), 'HH:mm');
+    const candidates: { title: string; time: string; type: string; color: string; icon: 'task' | 'appt' | 'ritual' | 'reminder' }[] = [];
+
+    scheduledTasks.filter(t => t.status !== 'done' && t.scheduledTime && t.scheduledTime > nowTime).forEach(t => {
+      const ent = getEnterprise(t.enterpriseId);
+      candidates.push({ title: t.title, time: t.scheduledTime!, type: 'Task', color: ent?.color || '0 0% 50%', icon: 'task' });
+    });
+    dayAppts.filter(a => a.startTime > nowTime).forEach(a => {
+      const ent = a.enterpriseId ? getEnterprise(a.enterpriseId) : null;
+      candidates.push({ title: a.title, time: a.startTime, type: 'Appuntamento', color: a.color || ent?.color || '270 60% 55%', icon: 'appt' });
+    });
+    dayRituals.filter(r => !isRitualCompleted(r.id, todayStr) && (r.suggested_time || '07:00') > nowTime).forEach(r => {
+      candidates.push({ title: r.name, time: r.suggested_time || '07:00', type: 'Rituale', color: getRitualCalendarColor(r.category), icon: 'ritual' });
+    });
+    dayReminders.filter(r => (r.reminderTime || '09:00') > nowTime).forEach(r => {
+      candidates.push({ title: r.title, time: r.reminderTime || '09:00', type: 'Promemoria', color: r.color || '45 90% 50%', icon: 'reminder' });
+    });
+
+    candidates.sort((a, b) => a.time.localeCompare(b.time));
+    if (candidates.length === 0) return null;
+
+    const next = candidates[0];
+    const [h, m] = next.time.split(':').map(Number);
+    const eventDate = new Date();
+    eventDate.setHours(h, m, 0, 0);
+    const minsUntil = differenceInMinutes(eventDate, new Date());
+
+    return { ...next, minutesUntil: Math.max(0, minsUntil) };
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, todayStr]);
+
+  // Overlap layout for timeline items only (scheduled tasks)
   const uLayout = useMemo(() => {
     const allTimeInfos: TaskTimeInfo[] = [];
-    todayTasks.forEach(t => {
-      const time = t.scheduledTime || '09:00';
-      const ss = timeToSlot(time);
+    scheduledTasks.forEach(t => {
+      const ss = timeToSlot(t.scheduledTime!);
       allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: ss + Math.ceil(t.estimatedMinutes / 30) });
     });
     dayAppts.forEach(appt => {
@@ -98,7 +185,7 @@ const Index = () => {
       allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
     });
     return computeOverlapLayout(allTimeInfos);
-  }, [todayTasks, dayAppts, dayRituals, dayReminders]);
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders]);
 
   const getItemStyle = (itemId: string) => {
     const l = uLayout.get(itemId);
@@ -107,6 +194,37 @@ const Index = () => {
     const wp = 100 / totalCols;
     return { left: `calc(${col * wp}% + 2px)`, width: `calc(${wp}% - 4px)` };
   };
+
+  // Check if a slot is occupied
+  const isSlotOccupied = (absSlot: number) => {
+    return scheduledTasks.some(t => {
+      const ss = timeToSlot(t.scheduledTime!);
+      const ee = ss + Math.ceil(t.estimatedMinutes / 30);
+      return absSlot >= ss && absSlot < ee;
+    }) || dayAppts.some(a => {
+      const ss = timeToSlot(a.startTime);
+      const ee = timeToSlot(a.endTime);
+      return absSlot >= ss && absSlot < ee;
+    });
+  };
+
+  const handleSlotClick = (absSlot: number) => {
+    setCreateTime(slotToTime(absSlot));
+    setChoiceSlot(absSlot);
+  };
+
+  const handleChooseAppt = () => {
+    setChoiceSlot(null);
+    setTimeout(() => setShowCreateAppt(true), 150);
+  };
+
+  const handleChooseTask = () => {
+    setChoiceSlot(null);
+    setTimeout(() => setShowCreateTask(true), 150);
+  };
+
+  // Position helper for relative timeline
+  const getRelativeTop = (absSlot: number) => (absSlot - visibleStart) * SLOT_H;
 
   return (
     <div className="flex flex-col h-full">
@@ -143,24 +261,47 @@ const Index = () => {
         </div>
 
         {/* Progress bar */}
-        {todayTasks.length > 0 && (
+        {allTodayTasks.length > 0 && (
           <div className="max-w-5xl mx-auto mt-2">
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <motion.div
                 className="h-full rounded-full bg-primary"
                 initial={{ width: 0 }}
-                animate={{ width: `${todayTasks.length > 0 ? (doneTasks.length / todayTasks.length) * 100 : 0}%` }}
+                animate={{ width: `${(doneTasks.length / allTodayTasks.length) * 100}%` }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
               />
             </div>
             <p className="text-[10px] text-muted-foreground mt-1">
-              {doneTasks.length}/{todayTasks.length} completate
+              {doneTasks.length}/{allTodayTasks.length} completate
             </p>
           </div>
         )}
       </div>
 
-      {/* Timeline or empty state */}
+      {/* Next event widget */}
+      {nextEvent && (
+        <div className="px-4 md:px-6 py-2 border-b bg-card/50 shrink-0">
+          <div className="max-w-5xl mx-auto flex items-center gap-3">
+            <div className="shrink-0 h-8 w-8 rounded-full flex items-center justify-center" style={{ backgroundColor: `hsl(${nextEvent.color} / 0.15)` }}>
+              <Zap className="h-4 w-4" style={{ color: `hsl(${nextEvent.color})` }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">
+                Prossimo: <span className="text-foreground">{nextEvent.title}</span>
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {nextEvent.type} alle {nextEvent.time}
+                {nextEvent.minutesUntil > 0
+                  ? ` · tra ${nextEvent.minutesUntil >= 60
+                    ? `${Math.floor(nextEvent.minutesUntil / 60)}h ${nextEvent.minutesUntil % 60}m`
+                    : `${nextEvent.minutesUntil}m`}`
+                  : ' · adesso'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!hasContent ? (
         <div className="flex-1 flex items-center justify-center p-8">
           <Card className="p-8 md:p-12 text-center border-dashed max-w-sm">
@@ -178,69 +319,41 @@ const Index = () => {
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
           <div className="max-w-5xl mx-auto">
-            <div className="relative" style={{ height: TOTAL_SLOTS * SLOT_H, marginLeft: isMobile ? 40 : 56 }}>
-              {/* Time labels + grid lines */}
-              {Array.from({ length: TOTAL_SLOTS }, (_, i) => {
-                const time = slotToTime(i);
-                const isHour = i % 2 === 0;
-                return (
-                  <div key={i} className="absolute left-0 right-0" style={{ top: i * SLOT_H }}>
-                    <span
-                      className="absolute text-[11px] text-muted-foreground tabular-nums select-none"
-                      style={{ right: '100%', marginRight: isMobile ? 8 : 12, top: -7 }}
-                    >
-                      {isHour ? time : ''}
-                    </span>
-                    <div className={`absolute left-0 right-0 h-px ${isHour ? 'bg-border' : 'bg-border/30'}`} />
-                  </div>
-                );
-              })}
-
-              {/* Current time indicator */}
-              {nowSlot >= 0 && nowSlot <= TOTAL_SLOTS && (
-                <div className="absolute left-0 right-0 flex items-center z-30 pointer-events-none" style={{ top: nowTop }}>
-                  <div className="h-3 w-3 rounded-full bg-destructive -ml-1.5" />
-                  <div className="flex-1 h-0.5 bg-destructive" />
+            {/* Unscheduled tasks section */}
+            {unscheduledTasks.length > 0 && (
+              <div className="px-4 md:px-6 py-3 border-b">
+                <div className="flex items-center gap-2 mb-2">
+                  <ListChecks className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Da fare oggi · {unscheduledTasks.filter(t => t.status !== 'done').length} in sospeso
+                  </p>
                 </div>
-              )}
+                <div className="space-y-1.5">
+                  <AnimatePresence mode="popLayout">
+                    {unscheduledTasks.map(task => {
+                      const enterprise = getEnterprise(task.enterpriseId);
+                      const project = getProject(task.projectId);
+                      const isDone = task.status === 'done';
+                      const isCompleting = completingIds.has(task.id);
+                      const color = enterprise?.color || '0 0% 50%';
 
-              {/* Task blocks */}
-              <AnimatePresence>
-                {todayTasks.map(task => {
-                  const time = task.scheduledTime || '09:00';
-                  const { top, height } = getTaskPosition(time, task.estimatedMinutes, SLOT_H);
-                  const enterprise = getEnterprise(task.enterpriseId);
-                  const project = getProject(task.projectId);
-                  const sty = getItemStyle(task.id);
-                  const isDone = task.status === 'done';
-                  const isCompleting = completingIds.has(task.id);
-                  const color = enterprise?.color || '0 0% 50%';
-
-                  return (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={isCompleting
-                        ? { opacity: 0.4, scale: 0.97, transition: { duration: 0.4 } }
-                        : { opacity: 1, scale: 1 }
-                      }
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className={`absolute rounded-lg overflow-hidden z-10 group cursor-pointer ${isDone ? 'opacity-50' : ''}`}
-                      style={{
-                        top: top + 1,
-                        height: Math.max(height - 2, SLOT_H - 4),
-                        ...sty,
-                        backgroundColor: `hsl(${isCompleting ? '142 70% 45%' : color} / ${isDone ? '0.08' : '0.12'})`,
-                        borderLeft: `4px solid hsl(${isCompleting ? '142 70% 45%' : color})`,
-                      }}
-                    >
-                      <div className="p-2 md:p-2.5 h-full flex flex-col justify-center">
-                        <div className="flex items-center gap-1.5">
-                          {/* Complete button */}
+                      return (
+                        <motion.div
+                          key={task.id}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={isCompleting
+                            ? { opacity: 0.3, x: -30, transition: { duration: 0.4 } }
+                            : { opacity: 1, y: 0 }
+                          }
+                          exit={{ opacity: 0, height: 0, transition: { duration: 0.2 } }}
+                          layout
+                          className={`flex items-center gap-2.5 p-2 md:p-2.5 rounded-lg transition-colors ${isDone ? 'opacity-50' : 'hover:bg-accent/50'}`}
+                          style={{ borderLeft: `3px solid hsl(${isCompleting ? '142 70% 45%' : color})` }}
+                        >
                           <button
-                            onClick={(e) => { e.stopPropagation(); !isCompleting && !isDone && handleComplete(task); }}
+                            onClick={() => !isCompleting && !isDone && handleComplete(task)}
                             disabled={isCompleting || isDone}
-                            className={`shrink-0 rounded-full h-5 w-5 md:h-6 md:w-6 border flex items-center justify-center transition-all duration-300 ${
+                            className={`shrink-0 rounded-full h-5 w-5 border flex items-center justify-center transition-all duration-300 ${
                               isCompleting || isDone
                                 ? 'bg-green-500 border-green-500 text-white'
                                 : 'border-border hover:border-primary hover:bg-primary/10'
@@ -248,176 +361,312 @@ const Index = () => {
                           >
                             <Check className="h-3 w-3" />
                           </button>
-                          <p className={`font-medium text-xs md:text-sm leading-tight truncate flex-1 ${isDone ? 'line-through text-muted-foreground' : ''}`}>
-                            {!isDone && getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
-                            {task.title}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5 ml-6 md:ml-7">
-                          <span className="text-[10px] md:text-xs text-muted-foreground truncate">
-                            {enterprise?.name} · {project?.name}
-                          </span>
-                          <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
-                            <Clock className="h-2.5 w-2.5" />{formatMinutes(task.estimatedMinutes)}
-                          </span>
-                        </div>
-                      </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium truncate ${isDone ? 'line-through text-muted-foreground' : ''}`}>
+                              {!isDone && getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
+                              {task.title}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {enterprise?.name} · {project?.name} · {formatMinutes(task.estimatedMinutes)}
+                            </p>
+                          </div>
+                          {!isDone && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 shrink-0"
+                              onClick={() => scheduleTask(task.id, tomorrow, undefined)}
+                              title="Sposta a domani"
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
 
-                      {/* Hover actions */}
-                      {!isDone && !isCompleting && (
-                        <div className="absolute top-1 right-1 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); scheduleTask(task.id, tomorrow, task.scheduledTime); }}
-                            className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent flex items-center gap-0.5"
-                            title="Sposta a domani"
-                          >
-                            <ArrowRight className="h-3 w-3" /> Domani
-                          </button>
-                        </div>
+            {/* Timeline */}
+            {hasTimelineContent && (
+              <div className="relative" style={{ height: visibleSlots * SLOT_H, marginLeft: isMobile ? 40 : 56 }}>
+                {/* Time labels + grid lines + clickable slots */}
+                {Array.from({ length: visibleSlots }, (_, i) => {
+                  const absSlot = visibleStart + i;
+                  const time = slotToTime(absSlot);
+                  const isHour = absSlot % 2 === 0;
+                  const occupied = isSlotOccupied(absSlot);
+                  return (
+                    <div key={absSlot} className="absolute left-0 right-0" style={{ top: i * SLOT_H }}>
+                      <span
+                        className="absolute text-[11px] text-muted-foreground tabular-nums select-none"
+                        style={{ right: '100%', marginRight: isMobile ? 8 : 12, top: -7 }}
+                      >
+                        {isHour ? time : ''}
+                      </span>
+                      <div className={`absolute left-0 right-0 h-px ${isHour ? 'bg-border' : 'bg-border/30'}`} />
+                      {/* Clickable empty slot */}
+                      {!occupied && (
+                        <div
+                          className="absolute left-0 right-0 cursor-pointer hover:bg-primary/5 active:bg-primary/10 transition-colors"
+                          style={{ height: SLOT_H }}
+                          onClick={() => handleSlotClick(absSlot)}
+                        />
                       )}
-                      {isDone && (
-                        <div className="absolute top-1 right-1 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); uncompleteTask(task.id); }}
-                            className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
-                            title="Segna come non completata"
-                          >
-                            ↩ Riapri
-                          </button>
-                        </div>
-                      )}
-                    </motion.div>
+                    </div>
                   );
                 })}
-              </AnimatePresence>
 
-              {/* Appointment blocks */}
-              {dayAppts.map(appt => {
-                const startSlot = timeToSlot(appt.startTime);
-                const endSlot = timeToSlot(appt.endTime);
-                const slots = Math.max(1, endSlot - startSlot);
-                const top = startSlot * SLOT_H;
-                const height = slots * SLOT_H;
-                const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
-                const color = appt.color || ent?.color || '270 60% 55%';
-                const sty = getItemStyle(`appt-${appt.id}`);
-
-                return (
-                  <div
-                    key={`appt-${appt.id}`}
-                    className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed"
-                    style={{
-                      top: top + 1,
-                      height: Math.max(height - 2, SLOT_H - 4),
-                      ...sty,
-                      backgroundColor: `hsl(${color} / 0.1)`,
-                      borderColor: `hsl(${color} / 0.4)`,
-                    }}
-                  >
-                    <div className="p-2 md:p-2.5 h-full flex flex-col justify-center">
-                      <p className="font-medium text-xs md:text-sm leading-tight truncate flex items-center gap-1">
-                        <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${color})` }} />
-                        {appt.title}
-                      </p>
-                      <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
-                        {appt.startTime}–{appt.endTime}
-                        {ent ? ` · ${ent.name}` : ''}
-                        {appt.description ? ` · ${appt.description}` : ''}
-                      </p>
-                    </div>
+                {/* Current time indicator */}
+                {nowRelative >= 0 && nowRelative <= visibleSlots && (
+                  <div className="absolute left-0 right-0 flex items-center z-30 pointer-events-none" style={{ top: nowTop }}>
+                    <div className="h-3 w-3 rounded-full bg-destructive -ml-1.5" />
+                    <div className="flex-1 h-0.5 bg-destructive" />
                   </div>
-                );
-              })}
+                )}
 
-              {/* Ritual blocks */}
-              {dayRituals.map(ritual => {
-                const time = ritual.suggested_time || '07:00';
-                const startSlot = timeToSlot(time);
-                const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                const top = startSlot * SLOT_H;
-                const height = slotsNeeded * SLOT_H;
-                const color = getRitualCalendarColor(ritual.category);
-                const completed = isRitualCompleted(ritual.id, todayStr);
-                const CatIcon = getRitualIcon(ritual.category);
-                const sty = getItemStyle(`ritual-${ritual.id}`);
+                {/* Scheduled Task blocks */}
+                <AnimatePresence>
+                  {scheduledTasks.map(task => {
+                    const time = task.scheduledTime!;
+                    const absStart = timeToSlot(time);
+                    const top = getRelativeTop(absStart) + 1;
+                    const height = Math.ceil(task.estimatedMinutes / SLOT_MINUTES) * SLOT_H;
+                    const enterprise = getEnterprise(task.enterpriseId);
+                    const project = getProject(task.projectId);
+                    const sty = getItemStyle(task.id);
+                    const isDone = task.status === 'done';
+                    const isCompleting = completingIds.has(task.id);
+                    const color = enterprise?.color || '0 0% 50%';
 
-                return (
-                  <div
-                    key={`ritual-${ritual.id}`}
-                    className={`absolute rounded-lg overflow-hidden z-10 border-2 border-dotted group ${completed ? 'opacity-50' : ''}`}
-                    style={{
-                      top: top + 1,
-                      height: Math.max(height - 2, SLOT_H - 4),
-                      ...sty,
-                      backgroundColor: `hsl(${color} / 0.1)`,
-                      borderColor: `hsl(${color} / 0.4)`,
-                    }}
-                  >
-                    <div className="p-2 h-full flex flex-col justify-center">
-                      <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
-                        <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                        {completed && '✅ '}{ritual.name}
-                      </p>
-                      <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
-                        <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
-                        {time} · {getRitualCategoryLabel(ritual.category)}
-                      </p>
-                    </div>
-                    {/* Quick actions on hover */}
-                    {!completed && (
-                      <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
-                        <button
-                          onClick={() => completeRitualOnDate(ritual.id, todayStr)}
-                          className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent text-green-600"
-                        >
-                          <Check className="h-3 w-3" /> Fatto
-                        </button>
-                        <button
-                          onClick={() => skipRitualOnDate(ritual.id, todayStr)}
-                          className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent text-destructive"
-                        >
-                          Salta
-                        </button>
+                    return (
+                      <motion.div
+                        key={task.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={isCompleting
+                          ? { opacity: 0.4, scale: 0.97, transition: { duration: 0.4 } }
+                          : { opacity: 1, scale: 1 }
+                        }
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className={`absolute rounded-lg overflow-hidden z-10 group cursor-pointer ${isDone ? 'opacity-50' : ''}`}
+                        style={{
+                          top,
+                          height: Math.max(height - 2, SLOT_H - 4),
+                          ...sty,
+                          backgroundColor: `hsl(${isCompleting ? '142 70% 45%' : color} / ${isDone ? '0.08' : '0.12'})`,
+                          borderLeft: `4px solid hsl(${isCompleting ? '142 70% 45%' : color})`,
+                        }}
+                      >
+                        <div className="p-2 md:p-2.5 h-full flex flex-col justify-center">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); !isCompleting && !isDone && handleComplete(task); }}
+                              disabled={isCompleting || isDone}
+                              className={`shrink-0 rounded-full h-5 w-5 md:h-6 md:w-6 border flex items-center justify-center transition-all duration-300 ${
+                                isCompleting || isDone
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : 'border-border hover:border-primary hover:bg-primary/10'
+                              }`}
+                            >
+                              <Check className="h-3 w-3" />
+                            </button>
+                            <p className={`font-medium text-xs md:text-sm leading-tight truncate flex-1 ${isDone ? 'line-through text-muted-foreground' : ''}`}>
+                              {!isDone && getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
+                              {task.title}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5 ml-6 md:ml-7">
+                            <span className="text-[10px] md:text-xs text-muted-foreground truncate">
+                              {enterprise?.name} · {project?.name}
+                            </span>
+                            <span className="text-[10px] md:text-xs text-muted-foreground flex items-center gap-0.5 shrink-0">
+                              <Clock className="h-2.5 w-2.5" />{formatMinutes(task.estimatedMinutes)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {!isDone && !isCompleting && (
+                          <div className="absolute top-1 right-1 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); scheduleTask(task.id, tomorrow, task.scheduledTime); }}
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent flex items-center gap-0.5"
+                              title="Sposta a domani"
+                            >
+                              <ArrowRight className="h-3 w-3" /> Domani
+                            </button>
+                          </div>
+                        )}
+                        {isDone && (
+                          <div className="absolute top-1 right-1 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); uncompleteTask(task.id); }}
+                              className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent"
+                            >
+                              ↩ Riapri
+                            </button>
+                          </div>
+                        )}
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+
+                {/* Appointment blocks */}
+                {dayAppts.map(appt => {
+                  const startSlot = timeToSlot(appt.startTime);
+                  const endSlot = timeToSlot(appt.endTime);
+                  const slots = Math.max(1, endSlot - startSlot);
+                  const top = getRelativeTop(startSlot) + 1;
+                  const height = slots * SLOT_H;
+                  const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
+                  const color = appt.color || ent?.color || '270 60% 55%';
+                  const sty = getItemStyle(`appt-${appt.id}`);
+
+                  return (
+                    <div
+                      key={`appt-${appt.id}`}
+                      className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed"
+                      style={{
+                        top,
+                        height: Math.max(height - 2, SLOT_H - 4),
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.1)`,
+                        borderColor: `hsl(${color} / 0.4)`,
+                      }}
+                    >
+                      <div className="p-2 md:p-2.5 h-full flex flex-col justify-center">
+                        <p className="font-medium text-xs md:text-sm leading-tight truncate flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {appt.title}
+                        </p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
+                          {appt.startTime}–{appt.endTime}
+                          {ent ? ` · ${ent.name}` : ''}
+                          {appt.description ? ` · ${appt.description}` : ''}
+                        </p>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Reminder blocks */}
-              {dayReminders.map(rem => {
-                const time = rem.reminderTime || '09:00';
-                const ss = timeToSlot(time);
-                const top = ss * SLOT_H;
-                const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
-                const color = rem.color || ent?.color || '45 90% 50%';
-                const sty = getItemStyle(`rem-${rem.id}`);
-
-                return (
-                  <div
-                    key={`rem-${rem.id}`}
-                    className="absolute rounded-lg overflow-hidden z-10 border-2"
-                    style={{
-                      top: top + 1,
-                      height: SLOT_H - 4,
-                      ...sty,
-                      backgroundColor: `hsl(${color} / 0.12)`,
-                      borderColor: `hsl(${color} / 0.5)`,
-                      borderStyle: 'solid',
-                    }}
-                  >
-                    <div className="p-2 h-full flex flex-col justify-center">
-                      <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
-                        <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                        {rem.isFollowUp ? '🔔 ' : ''}{rem.title}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+
+                {/* Ritual blocks */}
+                {dayRituals.map(ritual => {
+                  const time = ritual.suggested_time || '07:00';
+                  const startSlot = timeToSlot(time);
+                  const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
+                  const top = getRelativeTop(startSlot) + 1;
+                  const height = slotsNeeded * SLOT_H;
+                  const color = getRitualCalendarColor(ritual.category);
+                  const completed = isRitualCompleted(ritual.id, todayStr);
+                  const CatIcon = getRitualIcon(ritual.category);
+                  const sty = getItemStyle(`ritual-${ritual.id}`);
+
+                  return (
+                    <div
+                      key={`ritual-${ritual.id}`}
+                      className={`absolute rounded-lg overflow-hidden z-10 border-2 border-dotted group ${completed ? 'opacity-50' : ''}`}
+                      style={{
+                        top,
+                        height: Math.max(height - 2, SLOT_H - 4),
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.1)`,
+                        borderColor: `hsl(${color} / 0.4)`,
+                      }}
+                    >
+                      <div className="p-2 h-full flex flex-col justify-center">
+                        <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${completed ? 'line-through' : ''}`}>
+                          <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {completed && '✅ '}{ritual.name}
+                        </p>
+                        <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
+                          <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
+                          {time} · {getRitualCategoryLabel(ritual.category)}
+                        </p>
+                      </div>
+                      {!completed && (
+                        <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/95 rounded-md border shadow-sm px-1 py-0.5">
+                          <button
+                            onClick={() => completeRitualOnDate(ritual.id, todayStr)}
+                            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent text-green-600"
+                          >
+                            <Check className="h-3 w-3" /> Fatto
+                          </button>
+                          <button
+                            onClick={() => skipRitualOnDate(ritual.id, todayStr)}
+                            className="flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded hover:bg-accent text-destructive"
+                          >
+                            Salta
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Reminder blocks */}
+                {dayReminders.map(rem => {
+                  const time = rem.reminderTime || '09:00';
+                  const ss = timeToSlot(time);
+                  const top = getRelativeTop(ss) + 1;
+                  const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
+                  const color = rem.color || ent?.color || '45 90% 50%';
+                  const sty = getItemStyle(`rem-${rem.id}`);
+
+                  return (
+                    <div
+                      key={`rem-${rem.id}`}
+                      className="absolute rounded-lg overflow-hidden z-10 border-2"
+                      style={{
+                        top,
+                        height: SLOT_H - 4,
+                        ...sty,
+                        backgroundColor: `hsl(${color} / 0.12)`,
+                        borderColor: `hsl(${color} / 0.5)`,
+                        borderStyle: 'solid',
+                      }}
+                    >
+                      <div className="p-2 h-full flex flex-col justify-center">
+                        <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                          <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
+                          {rem.isFollowUp ? '🔔 ' : ''}{rem.title}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
+      )}
+
+      {/* Creation dialogs */}
+      <CalendarCreateChoice
+        open={choiceSlot !== null}
+        onOpenChange={() => setChoiceSlot(null)}
+        timeLabel={choiceSlot !== null ? `${slotToTime(choiceSlot)} — Oggi` : ''}
+        onChooseAppointment={handleChooseAppt}
+        onChooseTask={handleChooseTask}
+      />
+
+      {showCreateAppt && (
+        <CreateAppointmentDialog
+          open={showCreateAppt}
+          onOpenChange={setShowCreateAppt}
+          defaultDate={todayStr}
+          defaultTime={createTime}
+        />
+      )}
+
+      {showCreateTask && (
+        <CalendarCreateTaskDialog
+          open={showCreateTask}
+          onOpenChange={setShowCreateTask}
+          defaultDate={todayStr}
+          defaultTime={createTime}
+        />
       )}
 
       {followUpTask && (

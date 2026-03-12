@@ -329,46 +329,53 @@ const EnterpriseDetail = () => {
                   const unlinkedProjects = enterpriseProjects.filter(p => !p.keyResultId);
                   if (unlinkedProjects.length === 0) return null;
                   return (
-                    <Card className="p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-semibold text-sm flex items-center gap-2">
-                          <Layers className="h-4 w-4" /> Altri Progetti
-                        </h3>
-                        <Badge variant="secondary" className="text-[10px]">
-                          {unlinkedProjects.length} non collegati a KR
-                        </Badge>
-                      </div>
-                      <div className="space-y-2">
-                        {(['strategic', 'operational', 'maintenance'] as const).map(type => {
-                          const projs = unlinkedProjects.filter(p => p.type === type);
-                          if (projs.length === 0) return null;
-                          const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
-                          return (
-                            <div key={type}>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
-                                {labels[type]} ({projs.length})
-                              </p>
-                              <div className="space-y-1.5 ml-1">
-                                {projs.map(p => {
-                                  const pTasks = getTasksForProject(p.id);
-                                  const pDone = pTasks.filter(t => t.status === 'done').length;
-                                  const pPct = pTasks.length > 0 ? Math.round((pDone / pTasks.length) * 100) : 0;
-                                  return (
-                                    <div key={p.id} className="rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setEditingProject(p)}>
-                                      <div className="flex items-center justify-between mb-1">
-                                        <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
-                                        <span className="text-[10px] text-muted-foreground">{pDone}/{pTasks.length} task</span>
-                                      </div>
-                                      {pTasks.length > 0 && <Progress value={pPct} className="h-1" />}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </Card>
+                    <Collapsible>
+                      <Card className="p-4">
+                        <CollapsibleTrigger className="flex items-center justify-between w-full">
+                          <h3 className="font-semibold text-sm flex items-center gap-2">
+                            <Layers className="h-4 w-4" /> Altri Progetti
+                          </h3>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-[10px]">
+                              {unlinkedProjects.length} non collegati a KR
+                            </Badge>
+                            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                          </div>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="mt-3">
+                          <div className="space-y-2">
+                            {(['strategic', 'operational', 'maintenance'] as const).map(type => {
+                              const projs = unlinkedProjects.filter(p => p.type === type);
+                              if (projs.length === 0) return null;
+                              const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
+                              return (
+                                <div key={type}>
+                                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
+                                    {labels[type]} ({projs.length})
+                                  </p>
+                                  <div className="space-y-1.5 ml-1">
+                                    {projs.map(p => {
+                                      const pTasks = getTasksForProject(p.id);
+                                      const pDone = pTasks.filter(t => t.status === 'done').length;
+                                      const pPct = pTasks.length > 0 ? Math.round((pDone / pTasks.length) * 100) : 0;
+                                      return (
+                                        <div key={p.id} className="rounded-lg border p-2.5 cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setEditingProject(p)}>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[11px] font-medium truncate flex-1">{p.name}</span>
+                                            <span className="text-[10px] text-muted-foreground">{pDone}/{pTasks.length} task</span>
+                                          </div>
+                                          {pTasks.length > 0 && <Progress value={pPct} className="h-1" />}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </CollapsibleContent>
+                      </Card>
+                    </Collapsible>
                   );
                 })()}
               </>

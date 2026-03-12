@@ -235,10 +235,7 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   );
 
   // Planning thresholds from localStorage (configurable in admin)
-  const planningThresholds = useMemo(() => {
-    const { getThresholds } = require('@/components/admin/PlanningThresholds');
-    return getThresholds();
-  }, []);
+  const planningThresholds = useMemo(() => getThresholds(), []);
 
   // The active conversation's focusPeriodId (scoped to session)
   const sessionFocusId = useMemo(() => {

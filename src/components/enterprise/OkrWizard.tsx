@@ -238,9 +238,12 @@ export function OkrWizard({ enterprise, activeFocusId, onCreated }: Props) {
   const planningThresholds = useMemo(() => {
     try {
       const stored = localStorage.getItem('planning_thresholds');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const defaults = { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
+        return { ...defaults, ...JSON.parse(stored) };
+      }
     } catch {}
-    return { minProjectsPerKR: 1, minTasksPerProject: 1 };
+    return { minProjectsPerKR: 1, maxProjectsPerKR: 3, minTasksPerProject: 1, maxTasksPerProject: 20, minObjectivesPerFocus: 1, maxObjectivesPerFocus: 3, minKRsPerObjective: 2, maxKRsPerObjective: 5, maxFocusPerEnterprise: 1, maxTasksPerDay: 7, warnProjectsPerFocus: 10, warnTasksPerFocus: 30 };
   }, []);
 
   // The active conversation's focusPeriodId (scoped to session)

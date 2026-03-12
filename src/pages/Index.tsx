@@ -30,6 +30,7 @@ import { MoonDetailDialog } from '@/components/calendar/MoonDetailDialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import type { Task, Appointment, Reminder } from '@/types/prp';
+import { TodayBacklog } from '@/components/today/TodayBacklog';
 
 const Index = () => {
   const isMobile = useIsMobile();

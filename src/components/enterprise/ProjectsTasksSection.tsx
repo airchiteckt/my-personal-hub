@@ -31,7 +31,7 @@ const typeStyles: Record<string, string> = {
 };
 
 export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFocus, onCreateProject, onCreateTask, onEditProject, onEditTask }: Props) {
-  const { getProjectsForEnterprise, getTasksForProject, completeTask, deleteTask, prioritySettings, addProject } = usePrp();
+  const { getProjectsForEnterprise, getTasksForProject, completeTask, deleteTask, deleteProject, prioritySettings, addProject } = usePrp();
   const [filter, setFilter] = useState<FilterType>('all');
 
   const allProjects = getProjectsForEnterprise(enterpriseId);
@@ -160,6 +160,7 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
               onEditTask={onEditTask}
               completeTask={completeTask}
               deleteTask={deleteTask}
+              deleteProject={deleteProject}
               getTasksForProject={getTasksForProject}
               prioritySettings={prioritySettings}
             />
@@ -171,13 +172,14 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
 }
 
 // --- Project Card ---
-function ProjectCard({ project, onCreateTask, onEditProject, onEditTask, completeTask, deleteTask, getTasksForProject, prioritySettings }: {
+function ProjectCard({ project, onCreateTask, onEditProject, onEditTask, completeTask, deleteTask, deleteProject, getTasksForProject, prioritySettings }: {
   project: Project;
   onCreateTask: (projectId: string) => void;
   onEditProject: (project: Project) => void;
   onEditTask: (task: Task) => void;
   completeTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  deleteProject: (id: string) => void;
   getTasksForProject: (id: string) => Task[];
   prioritySettings: any;
 }) {
@@ -207,6 +209,13 @@ function ProjectCard({ project, onCreateTask, onEditProject, onEditTask, complet
         <div className="flex items-center gap-1 shrink-0">
           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => onEditProject(project)}>
             <Edit2 className="h-3 w-3" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => {
+            if (confirm(`Eliminare il progetto "${project.name}" e tutte le sue task?`)) {
+              deleteProject(project.id);
+            }
+          }}>
+            <Trash2 className="h-3 w-3" />
           </Button>
           <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => onCreateTask(project.id)}>
             <Plus className="h-3 w-3 mr-1" /> Task

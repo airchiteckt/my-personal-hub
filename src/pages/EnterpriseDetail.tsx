@@ -16,6 +16,8 @@ import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, PRIORITY_LABELS, FOCUS_STATUS_LABELS, KR_STATUS_LABELS, METRIC_TYPE_LABELS } from '@/types/prp';
 import type { FocusPeriod, Objective, KeyResult, Project, Task } from '@/types/prp';
 import { formatMinutes } from '@/lib/calendar-utils';
+import { calculateFocusProgress } from '@/lib/focus-progress';
+import { getThresholds } from '@/components/admin/PlanningThresholds';
 import { getDisplayPriority, getPriorityEmoji, getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 import { CreateFocusPeriodDialog } from '@/components/enterprise/CreateFocusPeriodDialog';
 import { CreateObjectiveDialog } from '@/components/enterprise/CreateObjectiveDialog';

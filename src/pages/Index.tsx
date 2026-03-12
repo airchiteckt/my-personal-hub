@@ -555,7 +555,7 @@ const Index = () => {
                         }
                         exit={{ opacity: 0, scale: 0.9 }}
                         draggable={!isDone}
-                        onDragStart={e => { e.stopPropagation(); !isDone && handleDragStart(e, task.id); }}
+                        onDragStart={e => { e.stopPropagation(); !isDone && handleDragStart(e as unknown as React.DragEvent, task.id); }}
                         onMouseDown={e => e.stopPropagation()}
                         onClick={e => { e.stopPropagation(); setEditingTask(task); }}
                         className={`absolute rounded-lg overflow-hidden z-10 group cursor-pointer ${isDone ? 'opacity-40' : ''}`}

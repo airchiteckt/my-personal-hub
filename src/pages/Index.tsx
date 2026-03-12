@@ -314,6 +314,10 @@ const Index = () => {
                 <TooltipContent>Journal di oggi</TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            <Button variant="outline" size="sm" onClick={() => setBacklogOpen(true)} className="flex items-center gap-1.5">
+              <Inbox className="h-3.5 w-3.5" />
+              <span className="hidden md:inline text-xs">Backlog</span>
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link to="/calendar" className="flex items-center gap-1.5">
                 <Calendar className="h-3.5 w-3.5" />

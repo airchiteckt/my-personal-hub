@@ -610,6 +610,42 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
           additionalProperties: false,
         },
       },
+      describe_focus: {
+        name: "describe_focus",
+        description: "Genera una descrizione per un Focus Period.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) della direzione strategica" },
+          },
+          required: ["description"],
+          additionalProperties: false,
+        },
+      },
+      describe_objective: {
+        name: "describe_objective",
+        description: "Genera una descrizione per un Objective.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) di cosa significa raggiungere l'obiettivo" },
+          },
+          required: ["description"],
+          additionalProperties: false,
+        },
+      },
+      describe_key_result: {
+        name: "describe_key_result",
+        description: "Genera una descrizione per un Key Result.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) su come si misura e perché è significativo" },
+          },
+          required: ["description"],
+          additionalProperties: false,
+        },
+      },
     };
 
     const toolDef = structuredTypes[type];

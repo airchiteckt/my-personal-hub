@@ -608,7 +608,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const { data, error } = await supabase.from('key_results').insert({
       objective_id: kr.objectiveId, enterprise_id: kr.enterpriseId,
-      title: kr.title, target_value: kr.targetValue, current_value: kr.currentValue,
+      title: kr.title, description: kr.description ?? null,
+      target_value: kr.targetValue, current_value: kr.currentValue,
       metric_type: kr.metricType, deadline: kr.deadline ?? null, status: kr.status,
       user_id: userId,
     }).select().single();

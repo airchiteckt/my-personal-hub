@@ -301,6 +301,7 @@ export type Database = {
       focus_periods: {
         Row: {
           created_at: string
+          description: string | null
           end_date: string
           enterprise_id: string
           id: string
@@ -311,6 +312,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           end_date: string
           enterprise_id: string
           id?: string
@@ -321,6 +323,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           end_date?: string
           enterprise_id?: string
           id?: string
@@ -389,6 +392,7 @@ export type Database = {
           created_at: string
           current_value: number
           deadline: string | null
+          description: string | null
           enterprise_id: string
           id: string
           metric_type: string
@@ -403,6 +407,7 @@ export type Database = {
           created_at?: string
           current_value?: number
           deadline?: string | null
+          description?: string | null
           enterprise_id: string
           id?: string
           metric_type?: string
@@ -417,6 +422,7 @@ export type Database = {
           created_at?: string
           current_value?: number
           deadline?: string | null
+          description?: string | null
           enterprise_id?: string
           id?: string
           metric_type?: string

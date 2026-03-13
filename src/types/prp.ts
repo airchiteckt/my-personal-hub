@@ -236,6 +236,7 @@ export interface FocusPeriod {
   id: string;
   enterpriseId: string;
   name: string;
+  description?: string;
   startDate: string;
   endDate: string;
   status: FocusPeriodStatus;
@@ -258,6 +259,7 @@ export interface KeyResult {
   objectiveId: string;
   enterpriseId: string;
   title: string;
+  description?: string;
   targetValue: number;
   currentValue: number;
   metricType: MetricType;

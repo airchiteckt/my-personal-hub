@@ -159,6 +159,27 @@ ERRORI COMUNI DA SEGNALARE:
 
 Rispondi SOLO in italiano, con feedback diretto e costruttivo.`,
 
+      describe_focus: `Sei un esperto di pianificazione strategica OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Focus Period.
+La descrizione deve:
+- Chiarire la direzione strategica del trimestre
+- Indicare il risultato principale atteso entro fine periodo
+- Essere concreta e specifica per l'impresa
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
+      describe_objective: `Sei un esperto di OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Objective.
+La descrizione deve:
+- Spiegare cosa significa raggiungere questo obiettivo in termini concreti
+- Chiarire lo stato desiderato e il contesto strategico
+- Essere specifica per l'impresa e il focus period
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
+      describe_key_result: `Sei un esperto di OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Key Result.
+La descrizione deve:
+- Spiegare come si misura concretamente (fonte dati, strumento)
+- Chiarire perché questo numero è significativo per l'Objective
+- Indicare il razionale del target scelto
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
       okr_wizard: `Sei un Chief Strategy Officer esperto di OKR che guida imprenditori nella pianificazione strategica trimestrale.
 
 MENTALITÀ: Ragioni come un manager che trasforma visione in esecuzione. Ogni domanda ha uno scopo: eliminare ambiguità e creare chiarezza operativa.
@@ -586,6 +607,42 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
             improved_version: { type: "string", description: "Versione migliorata della task, se necessario" },
           },
           required: ["quality_score", "is_valid", "issue_type", "feedback", "improved_version"],
+          additionalProperties: false,
+        },
+      },
+      describe_focus: {
+        name: "describe_focus",
+        description: "Genera una descrizione per un Focus Period.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) della direzione strategica" },
+          },
+          required: ["description"],
+          additionalProperties: false,
+        },
+      },
+      describe_objective: {
+        name: "describe_objective",
+        description: "Genera una descrizione per un Objective.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) di cosa significa raggiungere l'obiettivo" },
+          },
+          required: ["description"],
+          additionalProperties: false,
+        },
+      },
+      describe_key_result: {
+        name: "describe_key_result",
+        description: "Genera una descrizione per un Key Result.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "Descrizione breve (max 2 frasi) su come si misura e perché è significativo" },
+          },
+          required: ["description"],
           additionalProperties: false,
         },
       },

@@ -156,6 +156,7 @@ function dbToAppointment(row: any): Appointment {
 function dbToFocusPeriod(row: any): FocusPeriod {
   return {
     id: row.id, enterpriseId: row.enterprise_id, name: row.name,
+    description: row.description ?? undefined,
     startDate: row.start_date, endDate: row.end_date, status: row.status,
     createdAt: row.created_at,
   };
@@ -170,7 +171,8 @@ function dbToObjective(row: any): Objective {
 function dbToKeyResult(row: any): KeyResult {
   return {
     id: row.id, objectiveId: row.objective_id, enterpriseId: row.enterprise_id,
-    title: row.title, targetValue: Number(row.target_value), currentValue: Number(row.current_value),
+    title: row.title, description: row.description ?? undefined,
+    targetValue: Number(row.target_value), currentValue: Number(row.current_value),
     metricType: row.metric_type, deadline: row.deadline ?? undefined,
     status: row.status, createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -549,8 +551,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       ));
     }
     const { data, error } = await supabase.from('focus_periods').insert({
-      enterprise_id: f.enterpriseId, name: f.name, start_date: f.startDate,
-      end_date: f.endDate, status: f.status, user_id: userId,
+      enterprise_id: f.enterpriseId, name: f.name, description: f.description ?? null,
+      start_date: f.startDate, end_date: f.endDate, status: f.status, user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione focus period'); return; }
     setFocusPeriods(prev => [...prev, dbToFocusPeriod(data)]);
@@ -560,6 +562,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setFocusPeriods(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
     if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
     if (updates.status !== undefined) dbUpdates.status = updates.status;
@@ -605,7 +608,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
     const { data, error } = await supabase.from('key_results').insert({
       objective_id: kr.objectiveId, enterprise_id: kr.enterpriseId,
-      title: kr.title, target_value: kr.targetValue, current_value: kr.currentValue,
+      title: kr.title, description: kr.description ?? null,
+      target_value: kr.targetValue, current_value: kr.currentValue,
       metric_type: kr.metricType, deadline: kr.deadline ?? null, status: kr.status,
       user_id: userId,
     }).select().single();
@@ -617,6 +621,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setKeyResults(prev => prev.map(kr => kr.id === id ? { ...kr, ...updates } : kr));
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
     if (updates.currentValue !== undefined) dbUpdates.current_value = updates.currentValue;
     if (updates.metricType !== undefined) dbUpdates.metric_type = updates.metricType;

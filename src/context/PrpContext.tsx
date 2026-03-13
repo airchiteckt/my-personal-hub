@@ -171,7 +171,8 @@ function dbToObjective(row: any): Objective {
 function dbToKeyResult(row: any): KeyResult {
   return {
     id: row.id, objectiveId: row.objective_id, enterpriseId: row.enterprise_id,
-    title: row.title, targetValue: Number(row.target_value), currentValue: Number(row.current_value),
+    title: row.title, description: row.description ?? undefined,
+    targetValue: Number(row.target_value), currentValue: Number(row.current_value),
     metricType: row.metric_type, deadline: row.deadline ?? undefined,
     status: row.status, createdAt: row.created_at, updatedAt: row.updated_at,
   };

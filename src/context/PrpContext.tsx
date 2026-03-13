@@ -551,8 +551,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       ));
     }
     const { data, error } = await supabase.from('focus_periods').insert({
-      enterprise_id: f.enterpriseId, name: f.name, start_date: f.startDate,
-      end_date: f.endDate, status: f.status, user_id: userId,
+      enterprise_id: f.enterpriseId, name: f.name, description: f.description ?? null,
+      start_date: f.startDate, end_date: f.endDate, status: f.status, user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione focus period'); return; }
     setFocusPeriods(prev => [...prev, dbToFocusPeriod(data)]);

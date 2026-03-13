@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePrp } from '@/context/PrpContext';
 import { useAiInline } from '@/hooks/use-ai-inline';
 import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -32,25 +32,37 @@ export function CreateObjectiveDialog({ open, onOpenChange, enterpriseId, focusP
     debounceMs: 1200,
   });
 
+  const { data: descSuggestion, loading: descLoading, debouncedFetch: fetchDesc, clear: clearDesc } = useAiInline<{ description: string }>({
+    type: 'describe_objective',
+    debounceMs: 1400,
+  });
+
   useEffect(() => {
     if (title.trim().length >= 5 && enterprise) {
-      fetchValidation(
-        {
-          enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory, phase: enterprise.phase },
-          focusPeriod: activeFocus ? { name: activeFocus.name, startDate: activeFocus.startDate, endDate: activeFocus.endDate } : null,
-          existingObjectives: existingObjectives.map(o => o.title),
-        },
-        `Valida questo Objective: "${title.trim()}"`
-      );
+      const ctx = {
+        enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory, phase: enterprise.phase },
+        focusPeriod: activeFocus ? { name: activeFocus.name, startDate: activeFocus.startDate, endDate: activeFocus.endDate } : null,
+        existingObjectives: existingObjectives.map(o => o.title),
+      };
+      fetchValidation(ctx, `Valida questo Objective: "${title.trim()}"`);
+      fetchDesc(ctx, `Genera una descrizione breve (max 2 frasi) per questo Objective: "${title.trim()}". Spiega cosa significa raggiungere questo obiettivo in termini concreti per l'impresa.`);
     } else {
       clearValidation();
+      clearDesc();
     }
   }, [title]);
+
+  // Auto-fill description from AI
+  useEffect(() => {
+    if (descSuggestion?.description && !description.trim()) {
+      setDescription(descSuggestion.description);
+    }
+  }, [descSuggestion]);
 
   const handleSubmit = () => {
     if (!title.trim() || !focusPeriodId) return;
     addObjective({ focusPeriodId, enterpriseId, title: title.trim(), description: description.trim() || undefined, weight: 1, status: 'active' });
-    setTitle(''); setDescription(''); clearValidation();
+    setTitle(''); setDescription(''); clearValidation(); clearDesc();
     onOpenChange(false);
   };
 
@@ -86,8 +98,19 @@ export function CreateObjectiveDialog({ open, onOpenChange, enterpriseId, focusP
           />
 
           <div>
-            <Label className="text-xs">Descrizione (opzionale)</Label>
-            <Textarea placeholder="Descrivi l'obiettivo..." value={description} onChange={e => setDescription(e.target.value)} className="h-16" />
+            <Label className="text-xs flex items-center gap-1.5">
+              Descrizione
+              {descLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </Label>
+            <Textarea
+              placeholder="Cosa significa concretamente raggiungere questo obiettivo..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="h-16"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Chiarisce lo stato desiderato e il contesto strategico dell'obiettivo.
+            </p>
           </div>
           <Button className="w-full" onClick={handleSubmit} disabled={!title.trim()}>
             Crea Objective

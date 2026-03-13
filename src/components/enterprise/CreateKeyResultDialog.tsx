@@ -3,12 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePrp } from '@/context/PrpContext';
 import { useAiInline } from '@/hooks/use-ai-inline';
 import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import type { MetricType } from '@/types/prp';
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 export function CreateKeyResultDialog({ open, onOpenChange, enterpriseId, objectiveId }: Props) {
   const { addKeyResult, getEnterprise, getKeyResultsForObjective, getObjectivesForFocus, getFocusPeriodsForEnterprise } = usePrp();
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [targetValue, setTargetValue] = useState('100');
   const [metricType, setMetricType] = useState<MetricType>('percentage');
   const [deadline, setDeadline] = useState('');
@@ -28,7 +30,6 @@ export function CreateKeyResultDialog({ open, onOpenChange, enterpriseId, object
   const enterprise = getEnterprise(enterpriseId);
   const existingKRs = getKeyResultsForObjective(objectiveId);
 
-  // Find the parent objective title for context
   const focusPeriods = getFocusPeriodsForEnterprise(enterpriseId);
   const objectiveTitle = focusPeriods
     .flatMap(fp => getObjectivesForFocus(fp.id))
@@ -39,31 +40,44 @@ export function CreateKeyResultDialog({ open, onOpenChange, enterpriseId, object
     debounceMs: 1200,
   });
 
+  const { data: descSuggestion, loading: descLoading, debouncedFetch: fetchDesc, clear: clearDesc } = useAiInline<{ description: string }>({
+    type: 'describe_key_result',
+    debounceMs: 1400,
+  });
+
   useEffect(() => {
     if (title.trim().length >= 5 && enterprise) {
-      fetchValidation(
-        {
-          enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory, phase: enterprise.phase },
-          objective: objectiveTitle,
-          existingKRs: existingKRs.map(kr => kr.title),
-        },
-        `Valida questo Key Result per l'Objective "${objectiveTitle}": "${title.trim()}"`
-      );
+      const ctx = {
+        enterprise: { name: enterprise.name, businessCategory: enterprise.businessCategory, phase: enterprise.phase },
+        objective: objectiveTitle,
+        existingKRs: existingKRs.map(kr => kr.title),
+      };
+      fetchValidation(ctx, `Valida questo Key Result per l'Objective "${objectiveTitle}": "${title.trim()}"`);
+      fetchDesc(ctx, `Genera una descrizione breve (max 2 frasi) per questo Key Result: "${title.trim()}". Spiega come si misura, la fonte dati e perché questo numero è significativo per l'Objective "${objectiveTitle}".`);
     } else {
       clearValidation();
+      clearDesc();
     }
   }, [title]);
+
+  // Auto-fill description from AI
+  useEffect(() => {
+    if (descSuggestion?.description && !description.trim()) {
+      setDescription(descSuggestion.description);
+    }
+  }, [descSuggestion]);
 
   const handleSubmit = () => {
     if (!title.trim() || !objectiveId) return;
     addKeyResult({
       objectiveId, enterpriseId, title: title.trim(),
+      description: description.trim() || undefined,
       targetValue: metricType === 'boolean' ? 1 : Number(targetValue) || 100,
       currentValue: 0, metricType,
       deadline: deadline || undefined,
       status: 'active',
     });
-    setTitle(''); setTargetValue('100'); setDeadline(''); clearValidation();
+    setTitle(''); setDescription(''); setTargetValue('100'); setDeadline(''); clearValidation(); clearDesc();
     onOpenChange(false);
   };
 
@@ -103,6 +117,22 @@ export function CreateKeyResultDialog({ open, onOpenChange, enterpriseId, object
             type="key_result"
             onApplySuggestion={(v) => setTitle(v)}
           />
+
+          <div>
+            <Label className="text-xs flex items-center gap-1.5">
+              Descrizione
+              {descLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </Label>
+            <Textarea
+              placeholder="Come si misura, fonte dati, perché è significativo..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              className="h-16"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Definisce come si misura il KR, la fonte dati e il razionale del target.
+            </p>
+          </div>
 
           <div>
             <Label className="text-xs">Tipo metrica</Label>

@@ -159,6 +159,27 @@ ERRORI COMUNI DA SEGNALARE:
 
 Rispondi SOLO in italiano, con feedback diretto e costruttivo.`,
 
+      describe_focus: `Sei un esperto di pianificazione strategica OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Focus Period.
+La descrizione deve:
+- Chiarire la direzione strategica del trimestre
+- Indicare il risultato principale atteso entro fine periodo
+- Essere concreta e specifica per l'impresa
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
+      describe_objective: `Sei un esperto di OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Objective.
+La descrizione deve:
+- Spiegare cosa significa raggiungere questo obiettivo in termini concreti
+- Chiarire lo stato desiderato e il contesto strategico
+- Essere specifica per l'impresa e il focus period
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
+      describe_key_result: `Sei un esperto di OKR. Genera una descrizione breve e incisiva (max 2 frasi) per un Key Result.
+La descrizione deve:
+- Spiegare come si misura concretamente (fonte dati, strumento)
+- Chiarire perché questo numero è significativo per l'Objective
+- Indicare il razionale del target scelto
+Rispondi SOLO con un oggetto JSON: { "description": "..." }. Nessun altro testo.`,
+
       okr_wizard: `Sei un Chief Strategy Officer esperto di OKR che guida imprenditori nella pianificazione strategica trimestrale.
 
 MENTALITÀ: Ragioni come un manager che trasforma visione in esecuzione. Ogni domanda ha uno scopo: eliminare ambiguità e creare chiarezza operativa.

@@ -259,6 +259,7 @@ export interface KeyResult {
   objectiveId: string;
   enterpriseId: string;
   title: string;
+  description?: string;
   targetValue: number;
   currentValue: number;
   metricType: MetricType;

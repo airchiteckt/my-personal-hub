@@ -621,6 +621,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setKeyResults(prev => prev.map(kr => kr.id === id ? { ...kr, ...updates } : kr));
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     if (updates.targetValue !== undefined) dbUpdates.target_value = updates.targetValue;
     if (updates.currentValue !== undefined) dbUpdates.current_value = updates.currentValue;
     if (updates.metricType !== undefined) dbUpdates.metric_type = updates.metricType;

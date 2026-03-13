@@ -562,6 +562,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     setFocusPeriods(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
     const dbUpdates: any = {};
     if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description ?? null;
     if (updates.startDate !== undefined) dbUpdates.start_date = updates.startDate;
     if (updates.endDate !== undefined) dbUpdates.end_date = updates.endDate;
     if (updates.status !== undefined) dbUpdates.status = updates.status;

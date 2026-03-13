@@ -156,6 +156,7 @@ function dbToAppointment(row: any): Appointment {
 function dbToFocusPeriod(row: any): FocusPeriod {
   return {
     id: row.id, enterpriseId: row.enterprise_id, name: row.name,
+    description: row.description ?? undefined,
     startDate: row.start_date, endDate: row.end_date, status: row.status,
     createdAt: row.created_at,
   };

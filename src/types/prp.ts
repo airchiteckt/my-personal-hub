@@ -290,6 +290,7 @@ export interface PrioritySettings {
   // Work hours
   workStartTime: string; // default '09:00'
   workEndTime: string; // default '19:00'
+  workDays: number[]; // default [1,2,3,4,5] (Mon-Fri, 0=Sun 6=Sat)
 }
 
 export interface Reminder {

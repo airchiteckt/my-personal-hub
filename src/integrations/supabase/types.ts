@@ -520,6 +520,7 @@ export type Database = {
           strategic_weight: number
           strategic_weight_enabled: boolean
           user_id: string | null
+          work_days: number[]
           work_end_time: string
           work_start_time: string
         }
@@ -541,6 +542,7 @@ export type Database = {
           strategic_weight?: number
           strategic_weight_enabled?: boolean
           user_id?: string | null
+          work_days?: number[]
           work_end_time?: string
           work_start_time?: string
         }
@@ -562,6 +564,7 @@ export type Database = {
           strategic_weight?: number
           strategic_weight_enabled?: boolean
           user_id?: string | null
+          work_days?: number[]
           work_end_time?: string
           work_start_time?: string
         }

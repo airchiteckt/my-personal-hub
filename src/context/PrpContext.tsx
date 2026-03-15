@@ -220,6 +220,7 @@ function dbToSettings(row: any): PrioritySettings {
     effortPenalty: row.effort_penalty,
     workStartTime: row.work_start_time ?? '09:00',
     workEndTime: row.work_end_time ?? '19:00',
+    workDays: row.work_days ?? [1, 2, 3, 4, 5],
   };
 }
 

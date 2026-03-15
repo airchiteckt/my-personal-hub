@@ -218,6 +218,8 @@ function dbToSettings(row: any): PrioritySettings {
     maintenanceWeight: row.maintenance_weight,
     impactMultiplier: row.impact_multiplier,
     effortPenalty: row.effort_penalty,
+    workStartTime: row.work_start_time ?? '09:00',
+    workEndTime: row.work_end_time ?? '19:00',
   };
 }
 

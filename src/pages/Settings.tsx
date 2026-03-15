@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle, Briefcase } from 'lucide-react';
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
 

@@ -1,0 +1,1 @@
+ALTER TABLE public.priority_settings ADD COLUMN work_days integer[] NOT NULL DEFAULT '{1,2,3,4,5}';

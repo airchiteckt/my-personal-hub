@@ -324,4 +324,5 @@ export const DEFAULT_PRIORITY_SETTINGS: PrioritySettings = {
   effortPenalty: 1,
   workStartTime: '09:00',
   workEndTime: '19:00',
+  workDays: [1, 2, 3, 4, 5],
 };

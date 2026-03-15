@@ -31,8 +31,10 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import type { Task, Appointment, Reminder } from '@/types/prp';
 import { TodayBacklog } from '@/components/today/TodayBacklog';
+import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
 
 const Index = () => {
+  useAutoReschedule();
   const isMobile = useIsMobile();
   const SLOT_H = isMobile ? MOBILE_SLOT_HEIGHT : DESKTOP_SLOT_HEIGHT;
   const todayStr = format(new Date(), 'yyyy-MM-dd');

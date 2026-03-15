@@ -520,6 +520,8 @@ export type Database = {
           strategic_weight: number
           strategic_weight_enabled: boolean
           user_id: string | null
+          work_end_time: string
+          work_start_time: string
         }
         Insert: {
           created_at?: string
@@ -539,6 +541,8 @@ export type Database = {
           strategic_weight?: number
           strategic_weight_enabled?: boolean
           user_id?: string | null
+          work_end_time?: string
+          work_start_time?: string
         }
         Update: {
           created_at?: string
@@ -558,6 +562,8 @@ export type Database = {
           strategic_weight?: number
           strategic_weight_enabled?: boolean
           user_id?: string | null
+          work_end_time?: string
+          work_start_time?: string
         }
         Relationships: []
       }

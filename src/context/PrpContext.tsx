@@ -370,6 +370,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       effort_penalty: s.effortPenalty,
       work_start_time: s.workStartTime,
       work_end_time: s.workEndTime,
+      work_days: s.workDays,
     }).eq('id', settingsId);
   }, [settingsId]);
 

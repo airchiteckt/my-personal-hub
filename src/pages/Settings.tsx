@@ -174,10 +174,10 @@ const Settings = () => {
                 <Briefcase className="h-5 w-5 text-primary" />
                 <div>
                   <h3 className="font-semibold">Orario Lavorativo</h3>
-                  <p className="text-xs text-muted-foreground">Definisci la finestra oraria per la pianificazione automatica</p>
+                  <p className="text-xs text-muted-foreground">Definisci orario e giorni lavorativi per la pianificazione automatica</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Inizio</Label>
                   <Select value={prioritySettings.workStartTime} onValueChange={v => update('workStartTime', v as any)}>
@@ -203,6 +203,40 @@ const Settings = () => {
                       })}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Giorni lavorativi</Label>
+                <div className="flex gap-1.5">
+                  {[
+                    { day: 1, label: 'L' },
+                    { day: 2, label: 'M' },
+                    { day: 3, label: 'M' },
+                    { day: 4, label: 'G' },
+                    { day: 5, label: 'V' },
+                    { day: 6, label: 'S' },
+                    { day: 0, label: 'D' },
+                  ].map(({ day, label }) => {
+                    const active = prioritySettings.workDays.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        onClick={() => {
+                          const next = active
+                            ? prioritySettings.workDays.filter(d => d !== day)
+                            : [...prioritySettings.workDays, day];
+                          setPrioritySettings({ ...prioritySettings, workDays: next });
+                        }}
+                        className={`h-9 w-9 rounded-full text-xs font-medium transition-colors ${
+                          active
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </Card>

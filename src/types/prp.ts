@@ -287,6 +287,9 @@ export interface PrioritySettings {
   // Impact/effort
   impactMultiplier: number; // default 2
   effortPenalty: number; // default 1
+  // Work hours
+  workStartTime: string; // default '09:00'
+  workEndTime: string; // default '19:00'
 }
 
 export interface Reminder {

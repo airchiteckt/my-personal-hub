@@ -14,7 +14,7 @@ import { ProfileSettings } from '@/components/ProfileSettings';
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();
 
-  const update = (key: keyof PrioritySettings, value: number | boolean) => {
+  const update = (key: keyof PrioritySettings, value: number | boolean | string) => {
     setPrioritySettings({ ...prioritySettings, [key]: value });
   };
 

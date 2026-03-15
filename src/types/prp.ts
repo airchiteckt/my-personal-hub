@@ -321,4 +321,6 @@ export const DEFAULT_PRIORITY_SETTINGS: PrioritySettings = {
   maintenanceWeight: -1,
   impactMultiplier: 2,
   effortPenalty: 1,
+  workStartTime: '09:00',
+  workEndTime: '19:00',
 };

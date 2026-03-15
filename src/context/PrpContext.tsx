@@ -367,6 +367,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       maintenance_weight: s.maintenanceWeight,
       impact_multiplier: s.impactMultiplier,
       effort_penalty: s.effortPenalty,
+      work_start_time: s.workStartTime,
+      work_end_time: s.workEndTime,
     }).eq('id', settingsId);
   }, [settingsId]);
 

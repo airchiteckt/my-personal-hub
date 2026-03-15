@@ -168,11 +168,51 @@ const Settings = () => {
               )}
             </Card>
 
+            {/* Work Hours */}
+            <Card className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Briefcase className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-semibold">Orario Lavorativo</h3>
+                  <p className="text-xs text-muted-foreground">Definisci la finestra oraria per la pianificazione automatica</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Inizio</Label>
+                  <Select value={prioritySettings.workStartTime} onValueChange={v => update('workStartTime', v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 15 }, (_, i) => {
+                        const h = 6 + i;
+                        const t = `${h.toString().padStart(2, '0')}:00`;
+                        return <SelectItem key={t} value={t}>{t}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Fine</Label>
+                  <Select value={prioritySettings.workEndTime} onValueChange={v => update('workEndTime', v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 15 }, (_, i) => {
+                        const h = 10 + i;
+                        const t = `${h.toString().padStart(2, '0')}:00`;
+                        return <SelectItem key={t} value={t}>{t}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </Card>
+
             <Card className="p-4 bg-muted/50 border-dashed">
               <p className="text-xs text-muted-foreground leading-relaxed">
                 <strong>Come funziona:</strong> La priorità effettiva = Manuale + Deadline Boost + Score Strategico + Peso Progetto.
                 Tu continui a vedere Alta/Media/Bassa, ma l'ordinamento nel backlog e i suggerimenti usano il punteggio interno.
                 Il sistema può solo <strong>aumentare</strong> la priorità, mai abbassarla rispetto a quella manuale.
+                Le task non completate vengono automaticamente riproposte nei primi slot liberi del giorno successivo.
               </p>
             </Card>
           </div>

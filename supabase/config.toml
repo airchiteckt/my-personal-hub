@@ -2,3 +2,9 @@ project_id = "qjafzzejqksysgakbmhl"
 
 [functions.ai-assistant]
 verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false

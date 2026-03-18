@@ -108,9 +108,19 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    console.log("Auth email hook received:", JSON.stringify({ type: payload.type, email: payload.email }));
-
-    const { type, email, confirmation_url, token_hash, token } = payload;
+    
+    // Supabase Send Email Hook payload structure
+    const user = payload.user || {};
+    const emailData = payload.email_data || {};
+    
+    const email = user.email || payload.email;
+    const type = emailData.email_action_type || payload.type || "unknown";
+    const token_hash = emailData.token_hash || payload.token_hash;
+    const token = emailData.token || payload.token;
+    const redirectTo = emailData.redirect_to || "";
+    const siteUrl = emailData.site_url || "https://www.flydeck.app";
+    
+    console.log("Auth email hook received:", JSON.stringify({ type, email }));
 
     // Build confirmation URL for recovery to redirect to our reset password page
     let finalUrl = confirmation_url || "";

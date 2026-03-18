@@ -108,18 +108,47 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    console.log("Auth email hook received:", JSON.stringify({ type: payload.type, email: payload.email }));
+    
+    // Supabase Send Email Hook payload structure
+    const user = payload.user || {};
+    const emailData = payload.email_data || {};
+    
+    const email = user.email || payload.email;
+    const type = emailData.email_action_type || payload.type || "unknown";
+    const token_hash = emailData.token_hash || payload.token_hash;
+    const token = emailData.token || payload.token;
+    const redirectTo = emailData.redirect_to || "";
+    const siteUrl = emailData.site_url || "https://www.flydeck.app";
+    
+    console.log("Auth email hook received:", JSON.stringify({ type, email }));
 
-    const { type, email, confirmation_url, token_hash, token } = payload;
+    // Build confirmation URL
+    let finalUrl = "";
+    if (token_hash) {
+      const base = redirectTo || `${siteUrl}/reset-password`;
+      if (type === "recovery") {
+        finalUrl = `${siteUrl}/reset-password#access_token=${token_hash}&type=recovery`;
+      } else if (type === "signup" || type === "email_change") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=${type}`;
+      } else if (type === "magiclink") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=magiclink`;
+      } else if (type === "invite") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=invite`;
+      } else {
+        finalUrl = redirectTo || siteUrl;
+      }
+    }
 
-    // Build confirmation URL for recovery to redirect to our reset password page
-    let finalUrl = confirmation_url || "";
-    if (type === "recovery" && token_hash) {
-      const siteUrl = "https://www.flydeck.app";
-      finalUrl = `${siteUrl}/reset-password#access_token=${token_hash}&type=recovery`;
+    if (!email) {
+      console.error("No email found in payload:", JSON.stringify(payload));
+      return new Response(JSON.stringify({ error: "No email address found" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const html = renderEmail(type, email, finalUrl, token);
+
 
     const subjectMap: Record<string, string> = {
       signup: "Conferma la tua registrazione su FlyDeck",

@@ -122,14 +122,30 @@ serve(async (req) => {
     
     console.log("Auth email hook received:", JSON.stringify({ type, email }));
 
-    // Build confirmation URL for recovery to redirect to our reset password page
-    let finalUrl = confirmation_url || "";
-    if (type === "recovery" && token_hash) {
-      const siteUrl = "https://www.flydeck.app";
-      finalUrl = `${siteUrl}/reset-password#access_token=${token_hash}&type=recovery`;
+    // Build confirmation URL
+    let finalUrl = "";
+    if (token_hash) {
+      const base = redirectTo || `${siteUrl}/reset-password`;
+      if (type === "recovery") {
+        finalUrl = `${siteUrl}/reset-password#access_token=${token_hash}&type=recovery`;
+      } else if (type === "signup" || type === "email_change") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=${type}`;
+      } else if (type === "magiclink") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=magiclink`;
+      } else if (type === "invite") {
+        finalUrl = `${siteUrl}/auth/confirm?token_hash=${token_hash}&type=invite`;
+      } else {
+        finalUrl = redirectTo || siteUrl;
+      }
     }
 
-    const html = renderEmail(type, email, finalUrl, token);
+    if (!email) {
+      console.error("No email found in payload:", JSON.stringify(payload));
+      return new Response(JSON.stringify({ error: "No email address found" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const subjectMap: Record<string, string> = {
       signup: "Conferma la tua registrazione su FlyDeck",

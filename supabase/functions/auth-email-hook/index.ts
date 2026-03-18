@@ -147,6 +147,9 @@ serve(async (req) => {
       });
     }
 
+    const html = renderEmail(type, email, finalUrl, token);
+
+
     const subjectMap: Record<string, string> = {
       signup: "Conferma la tua registrazione su FlyDeck",
       recovery: "Reimposta la tua password — FlyDeck",

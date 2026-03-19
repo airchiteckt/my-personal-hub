@@ -785,10 +785,14 @@ export function AiAssistant() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="fixed bottom-4 right-4 md:bottom-5 md:right-5 z-50 group" style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }} aria-label="Apri Radar">
-          <div className="absolute inset-0 rounded-full md:rounded-2xl bg-primary/30 blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-300" />
-          <div className="relative h-12 w-12 md:h-12 md:w-auto md:px-5 rounded-full md:rounded-2xl bg-primary text-primary-foreground flex items-center justify-center md:justify-start gap-2.5 shadow-lg hover:shadow-xl active:scale-[0.95] transition-all duration-200">
-            <RadarIcon size={20} className="md:h-[18px] md:w-[18px]" />
+        <button
+          className="fixed z-50 group bottom-5 right-5 md:bottom-5 md:right-5"
+          style={{ bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 0.25rem)', right: 'max(1.25rem, env(safe-area-inset-right))' }}
+          aria-label="Apri Radar"
+        >
+          <div className="absolute inset-0 rounded-[18px] md:rounded-2xl bg-primary/30 blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-300" />
+          <div className="relative h-14 w-14 md:h-12 md:w-auto md:px-5 rounded-[18px] md:rounded-2xl bg-primary text-primary-foreground flex items-center justify-center md:justify-start gap-2.5 shadow-lg shadow-primary/25 hover:shadow-xl active:scale-[0.92] transition-all duration-200">
+            <RadarIcon size={22} className="md:h-[18px] md:w-[18px]" />
             <span className="hidden md:inline text-sm font-semibold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RADAR</span>
           </div>
         </button>

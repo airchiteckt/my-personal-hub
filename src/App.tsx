@@ -25,6 +25,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PublicShowcase from "./pages/PublicShowcase";
 import PublicSlotPicker from "./pages/PublicSlotPicker";
 import { AiAssistant } from "./components/AiAssistant";
+import { useFeatureFlags } from "./hooks/use-feature-flags";
 
 const queryClient = new QueryClient();
 

@@ -227,7 +227,7 @@ export function AiVoiceSettings() {
       <Card className="p-5 space-y-4">
         <div className="flex items-center gap-2 mb-2">
           <Brain className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-lg">LLM (Lovable AI Gateway)</h3>
+          <h3 className="font-semibold text-lg">LLM (AI Gateway)</h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

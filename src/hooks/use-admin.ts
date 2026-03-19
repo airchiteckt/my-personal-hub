@@ -8,11 +8,15 @@ export function useAdmin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (!user) {
       setIsAdmin(false);
       setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     const checkAdmin = async () => {
       const { data, error } = await supabase
@@ -22,11 +26,16 @@ export function useAdmin() {
         .eq('role', 'admin')
         .maybeSingle();
 
+      if (!isMounted) return;
       setIsAdmin(!error && !!data);
       setLoading(false);
     };
 
     checkAdmin();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   return { isAdmin, loading };

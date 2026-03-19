@@ -342,6 +342,39 @@ export type Database = {
         }
         Relationships: []
       }
+      feature_flags: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_enabled: boolean
+          key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       focus_periods: {
         Row: {
           created_at: string

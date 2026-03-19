@@ -2,6 +2,7 @@ import { Building2, CalendarDays, CalendarRange, Settings, LogOut, Inbox, Repeat
 import { NavLink } from '@/components/NavLink';
 import { usePrp } from '@/context/PrpContext';
 import { useAuth } from '@/context/AuthContext';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
@@ -10,13 +11,13 @@ import {
 import { Button } from '@/components/ui/button';
 
 const navItems = [
-  { title: 'Oggi', url: '/', icon: CalendarDays },
-  { title: 'Calendario', url: '/calendar', icon: CalendarRange },
-  { title: 'Imprese', url: '/enterprises', icon: Building2 },
-  { title: 'Rituali', url: '/rituals', icon: Repeat },
-  { title: 'Cockpit', url: '/cockpit', icon: Gauge },
-  { title: 'Richieste', url: '/requests', icon: Inbox },
-  { title: 'Impostazioni', url: '/settings', icon: Settings },
+  { title: 'Oggi', url: '/', icon: CalendarDays, flagKey: null },
+  { title: 'Calendario', url: '/calendar', icon: CalendarRange, flagKey: 'nav_calendar' },
+  { title: 'Imprese', url: '/enterprises', icon: Building2, flagKey: 'nav_enterprises' },
+  { title: 'Rituali', url: '/rituals', icon: Repeat, flagKey: 'nav_rituals' },
+  { title: 'Cockpit', url: '/cockpit', icon: Gauge, flagKey: 'nav_cockpit' },
+  { title: 'Richieste', url: '/requests', icon: Inbox, flagKey: 'nav_requests' },
+  { title: 'Impostazioni', url: '/settings', icon: Settings, flagKey: null },
 ];
 
 export function AppSidebar() {
@@ -24,6 +25,11 @@ export function AppSidebar() {
   const collapsed = state === 'collapsed';
   const { enterprises } = usePrp();
   const { user, signOut } = useAuth();
+  const { isFeatureEnabled } = useFeatureFlags();
+
+  const visibleItems = navItems.filter(item =>
+    item.flagKey === null || isFeatureEnabled(item.flagKey)
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -46,7 +52,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Navigazione</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map(item => (
+              {visibleItems.map(item => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
                     <NavLink to={item.url} end={item.url === '/'} className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent text-sidebar-accent-foreground font-medium">
@@ -60,7 +66,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!collapsed && enterprises.length > 0 && (
+        {!collapsed && enterprises.length > 0 && isFeatureEnabled('nav_enterprises') && (
           <SidebarGroup>
             <SidebarGroupLabel>Imprese</SidebarGroupLabel>
             <SidebarGroupContent>

@@ -1,9 +1,10 @@
 import { useAuth } from '@/context/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Bot, Volume2, Target, ArrowLeft, LogOut } from 'lucide-react';
+import { Shield, Bot, Volume2, Target, ArrowLeft, LogOut, ToggleRight } from 'lucide-react';
 import { AiPromptsSettings } from '@/components/AiPromptsSettings';
 import { AiVoiceSettings } from '@/components/admin/AiVoiceSettings';
 import { PlanningThresholds } from '@/components/admin/PlanningThresholds';
+import { FeatureFlagsSettings } from '@/components/admin/FeatureFlagsSettings';
 import { Button } from '@/components/ui/button';
 
 const Admin = () => {
@@ -44,8 +45,12 @@ const Admin = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="voice" className="space-y-4">
+        <Tabs defaultValue="features" className="space-y-4">
           <TabsList className="w-full">
+            <TabsTrigger value="features" className="flex-1 gap-1.5">
+              <ToggleRight className="h-4 w-4" />
+              Funzioni
+            </TabsTrigger>
             <TabsTrigger value="voice" className="flex-1 gap-1.5">
               <Volume2 className="h-4 w-4" />
               Voice AI
@@ -59,6 +64,10 @@ const Admin = () => {
               Pianificazione
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="features">
+            <FeatureFlagsSettings />
+          </TabsContent>
 
           <TabsContent value="voice">
             <AiVoiceSettings />

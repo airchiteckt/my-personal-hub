@@ -25,6 +25,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PublicShowcase from "./pages/PublicShowcase";
 import PublicSlotPicker from "./pages/PublicSlotPicker";
 import { AiAssistant } from "./components/AiAssistant";
+import { useFeatureFlags } from "./hooks/use-feature-flags";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ function AdminRoute() {
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   if (loading) {
     return (
@@ -74,7 +76,7 @@ function ProtectedRoutes() {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <AiAssistant />
+      {isFeatureEnabled('feature_ai_assistant') && <AiAssistant />}
     </PrpProvider>
   );
 }

@@ -47,6 +47,7 @@ function AdminRoute() {
 
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
+  const { isFeatureEnabled } = useFeatureFlags();
 
   if (loading) {
     return (
@@ -75,7 +76,7 @@ function ProtectedRoutes() {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <AiAssistant />
+      {isFeatureEnabled('feature_ai_assistant') && <AiAssistant />}
     </PrpProvider>
   );
 }

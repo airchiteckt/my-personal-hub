@@ -86,6 +86,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_usage_limits: {
+        Row: {
+          daily_global_limit: number
+          id: string
+          is_enabled: boolean
+          monthly_global_limit: number
+          updated_at: string
+        }
+        Insert: {
+          daily_global_limit?: number
+          id?: string
+          is_enabled?: boolean
+          monthly_global_limit?: number
+          updated_at?: string
+        }
+        Update: {
+          daily_global_limit?: number
+          id?: string
+          is_enabled?: boolean
+          monthly_global_limit?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_usage_log: {
+        Row: {
+          created_at: string
+          function_type: string
+          id: string
+          tokens_used: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          function_type: string
+          id?: string
+          tokens_used?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          function_type?: string
+          id?: string
+          tokens_used?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_voice_settings: {
         Row: {
           created_at: string
@@ -1236,6 +1284,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_ai_usage_limit: { Args: never; Returns: Json }
       get_user_email: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

@@ -56,6 +56,42 @@ serve(async (req) => {
     const userId = claimsData.claims.sub;
     const { type, messages: clientMessages, context } = await req.json();
 
+    // ===== AI Usage Limit Check (global circuit breaker) =====
+    // Use service role to bypass RLS for accurate global counts
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    try {
+      const { data: limitCheck } = await adminClient.rpc("check_ai_usage_limit");
+      if (limitCheck && limitCheck.allowed === false) {
+        console.warn("AI usage limit exceeded:", limitCheck);
+        return new Response(
+          JSON.stringify({
+            error: "Il sistema ha raggiunto il limite di utilizzo AI. Riprova più tardi.",
+            reason: limitCheck.reason,
+            details: limitCheck,
+          }),
+          {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+    } catch (e) {
+      console.error("Failed to check AI usage limit:", e);
+      // Fail open: don't block users if the check itself errors
+    }
+
+    // Log this AI call (fire-and-forget, don't block on failure)
+    adminClient
+      .from("ai_usage_log")
+      .insert({ user_id: userId, function_type: type || "unknown" })
+      .then(({ error }) => {
+        if (error) console.error("Failed to log AI usage:", error);
+      });
+
     // Fetch the user's custom system prompt for this function type
     const { data: promptRow } = await supabase
       .from("ai_prompts")

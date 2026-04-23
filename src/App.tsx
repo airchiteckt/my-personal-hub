@@ -25,6 +25,7 @@ import ResetPassword from "./pages/ResetPassword";
 import PublicShowcase from "./pages/PublicShowcase";
 import PublicSlotPicker from "./pages/PublicSlotPicker";
 import { AiAssistant } from "./components/AiAssistant";
+import { OnboardingTour } from "./components/OnboardingTour";
 import { useFeatureFlags } from "./hooks/use-feature-flags";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,7 @@ function ProtectedRoutes() {
         <Route path="*" element={<NotFound />} />
       </Routes>
       {isFeatureEnabled('feature_ai_assistant') && <AiAssistant />}
+      <OnboardingTour />
     </PrpProvider>
   );
 }

@@ -161,7 +161,7 @@ export function AiUsageLimits() {
           </div>
 
           {!limits.is_enabled && (
-            <div className="flex gap-2 rounded-md bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex gap-2 rounded-md bg-destructive/10 border border-destructive/30 p-3 text-xs text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>Protezione disattivata: il sistema potrebbe esaurire la quota AI in caso di abuso o bug.</span>
             </div>

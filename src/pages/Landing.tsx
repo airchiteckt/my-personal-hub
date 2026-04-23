@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { motion } from 'framer-motion';
 import {
   Rocket,
@@ -15,12 +13,8 @@ import {
   Zap,
   ArrowRight,
   Layers,
-  Clock,
   Sparkles,
-  CheckCircle2,
 } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -89,21 +83,6 @@ const pillars = [
 ];
 
 export default function Landing() {
-  const [waitlistEmail, setWaitlistEmail] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleWaitlist = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!waitlistEmail) return;
-    setSubmitting(true);
-    // For now, just show success - could be connected to a waitlist table later
-    await new Promise((r) => setTimeout(r, 600));
-    setSubmitted(true);
-    setSubmitting(false);
-    toast.success('Sei nella lista! Ti contatteremo presto.');
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Nav */}
@@ -120,8 +99,8 @@ export default function Landing() {
             <Button variant="ghost" size="sm" asChild>
               <Link to="/auth">Accedi</Link>
             </Button>
-            <Button size="sm" disabled className="opacity-60 cursor-not-allowed">
-              Registrati
+            <Button size="sm" asChild>
+              <Link to="/auth?mode=signup">Registrati gratis</Link>
             </Button>
           </div>
         </div>
@@ -151,43 +130,26 @@ export default function Landing() {
             </p>
           </motion.div>
 
-          {/* Waitlist CTA */}
+          {/* CTA */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
+            className="flex flex-col sm:flex-row items-center justify-center gap-3"
           >
-            {submitted ? (
-              <div className="inline-flex items-center gap-2 text-primary font-medium bg-accent px-6 py-3 rounded-lg">
-                <CheckCircle2 className="h-5 w-5" />
-                Sei nella waiting list!
-              </div>
-            ) : (
-              <form
-                onSubmit={handleWaitlist}
-                className="flex flex-col sm:flex-row items-center gap-3 max-w-md mx-auto"
-              >
-                <Input
-                  type="email"
-                  placeholder="La tua email"
-                  value={waitlistEmail}
-                  onChange={(e) => setWaitlistEmail(e.target.value)}
-                  required
-                  className="h-12 text-base"
-                />
-                <Button type="submit" size="lg" disabled={submitting} className="w-full sm:w-auto h-12 px-8">
-                  {submitting ? 'Invio...' : 'Iscriviti alla waiting list'}
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </Button>
-              </form>
-            )}
-            <p className="text-xs text-muted-foreground mt-3">
-              Già registrato?{' '}
-              <Link to="/auth" className="text-primary underline underline-offset-4">
-                Accedi
+            <Button size="lg" asChild className="h-12 px-8 text-base">
+              <Link to="/auth?mode=signup">
+                Crea il tuo account
+                <ArrowRight className="h-4 w-4 ml-1" />
               </Link>
-            </p>
+            </Button>
+            <Button size="lg" variant="outline" asChild className="h-12 px-8 text-base">
+              <Link to="/auth">Accedi</Link>
+            </Button>
           </motion.div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Registrazione gratuita · Conferma via email
+          </p>
         </div>
       </section>
 
@@ -278,9 +240,9 @@ export default function Landing() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {[
-              { step: '01', title: 'Crea le Imprese', desc: 'Definisci le tue attività e il loro peso strategico.' },
-              { step: '02', title: 'Pianifica', desc: 'Organizza task, rituali e obiettivi nel calendario.' },
-              { step: '03', title: 'Esegui', desc: 'Completa le task quotidiane con priorità intelligenti.' },
+              { step: '01', title: 'Registrati', desc: 'Crea il tuo account gratuito in pochi secondi.' },
+              { step: '02', title: 'Crea le Imprese', desc: 'Definisci le tue attività e il loro peso strategico.' },
+              { step: '03', title: 'Pianifica & Esegui', desc: 'Organizza task, rituali e obiettivi con priorità intelligenti.' },
               { step: '04', title: 'Analizza', desc: "Monitora il progresso nel Cockpit con l'AI." },
             ].map((s, i) => (
               <motion.div
@@ -314,13 +276,15 @@ export default function Landing() {
               Pronto a prendere il controllo?
             </h2>
             <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-              FlyDeck è in accesso anticipato. Iscriviti alla waiting list per essere tra i primi a provarlo.
+              Crea il tuo account gratuito e inizia subito a pianificare imprese, progetti e rituali con
+              FlyDeck.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Button size="lg" asChild>
-                <a href="#top" onClick={() => (document.querySelector('input[type="email"]') as HTMLElement)?.focus()}>
-                  Iscriviti alla waiting list
-                </a>
+                <Link to="/auth?mode=signup">
+                  Crea il tuo account
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </Link>
               </Button>
               <Button variant="outline" size="lg" asChild>
                 <Link to="/auth">Accedi</Link>

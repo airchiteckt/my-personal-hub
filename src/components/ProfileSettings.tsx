@@ -5,8 +5,9 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Save, Loader2, Upload, X } from 'lucide-react';
+import { User, Mail, Lock, Save, Loader2, Upload, X, Compass } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { resetOnboarding } from '@/components/OnboardingTour';
 
 export function ProfileSettings() {
   const { user } = useAuth();

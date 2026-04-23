@@ -266,6 +266,29 @@ export function ProfileSettings() {
           </Button>
         </div>
       </Card>
+
+      {/* Onboarding tour */}
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Compass className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Tour Guidato</h3>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Rivedi l'introduzione alle funzionalità principali di FlyDeck.
+        </p>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            if (!user) return;
+            resetOnboarding(user.id);
+            toast({ title: 'Tour riavviato', description: 'Ricarica la pagina per vederlo.' });
+          }}
+        >
+          <Compass className="h-4 w-4 mr-1.5" />
+          Rivedi tour
+        </Button>
+      </Card>
     </div>
   );
 }

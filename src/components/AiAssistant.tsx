@@ -775,167 +775,215 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
 // ─── Main Sheet Component ───
 export function AiAssistant() {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const r = useRadar();
 
-  useEffect(() => { if (!open) { if (r.callActive) r.endCall(); setTimeout(() => r.setView('home'), 300); } }, [open]);
+  // Switch view to chat when expanding (skip home gauges since dock IS the entry)
+  useEffect(() => {
+    if (expanded && r.view === 'home') r.setView('chat');
+    if (!expanded && r.callActive) r.endCall();
+  }, [expanded]);
 
-  const openFullPage = () => { setOpen(false); navigate('/radar'); };
+  // Auto-expand when user starts typing or messages arrive
+  useEffect(() => {
+    if (r.messages.length > 0 && !expanded) setExpanded(true);
+  }, [r.messages.length]);
+
+  // ESC to collapse
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !r.callActive) setExpanded(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [expanded, r.callActive]);
+
+  const openFullPage = () => { setExpanded(false); navigate('/radar'); };
+
+  const hasMessages = r.messages.length > 0;
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          className="fixed z-50 group bottom-5 right-5 md:bottom-5 md:right-5"
-          style={{ bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 0.25rem)', right: 'max(1.25rem, env(safe-area-inset-right))' }}
-          aria-label="Apri Radar"
+    <>
+      {/* Backdrop when expanded (light, click to collapse) */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            onClick={() => !r.callActive && setExpanded(false)}
+            className="fixed inset-0 z-40 bg-background/40 backdrop-blur-[2px]"
+          />
+        )}
+      </AnimatePresence>
+
+      <div
+        className="fixed z-50 left-0 right-0 bottom-0 md:left-auto md:right-4 md:bottom-4 md:w-[min(440px,calc(100vw-2rem))] pointer-events-none"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        <motion.div
+          layout
+          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+          className="pointer-events-auto mx-auto md:mx-0 bg-card border border-border/60 shadow-2xl shadow-black/10 rounded-t-2xl md:rounded-2xl overflow-hidden flex flex-col"
+          style={{ maxHeight: expanded ? 'min(70vh, 640px)' : '72px' }}
         >
-          <div className="absolute inset-0 rounded-[18px] md:rounded-2xl bg-primary/30 blur-lg opacity-0 group-hover:opacity-60 transition-opacity duration-300" />
-          <div className="relative h-14 w-14 md:h-12 md:w-auto md:px-5 rounded-[18px] md:rounded-2xl bg-primary text-primary-foreground flex items-center justify-center md:justify-start gap-2.5 shadow-lg shadow-primary/25 hover:shadow-xl active:scale-[0.92] transition-all duration-200">
-            <RadarIcon size={22} className="md:h-[18px] md:w-[18px]" />
-            <span className="hidden md:inline text-sm font-semibold tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RADAR</span>
-          </div>
-        </button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:w-[440px] p-0 flex flex-col bg-background border-l border-border/40 [&>button]:hidden">
-        {/* Header */}
-        <div className="relative overflow-hidden shrink-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.06] via-transparent to-accent/[0.04] pointer-events-none" />
-          <div className="relative px-4 pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {r.view !== 'home' && (
-                  <button onClick={r.goBack} className="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 transition-colors text-muted-foreground">
-                    <ArrowLeft className="h-4 w-4" />
-                  </button>
-                )}
-                <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
-                  <RadarIcon size={18} className="text-primary" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-foreground tracking-tight" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RADAR</h2>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <div className={`h-1.5 w-1.5 rounded-full ${r.callActive ? 'bg-destructive animate-pulse' : 'bg-emerald-500'} shadow-[0_0_4px_rgba(16,185,129,0.6)]`} />
-                    <span className="text-[10px] text-muted-foreground font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {r.callActive ? `IN CHIAMATA · ${r.formatDuration(r.callDuration)}` : r.view === 'chat' ? 'CHAT MODE' : 'ONLINE'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {!r.callActive && (
-                  <button onClick={openFullPage} className="h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-colors" title="Pagina dedicata">
-                    <Maximize2 className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <AnimatePresence mode="wait">
-          {r.view === 'home' && (
-            <motion.div key="home" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="flex-1 overflow-y-auto p-4 border-t border-border/30">
-              <div className="flex items-center gap-3 mb-5">
-                {[
-                  { value: r.tasksDueToday, label: 'OGGI', alert: r.tasksDueToday > 0 },
-                  { value: r.backlogCount, label: 'BACKLOG', alert: false },
-                  { value: r.activeEnterprises, label: 'ATTIVE', alert: false },
-                  { value: r.activeFocus, label: 'FOCUS', alert: false },
-                ].map(gauge => (
-                  <div key={gauge.label} className="flex-1 text-center py-2.5 rounded-lg bg-muted/40 border border-border/30">
-                    <div className={`text-lg font-bold tabular-nums leading-none ${gauge.alert ? 'text-primary' : 'text-foreground'}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{gauge.value}</div>
-                    <div className="text-[8px] text-muted-foreground font-medium tracking-widest mt-1.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{gauge.label}</div>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[11px] text-muted-foreground font-medium mb-2 px-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>AZIONI RAPIDE</p>
-              <div className="space-y-1.5 mb-5">
-                {QUICK_PROMPTS.map(q => (
-                  <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="w-full flex items-center gap-3 rounded-lg border border-border/50 bg-card/80 hover:bg-muted/60 active:bg-muted/80 transition-all duration-150 px-3 py-3 group text-left min-h-[48px]">
-                    <span className="text-base">{q.icon}</span>
-                    <span className="text-[13px] text-foreground font-medium flex-1">{q.label}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/30 group-hover:text-primary transition-all" />
-                  </button>
-                ))}
-              </div>
-              <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] active:bg-primary/[0.18] border border-primary/15 transition-all duration-200 py-4 group min-h-[52px]">
-                <Phone className="h-4 w-4 text-primary/70 group-hover:text-primary transition-colors" />
-                <span className="text-[13px] font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>CHIAMA RADAR</span>
-              </button>
-
-              {/* Text input on home */}
-              <div className="mt-4 flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
-                <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi o dai un ordine a Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[32px] max-h-[80px] py-1" rows={1} disabled={r.isLoading} />
-                <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
-              </div>
-            </motion.div>
-          )}
-
-          {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
-          )}
-
-          {r.view === 'chat' && (
-            <motion.div key="chat" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="flex-1 flex flex-col min-h-0">
-              <div ref={r.scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 border-t border-border/30">
-                {r.messages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-8">
-                    <RadarIcon size={32} className="text-muted-foreground/30 mb-3" />
-                    <p className="text-sm text-muted-foreground">Scrivi un messaggio per iniziare</p>
-                  </div>
-                )}
-                {r.messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'assistant' && <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={12} className="text-primary" /></div>}
-                    <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
-{msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed"><ReactMarkdown>{stripToolCallTags(msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>}
+          {/* Header (only when expanded) */}
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.18 }}
+                className="shrink-0 border-b border-border/40 overflow-hidden"
+              >
+                <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-br from-primary/[0.05] to-transparent">
+                  <div className="flex items-center gap-2.5">
+                    {r.view !== 'chat' && r.view !== 'home' && (
+                      <button onClick={r.goBack} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground">
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                    )}
+                    <div className="h-8 w-8 rounded-xl bg-primary/10 border border-primary/15 flex items-center justify-center">
+                      <RadarIcon size={16} className="text-primary" />
+                    </div>
+                    <div>
+                      <h2 className="text-xs font-bold text-foreground tracking-tight leading-none" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RADAR</h2>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <div className={`h-1.5 w-1.5 rounded-full ${r.callActive ? 'bg-destructive animate-pulse' : 'bg-emerald-500'}`} />
+                        <span className="text-[9px] text-muted-foreground font-medium tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                          {r.callActive ? `IN CHIAMATA · ${r.formatDuration(r.callDuration)}` : 'ONLINE'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                ))}
-                {r.pendingActions.map((action, i) => (
-                  <div key={`a-${i}`} className="py-0.5">
-                    <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
+                  <div className="flex items-center gap-1">
+                    {hasMessages && !r.callActive && (
+                      <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="h-8 px-2 rounded-lg flex items-center gap-1.5 hover:bg-muted text-muted-foreground text-[10px] font-medium tracking-wider" style={{ fontFamily: "'JetBrains Mono', monospace" }} title="Nuova sessione">
+                        <Trash2 className="h-3 w-3" /> RESET
+                      </button>
+                    )}
+                    {!r.callActive && (
+                      <button onClick={openFullPage} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground" title="Apri a tutto schermo">
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {!r.callActive && (
+                      <button onClick={() => setExpanded(false)} className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground" title="Minimizza">
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                ))}
-                {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
-                  <div className="flex justify-start">
-                    <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2"><RadarIcon size={12} className="text-primary" /></div>
-                    <div className="bg-muted/50 rounded-2xl rounded-bl-lg px-3.5 py-2.5 border border-border/40">
-                      <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /><span className="text-[12px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>ELABORO...</span></div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Body */}
+          <AnimatePresence mode="wait" initial={false}>
+            {expanded && r.view === 'voice' && (
+              <motion.div key="voice" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-h-0 overflow-hidden">
+                <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
+              </motion.div>
+            )}
+
+            {expanded && r.view !== 'voice' && (
+              <motion.div key="chat" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 min-h-0 flex flex-col">
+                <div ref={r.scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+                  {!hasMessages && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        {[
+                          { value: r.tasksDueToday, label: 'OGGI', alert: r.tasksDueToday > 0 },
+                          { value: r.backlogCount, label: 'BACKLOG', alert: false },
+                          { value: r.activeEnterprises, label: 'ATTIVE', alert: false },
+                          { value: r.activeFocus, label: 'FOCUS', alert: false },
+                        ].map(g => (
+                          <div key={g.label} className="flex-1 text-center py-2 rounded-lg bg-muted/40 border border-border/30">
+                            <div className={`text-base font-bold tabular-nums leading-none ${g.alert ? 'text-primary' : 'text-foreground'}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>{g.value}</div>
+                            <div className="text-[8px] text-muted-foreground font-medium tracking-widest mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{g.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground font-medium mb-1.5 px-0.5 tracking-widest" style={{ fontFamily: "'JetBrains Mono', monospace" }}>AZIONI RAPIDE</p>
+                        <div className="space-y-1">
+                          {QUICK_PROMPTS.map(q => (
+                            <button key={q.label} onClick={() => r.handleSend(q.prompt)} className="w-full flex items-center gap-3 rounded-lg border border-border/50 bg-card/80 hover:bg-muted/60 px-3 py-2.5 text-left">
+                              <span className="text-sm">{q.icon}</span>
+                              <span className="text-[12px] text-foreground font-medium flex-1">{q.label}</span>
+                              <ChevronRight className="h-3 w-3 text-muted-foreground/40" />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
+                  )}
+                  {r.messages.map((msg, i) => (
+                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'assistant' && <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={12} className="text-primary" /></div>}
+                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
+                        {msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed"><ReactMarkdown>{stripToolCallTags(msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>}
+                      </div>
+                    </div>
+                  ))}
+                  {r.pendingActions.map((action, i) => (
+                    <div key={`a-${i}`} className="py-0.5">
+                      <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
+                    </div>
+                  ))}
+                  {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
+                    <div className="flex justify-start">
+                      <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2"><RadarIcon size={12} className="text-primary" /></div>
+                      <div className="bg-muted/50 rounded-2xl rounded-bl-lg px-3.5 py-2.5 border border-border/40">
+                        <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" /><span className="text-[12px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>ELABORO...</span></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Composer (always visible, unless in voice call) */}
+          {r.view !== 'voice' && (
+            <div className="shrink-0 p-2.5 border-t border-border/40 bg-card">
+              <div className="flex items-end gap-1.5 bg-background rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all">
+                {!expanded && (
+                  <div className="h-7 w-7 shrink-0 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center">
+                    <RadarIcon size={14} className="text-primary" />
                   </div>
                 )}
-              </div>
-              <div className="border-t border-border/40 p-3 shrink-0 bg-muted/10" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
-                {r.messages.length > 0 && (
-                  <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors mb-2 px-1 min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                    <Trash2 className="h-3 w-3" /> NUOVA SESSIONE
-                  </button>
-                )}
-                <div className="flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
-                  <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi al Radar..." className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/40 min-h-[32px] max-h-[80px] py-1" rows={1} disabled={r.isLoading} />
+                <textarea
+                  ref={r.inputRef}
+                  value={r.input}
+                  onChange={r.handleTextareaInput}
+                  onKeyDown={r.handleKeyDown}
+                  onFocus={() => setExpanded(true)}
+                  placeholder={expanded ? 'Scrivi o dai un ordine a Radar...' : 'Chiedi qualcosa a Radar...'}
+                  className="flex-1 bg-transparent text-sm resize-none border-0 outline-none placeholder:text-muted-foreground/50 min-h-[32px] max-h-[120px] py-1.5"
+                  rows={1}
+                  disabled={r.isLoading}
+                />
+                {expanded && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="shrink-0 h-10 w-10 rounded-lg flex items-center justify-center hover:bg-muted active:bg-muted/80 text-muted-foreground transition-all duration-200">
+                      <button className="shrink-0 h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-all">
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" side="top" className="min-w-[160px]">
+                    <DropdownMenuContent align="end" side="top" className="min-w-[180px]">
                       <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
                         <Phone className="h-4 w-4 mr-2" /> Chiama Radar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
-                </div>
+                )}
+                <Button size="icon" onClick={() => { setExpanded(true); r.handleSend(); }} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg">
+                  <Send className="h-4 w-4" />
+                </Button>
               </div>
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
-      </SheetContent>
-    </Sheet>
+        </motion.div>
+      </div>
+    </>
   );
 }
 

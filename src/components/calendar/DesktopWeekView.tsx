@@ -313,14 +313,23 @@ export function DesktopWeekView() {
             <Send className="h-3 w-3 mr-1" />
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Riduci zoom" disabled={zoom <= 0.5}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-center cursor-pointer" onClick={() => setZoom(1)} title="Reset zoom">{Math.round(zoom * 100)}%</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Aumenta zoom" disabled={zoom >= 2}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setBacklogOpen(v => !v)}
-            title={backlogOpen ? 'Chiudi backlog' : 'Apri backlog'}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setBacklogOpen(true)}
+            title="Apri backlog"
           >
-            {backlogOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+            <ListTodo className="h-3.5 w-3.5 mr-1" />
+            Backlog
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>

@@ -153,6 +153,11 @@ function dbToAppointment(row: any): Appointment {
     title: row.title, description: row.description ?? undefined,
     date: row.date, startTime: row.start_time, endTime: row.end_time,
     color: row.color ?? undefined, createdAt: row.created_at,
+    googleEventId: row.google_event_id ?? undefined,
+    googleCalendarId: row.google_calendar_id ?? undefined,
+    googleConnectionId: row.google_connection_id ?? undefined,
+    syncedAt: row.synced_at ?? undefined,
+    syncError: row.sync_error ?? undefined,
   };
 }
 function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEvent {
@@ -570,6 +575,27 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // --- Appointments CRUD ---
+  const pushAppointmentToGoogle = useCallback(async (
+    action: 'create' | 'update' | 'delete',
+    payload: { appointment_id: string; google_event_id?: string; google_calendar_id?: string; google_connection_id?: string }
+  ) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('google-appointments-push', {
+        body: { action, ...payload },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      // Refresh the appointment row to pick up google_* fields after create/update
+      if (action !== 'delete') {
+        const { data: row } = await supabase.from('appointments').select('*').eq('id', payload.appointment_id).maybeSingle();
+        if (row) setAppointments(prev => prev.map(a => a.id === row.id ? dbToAppointment(row) : a));
+      }
+    } catch (e: any) {
+      console.error('Google push failed:', e);
+      toast.error('Sincronizzazione Google fallita: ' + (e.message ?? 'errore sconosciuto'));
+    }
+  }, []);
+
   const addAppointment = useCallback(async (a: Omit<Appointment, 'id' | 'createdAt'>) => {
     if (!userId) return;
     const { data, error } = await supabase.from('appointments').insert({
@@ -580,10 +606,12 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     }).select().single();
     if (error) { toast.error('Errore creazione appuntamento'); return; }
     setAppointments(prev => [...prev, dbToAppointment(data)]);
-  }, [userId]);
+    if (data.enterprise_id) pushAppointmentToGoogle('create', { appointment_id: data.id });
+  }, [userId, pushAppointmentToGoogle]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {
     const snapshot = [...appointments];
+    const before = appointments.find(a => a.id === id);
     setAppointments(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
     const dbUpdates: any = {};
     if (updates.title !== undefined) dbUpdates.title = updates.title;
@@ -598,13 +626,33 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       console.error('Update appointment failed:', error);
       toast.error('Errore aggiornamento appuntamento');
       setAppointments(snapshot);
+      return;
     }
-  }, [appointments]);
+    // If the enterprise changed and was previously synced to Google, delete the old event
+    if (before?.googleEventId && updates.enterpriseId !== undefined && updates.enterpriseId !== before.enterpriseId) {
+      pushAppointmentToGoogle('delete', {
+        appointment_id: id,
+        google_event_id: before.googleEventId,
+        google_calendar_id: before.googleCalendarId,
+        google_connection_id: before.googleConnectionId,
+      });
+    }
+    pushAppointmentToGoogle(before?.googleEventId ? 'update' : 'create', { appointment_id: id });
+  }, [appointments, pushAppointmentToGoogle]);
 
   const deleteAppointment = useCallback(async (id: string) => {
+    const before = appointments.find(a => a.id === id);
     setAppointments(prev => prev.filter(a => a.id !== id));
     await supabase.from('appointments').delete().eq('id', id);
-  }, []);
+    if (before?.googleEventId) {
+      pushAppointmentToGoogle('delete', {
+        appointment_id: id,
+        google_event_id: before.googleEventId,
+        google_calendar_id: before.googleCalendarId,
+        google_connection_id: before.googleConnectionId,
+      });
+    }
+  }, [appointments, pushAppointmentToGoogle]);
 
   // --- Focus Periods CRUD ---
   const addFocusPeriod = useCallback(async (f: Omit<FocusPeriod, 'id' | 'createdAt'>) => {

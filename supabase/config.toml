@@ -18,6 +18,10 @@ verify_jwt = false
 [functions.send-daily-events-digest]
 verify_jwt = false
 
+[functions.google-appointments-push]
+verify_jwt = true
+
+
 
 [functions.google-oauth-start]
 verify_jwt = true

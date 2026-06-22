@@ -231,6 +231,15 @@ export function GoogleCalendarSettings() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <button
+                      type="button"
+                      onClick={() => toggleDefaultWrite(cal)}
+                      title={cal.enterprise_id ? (cal.is_default_for_writes ? "Calendario predefinito per scrittura appuntamenti" : "Imposta come predefinito per scrittura") : "Assegna un'impresa per abilitare"}
+                      disabled={!cal.enterprise_id}
+                      className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <Star className={`h-4 w-4 ${cal.is_default_for_writes ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`} />
+                    </button>
                     <Input
                       type="color"
                       value={cal.color ?? cal.background_color ?? "#3b82f6"}
@@ -247,7 +256,7 @@ export function GoogleCalendarSettings() {
 
       {connections.length > 0 && (
         <p className="text-xs text-muted-foreground px-1">
-          Suggerimento: associa un calendario a un'impresa per visualizzarne gli eventi nel contesto dell'impresa.
+          La stella ⭐ accanto a un calendario lo imposta come <strong>predefinito per scrittura</strong>: gli appuntamenti FlyDeck dell'impresa associata verranno creati anche su quel calendario Google.
         </p>
       )}
     </div>

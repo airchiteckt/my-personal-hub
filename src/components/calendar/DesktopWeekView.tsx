@@ -3,7 +3,10 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, ZoomIn, ZoomOut } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Link } from 'react-router-dom';
+import { Maximize2 } from 'lucide-react';
 import { SlotSelectionDialog, SelectedSlot } from './SlotSelectionMode';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';

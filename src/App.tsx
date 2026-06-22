@@ -76,6 +76,7 @@ function ProtectedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/rituals" element={<Rituals />} />
+          <Route path="/backlog" element={<Backlog />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

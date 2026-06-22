@@ -393,15 +393,20 @@ export type Database = {
       external_calendar_events: {
         Row: {
           all_day: boolean
+          attendees: Json | null
+          conference_data: Json | null
           connection_id: string | null
           created_at: string
+          creator: Json | null
           description: string | null
           end_at: string
           google_calendar_id: string
           google_event_id: string
+          hangout_link: string | null
           html_link: string | null
           id: string
           location: string | null
+          organizer: Json | null
           start_at: string
           status: string | null
           title: string | null
@@ -410,15 +415,20 @@ export type Database = {
         }
         Insert: {
           all_day?: boolean
+          attendees?: Json | null
+          conference_data?: Json | null
           connection_id?: string | null
           created_at?: string
+          creator?: Json | null
           description?: string | null
           end_at: string
           google_calendar_id: string
           google_event_id: string
+          hangout_link?: string | null
           html_link?: string | null
           id?: string
           location?: string | null
+          organizer?: Json | null
           start_at: string
           status?: string | null
           title?: string | null
@@ -427,15 +437,20 @@ export type Database = {
         }
         Update: {
           all_day?: boolean
+          attendees?: Json | null
+          conference_data?: Json | null
           connection_id?: string | null
           created_at?: string
+          creator?: Json | null
           description?: string | null
           end_at?: string
           google_calendar_id?: string
           google_event_id?: string
+          hangout_link?: string | null
           html_link?: string | null
           id?: string
           location?: string | null
+          organizer?: Json | null
           start_at?: string
           status?: string | null
           title?: string | null

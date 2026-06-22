@@ -55,7 +55,7 @@ const googleTintColor = (color?: string, alpha = 0.12) => {
   return `${color}${hexAlpha}`;
 };
 
-function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, slotH, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';

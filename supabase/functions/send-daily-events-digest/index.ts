@@ -104,6 +104,21 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
+    // When invoked by cron, only run if it's currently 20:00 in Rome (handles DST).
+    // Manual invocations (with ?force=1) bypass this gate.
+    const url = new URL(req.url);
+    const force = url.searchParams.get("force") === "1";
+    if (!force) {
+      const romeHour = new Intl.DateTimeFormat("en-GB", {
+        timeZone: TZ, hour: "2-digit", hour12: false,
+      }).format(new Date());
+      if (romeHour !== "20") {
+        return new Response(JSON.stringify({ ok: true, skipped: `rome hour is ${romeHour}` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,

@@ -17,33 +17,34 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const admin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const { connection_id } = await req.json().catch(() => ({}));
+    if (!connection_id) {
+      return new Response(JSON.stringify({ error: "connection_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const { data: conn } = await admin
       .from("google_calendar_connections")
-      .select("refresh_token")
+      .select("id, user_id, refresh_token")
+      .eq("id", connection_id)
       .eq("user_id", user.id)
       .maybeSingle();
 
-    // Best-effort revoke
-    if (conn?.refresh_token) {
-      try {
-        await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(conn.refresh_token)}`, { method: "POST" });
-      } catch (e) {
-        console.warn("revoke failed", e);
-      }
+    if (!conn) {
+      return new Response(JSON.stringify({ error: "Not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    await admin.from("external_calendar_events").delete().eq("user_id", user.id);
-    await admin.from("google_calendar_list").delete().eq("user_id", user.id);
-    await admin.from("google_calendar_connections").delete().eq("user_id", user.id);
+    if (conn.refresh_token) {
+      try {
+        await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(conn.refresh_token)}`, { method: "POST" });
+      } catch (e) { console.warn("revoke failed", e); }
+    }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Cascade deletes calendars and events
+    await admin.from("google_calendar_connections").delete().eq("id", conn.id);
+
+    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }

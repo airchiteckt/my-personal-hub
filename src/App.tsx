@@ -24,6 +24,7 @@ import PublicTaskRequest from "./pages/PublicTaskRequest";
 import ResetPassword from "./pages/ResetPassword";
 import PublicShowcase from "./pages/PublicShowcase";
 import PublicSlotPicker from "./pages/PublicSlotPicker";
+import GoogleCalendarCallback from "./pages/GoogleCalendarCallback";
 import { AiAssistant } from "./components/AiAssistant";
 import { OnboardingTour } from "./components/OnboardingTour";
 import { useFeatureFlags } from "./hooks/use-feature-flags";

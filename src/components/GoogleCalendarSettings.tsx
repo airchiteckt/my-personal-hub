@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarDays, RefreshCw, Unlink, ExternalLink, Loader2, Plus, Building2 } from "lucide-react";
+import { CalendarDays, RefreshCw, Unlink, ExternalLink, Loader2, Plus, Building2, Star } from "lucide-react";
 import { toast } from "sonner";
 
 type Connection = {
@@ -23,6 +23,7 @@ type CalendarRow = {
   enabled: boolean;
   is_primary: boolean;
   enterprise_id: string | null;
+  is_default_for_writes: boolean;
 };
 type Enterprise = { id: string; name: string };
 
@@ -108,9 +109,38 @@ export function GoogleCalendarSettings() {
 
   const updateEnterprise = async (cal: CalendarRow, value: string) => {
     const enterprise_id = value === NONE ? null : value;
-    setCalendars(prev => prev.map(c => c.id === cal.id ? { ...c, enterprise_id } : c));
-    const { error } = await supabase.from("google_calendar_list").update({ enterprise_id }).eq("id", cal.id);
+    // Removing the enterprise also clears the default-for-writes flag
+    const patch: any = { enterprise_id };
+    if (!enterprise_id) patch.is_default_for_writes = false;
+    setCalendars(prev => prev.map(c => c.id === cal.id ? { ...c, ...patch } : c));
+    const { error } = await supabase.from("google_calendar_list").update(patch).eq("id", cal.id);
     if (error) toast.error(error.message);
+  };
+
+  const toggleDefaultWrite = async (cal: CalendarRow) => {
+    if (!cal.enterprise_id) {
+      toast.error("Assegna prima un'impresa al calendario");
+      return;
+    }
+    const becomingDefault = !cal.is_default_for_writes;
+    // Optimistically clear other defaults for the same enterprise
+    setCalendars(prev => prev.map(c => {
+      if (c.id === cal.id) return { ...c, is_default_for_writes: becomingDefault };
+      if (becomingDefault && c.enterprise_id === cal.enterprise_id) return { ...c, is_default_for_writes: false };
+      return c;
+    }));
+    if (becomingDefault) {
+      // Clear other defaults for same enterprise first to satisfy unique index
+      await supabase.from("google_calendar_list")
+        .update({ is_default_for_writes: false })
+        .eq("enterprise_id", cal.enterprise_id)
+        .neq("id", cal.id);
+    }
+    const { error } = await supabase.from("google_calendar_list")
+      .update({ is_default_for_writes: becomingDefault })
+      .eq("id", cal.id);
+    if (error) { toast.error(error.message); await load(); }
+    else toast.success(becomingDefault ? "Calendario predefinito per le scritture impostato" : "Predefinito rimosso");
   };
 
   if (loading) {
@@ -201,6 +231,15 @@ export function GoogleCalendarSettings() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <button
+                      type="button"
+                      onClick={() => toggleDefaultWrite(cal)}
+                      title={cal.enterprise_id ? (cal.is_default_for_writes ? "Calendario predefinito per scrittura appuntamenti" : "Imposta come predefinito per scrittura") : "Assegna un'impresa per abilitare"}
+                      disabled={!cal.enterprise_id}
+                      className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                    >
+                      <Star className={`h-4 w-4 ${cal.is_default_for_writes ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`} />
+                    </button>
                     <Input
                       type="color"
                       value={cal.color ?? cal.background_color ?? "#3b82f6"}
@@ -217,7 +256,7 @@ export function GoogleCalendarSettings() {
 
       {connections.length > 0 && (
         <p className="text-xs text-muted-foreground px-1">
-          Suggerimento: associa un calendario a un'impresa per visualizzarne gli eventi nel contesto dell'impresa.
+          La stella ⭐ accanto a un calendario lo imposta come <strong>predefinito per scrittura</strong>: gli appuntamenti FlyDeck dell'impresa associata verranno creati anche su quel calendario Google.
         </p>
       )}
     </div>

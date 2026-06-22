@@ -208,6 +208,11 @@ export interface Appointment {
   endTime: string;
   color?: string;
   createdAt: string;
+  googleEventId?: string;
+  googleCalendarId?: string;
+  googleConnectionId?: string;
+  syncedAt?: string;
+  syncError?: string;
 }
 
 export interface ExternalEventAttendee {
@@ -241,6 +246,7 @@ export interface ExternalCalendarEvent {
   htmlLink?: string;
   color?: string;
   createdAt: string;
+  googleEventId?: string;
   attendees?: ExternalEventAttendee[];
   organizer?: ExternalEventPerson;
   creator?: ExternalEventPerson;

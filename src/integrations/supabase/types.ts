@@ -246,8 +246,13 @@ export type Database = {
           description: string | null
           end_time: string
           enterprise_id: string | null
+          google_calendar_id: string | null
+          google_connection_id: string | null
+          google_event_id: string | null
           id: string
           start_time: string
+          sync_error: string | null
+          synced_at: string | null
           title: string
           user_id: string
         }
@@ -258,8 +263,13 @@ export type Database = {
           description?: string | null
           end_time: string
           enterprise_id?: string | null
+          google_calendar_id?: string | null
+          google_connection_id?: string | null
+          google_event_id?: string | null
           id?: string
           start_time: string
+          sync_error?: string | null
+          synced_at?: string | null
           title: string
           user_id: string
         }
@@ -270,8 +280,13 @@ export type Database = {
           description?: string | null
           end_time?: string
           enterprise_id?: string | null
+          google_calendar_id?: string | null
+          google_connection_id?: string | null
+          google_event_id?: string | null
           id?: string
           start_time?: string
+          sync_error?: string | null
+          synced_at?: string | null
           title?: string
           user_id?: string
         }
@@ -281,6 +296,13 @@ export type Database = {
             columns: ["enterprise_id"]
             isOneToOne: false
             referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointments_google_connection_id_fkey"
+            columns: ["google_connection_id"]
+            isOneToOne: false
+            referencedRelation: "google_calendar_connections"
             referencedColumns: ["id"]
           },
         ]
@@ -597,6 +619,7 @@ export type Database = {
           enterprise_id: string | null
           google_calendar_id: string
           id: string
+          is_default_for_writes: boolean
           is_primary: boolean
           summary: string
           updated_at: string
@@ -612,6 +635,7 @@ export type Database = {
           enterprise_id?: string | null
           google_calendar_id: string
           id?: string
+          is_default_for_writes?: boolean
           is_primary?: boolean
           summary: string
           updated_at?: string
@@ -627,6 +651,7 @@ export type Database = {
           enterprise_id?: string | null
           google_calendar_id?: string
           id?: string
+          is_default_for_writes?: boolean
           is_primary?: boolean
           summary?: string
           updated_at?: string

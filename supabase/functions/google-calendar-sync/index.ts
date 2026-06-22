@@ -116,6 +116,11 @@ async function syncConnection(admin: any, conn: any) {
             all_day: allDay,
             html_link: e.htmlLink ?? null,
             status: e.status ?? null,
+            attendees: e.attendees ?? null,
+            organizer: e.organizer ?? null,
+            creator: e.creator ?? null,
+            hangout_link: e.hangoutLink ?? null,
+            conference_data: e.conferenceData ?? null,
           };
         });
       if (rows.length > 0) {

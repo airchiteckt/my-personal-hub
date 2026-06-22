@@ -174,6 +174,11 @@ function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEv
     htmlLink: row.html_link ?? undefined,
     color: calendar?.color ?? calendar?.background_color ?? undefined,
     createdAt: row.created_at,
+    attendees: Array.isArray(row.attendees) ? row.attendees : undefined,
+    organizer: row.organizer ?? undefined,
+    creator: row.creator ?? undefined,
+    hangoutLink: row.hangout_link ?? undefined,
+    conferenceData: row.conference_data ?? undefined,
   };
 }
 function dbToFocusPeriod(row: any): FocusPeriod {

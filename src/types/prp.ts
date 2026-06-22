@@ -246,6 +246,7 @@ export interface ExternalCalendarEvent {
   htmlLink?: string;
   color?: string;
   createdAt: string;
+  googleEventId?: string;
   attendees?: ExternalEventAttendee[];
   organizer?: ExternalEventPerson;
   creator?: ExternalEventPerson;

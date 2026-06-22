@@ -149,7 +149,14 @@ export function DesktopWeekView() {
   const [slotSelectMode, setSlotSelectMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
-  const [backlogOpen, setBacklogOpen] = useState(true);
+  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    const stored = parseFloat(window.localStorage.getItem('calendar-zoom') || '1');
+    return isNaN(stored) ? 1 : Math.max(0.5, Math.min(2, stored));
+  });
+  const slotH = DESKTOP_SLOT_HEIGHT * zoom;
+  useEffect(() => { try { window.localStorage.setItem('calendar-zoom', String(zoom)); } catch {} }, [zoom]);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);

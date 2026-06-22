@@ -179,6 +179,11 @@ export function MobileDayView() {
               const ee = timeToSlot(appt.endTime);
               allTimeInfos.push({ id: `appt-${appt.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
             });
+            dayExternalEvents.forEach(event => {
+              const ss = timeToSlot(event.startTime);
+              const ee = timeToSlot(event.endTime);
+              allTimeInfos.push({ id: `gcal-${event.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
+            });
             const dayRituals = getRitualsForDate(selectedDate).filter(r => r.planning_mode === 'fixed');
             dayRituals.forEach(ritual => {
               const ss = timeToSlot(ritual.suggested_time || '07:00');
@@ -270,6 +275,44 @@ export function MobileDayView() {
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {appt.startTime}–{appt.endTime}
                           {ent ? ` · ${ent.name}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {dayExternalEvents.map((event: ExternalCalendarEvent) => {
+                  const startSlot = timeToSlot(event.startTime);
+                  const endSlot = timeToSlot(event.endTime);
+                  const slots = Math.max(1, endSlot - startSlot);
+                  const top = startSlot * MOBILE_SLOT_HEIGHT;
+                  const height = slots * MOBILE_SLOT_HEIGHT;
+                  const ent = event.enterpriseId ? getEnterprise(event.enterpriseId) : null;
+                  const color = event.color || ent?.color || '210 80% 50%';
+                  const sty = uLS(`gcal-${event.id}`);
+
+                  return (
+                    <div
+                      key={`gcal-${event.id}`}
+                      onClick={() => { if (event.htmlLink) window.open(event.htmlLink, '_blank', 'noopener,noreferrer'); }}
+                      className="absolute rounded-xl overflow-hidden z-10 border cursor-pointer active:scale-[0.98] transition-transform"
+                      style={{
+                        top,
+                        height: Math.max(height, MOBILE_SLOT_HEIGHT - 4),
+                        ...sty,
+                        backgroundColor: googleTintColor(color, 0.12),
+                        borderColor: googleTintColor(color, 0.55),
+                        borderLeft: `4px solid ${googleSolidColor(color)}`,
+                      }}
+                    >
+                      <div className="p-2.5 h-full flex flex-col justify-center">
+                        <p className="font-medium text-sm leading-tight truncate flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0" style={{ color: googleSolidColor(color) }} />
+                          {event.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                          {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}
+                          {ent ? ` · ${ent.name}` : event.calendarName ? ` · ${event.calendarName}` : ''}
                         </p>
                       </div>
                     </div>

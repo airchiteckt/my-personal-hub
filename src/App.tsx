@@ -109,6 +109,7 @@ const App = () => (
             <Route path="/home" element={<LandingRoute />} />
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/google-calendar/callback" element={<GoogleCalendarCallback />} />
             <Route path="/admin" element={<AdminRoute />} />
             <Route path="/:slug/opencalendar" element={<PublicBooking />} />
             <Route path="/:slug/openrequest" element={<PublicTaskRequest />} />

@@ -274,13 +274,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, extCalRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes, remRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, extEventsRes, calListRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes, remRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('priority_settings').select('*').eq('user_id', userId).limit(1).maybeSingle(),
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at'),
-        supabase.from('external_calendar_events').select('*, google_calendar_list!inner(summary, color, background_color, enterprise_id, enabled)').eq('user_id', userId).eq('google_calendar_list.enabled', true).order('start_at'),
+        supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+        supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
         supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('objectives').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('key_results').select('*').eq('user_id', userId).order('created_at'),
@@ -295,7 +296,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
       if (tRes.data) setTasks(tRes.data.map(dbToTask));
       if (aRes.data) setAppointments(aRes.data.map(dbToAppointment));
-      if (extCalRes.data) setExternalCalendarEvents(extCalRes.data.map((r: any) => dbToExternalCalendarEvent(r, r.google_calendar_list)));
+      if (extEventsRes.data) {
+        const calendarMap = new Map((calListRes.data ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        setExternalCalendarEvents(extEventsRes.data
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
+      }
       if (fpRes.data) setFocusPeriods(fpRes.data.map(dbToFocusPeriod));
       if (oRes.data) setObjectives(oRes.data.map(dbToObjective));
       if (krRes.data) setKeyResults(krRes.data.map(dbToKeyResult));

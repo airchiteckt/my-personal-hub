@@ -4,45 +4,51 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CalendarDays, RefreshCw, Unlink, ExternalLink, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CalendarDays, RefreshCw, Unlink, ExternalLink, Loader2, Plus, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 type Connection = {
+  id: string;
   google_email: string | null;
   last_synced_at: string | null;
 };
-
 type CalendarRow = {
   id: string;
+  connection_id: string;
   google_calendar_id: string;
   summary: string;
   color: string | null;
   background_color: string | null;
   enabled: boolean;
   is_primary: boolean;
+  enterprise_id: string | null;
 };
+type Enterprise = { id: string; name: string };
 
 const REDIRECT_PATH = "/auth/google-calendar/callback";
+const NONE = "__none__";
 
 export function GoogleCalendarSettings() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [connection, setConnection] = useState<Connection | null>(null);
+  const [syncingId, setSyncingId] = useState<string | "all" | null>(null);
+  const [connections, setConnections] = useState<Connection[]>([]);
   const [calendars, setCalendars] = useState<CalendarRow[]>([]);
+  const [enterprises, setEnterprises] = useState<Enterprise[]>([]);
 
   const load = async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
-
-    const [{ data: conn }, { data: cals }] = await Promise.all([
-      supabase.from("google_calendar_connections").select("google_email,last_synced_at").eq("user_id", user.id).maybeSingle(),
+    const [{ data: conns }, { data: cals }, { data: ents }] = await Promise.all([
+      supabase.from("google_calendar_connections").select("id, google_email, last_synced_at").eq("user_id", user.id).order("created_at"),
       supabase.from("google_calendar_list").select("*").eq("user_id", user.id).order("is_primary", { ascending: false }).order("summary"),
+      supabase.from("enterprises").select("id, name").eq("user_id", user.id).order("name"),
     ]);
-    setConnection(conn ?? null);
+    setConnections((conns ?? []) as Connection[]);
     setCalendars((cals ?? []) as CalendarRow[]);
+    setEnterprises((ents ?? []) as Enterprise[]);
     setLoading(false);
   };
 
@@ -56,33 +62,34 @@ export function GoogleCalendarSettings() {
       if (error) throw error;
       window.location.href = data.url;
     } catch (e: any) {
-      toast.error("Errore avvio OAuth: " + e.message);
+      toast.error("Errore: " + e.message);
       setConnecting(false);
     }
   };
 
-  const sync = async () => {
-    setSyncing(true);
+  const sync = async (connection_id?: string) => {
+    setSyncingId(connection_id ?? "all");
     try {
-      const { data, error } = await supabase.functions.invoke("google-calendar-sync");
+      const { data, error } = await supabase.functions.invoke("google-calendar-sync", {
+        body: connection_id ? { connection_id } : {},
+      });
       if (error) throw error;
       toast.success(`Sincronizzati ${data.calendars} calendari, ${data.events} eventi`);
       await load();
     } catch (e: any) {
       toast.error("Errore sync: " + e.message);
     } finally {
-      setSyncing(false);
+      setSyncingId(null);
     }
   };
 
-  const disconnect = async () => {
-    if (!confirm("Disconnettere Google Calendar? Tutti gli eventi sincronizzati saranno rimossi.")) return;
+  const disconnect = async (conn: Connection) => {
+    if (!confirm(`Disconnettere ${conn.google_email}? Tutti i calendari ed eventi associati saranno rimossi.`)) return;
     try {
-      const { error } = await supabase.functions.invoke("google-calendar-disconnect");
+      const { error } = await supabase.functions.invoke("google-calendar-disconnect", { body: { connection_id: conn.id } });
       if (error) throw error;
-      toast.success("Disconnesso");
-      setConnection(null);
-      setCalendars([]);
+      toast.success("Account disconnesso");
+      await load();
     } catch (e: any) {
       toast.error("Errore: " + e.message);
     }
@@ -99,6 +106,13 @@ export function GoogleCalendarSettings() {
     await supabase.from("google_calendar_list").update({ color }).eq("id", cal.id);
   };
 
+  const updateEnterprise = async (cal: CalendarRow, value: string) => {
+    const enterprise_id = value === NONE ? null : value;
+    setCalendars(prev => prev.map(c => c.id === cal.id ? { ...c, enterprise_id } : c));
+    const { error } = await supabase.from("google_calendar_list").update({ enterprise_id }).eq("id", cal.id);
+    if (error) toast.error(error.message);
+  };
+
   if (loading) {
     return <Card className="p-6 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></Card>;
   }
@@ -106,71 +120,105 @@ export function GoogleCalendarSettings() {
   return (
     <div className="space-y-4">
       <Card className="p-5">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <CalendarDays className="h-6 w-6 text-primary" />
             <div>
               <h3 className="font-semibold">Google Calendar</h3>
               <p className="text-xs text-muted-foreground">
-                {connection
-                  ? `Collegato: ${connection.google_email ?? "—"}`
-                  : "Collega il tuo account Google per importare gli eventi"}
+                {connections.length === 0
+                  ? "Collega uno o più account Google per importare gli eventi"
+                  : `${connections.length} account collegato${connections.length === 1 ? "" : "i"}`}
               </p>
-              {connection?.last_synced_at && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Ultima sync: {new Date(connection.last_synced_at).toLocaleString("it-IT")}
-                </p>
-              )}
             </div>
           </div>
-
           <div className="flex gap-2">
-            {connection ? (
-              <>
-                <Button variant="outline" size="sm" onClick={sync} disabled={syncing}>
-                  {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
-                  Sincronizza
-                </Button>
-                <Button variant="outline" size="sm" onClick={disconnect}>
-                  <Unlink className="h-3.5 w-3.5 mr-1.5" />
-                  Disconnetti
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" onClick={connect} disabled={connecting}>
-                {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <ExternalLink className="h-3.5 w-3.5 mr-1.5" />}
-                Collega Google
+            {connections.length > 0 && (
+              <Button variant="outline" size="sm" onClick={() => sync()} disabled={syncingId !== null}>
+                {syncingId === "all" ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                Sincronizza tutto
               </Button>
             )}
+            <Button size="sm" onClick={connect} disabled={connecting}>
+              {connecting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <Plus className="h-3.5 w-3.5 mr-1.5" />}
+              {connections.length === 0 ? "Collega Google" : "Aggiungi account"}
+            </Button>
           </div>
         </div>
       </Card>
 
-      {connection && calendars.length > 0 && (
-        <Card className="p-5">
-          <h4 className="font-semibold mb-3 text-sm">Calendari disponibili</h4>
-          <div className="space-y-2">
-            {calendars.map(cal => (
-              <div key={cal.id} className="flex items-center justify-between gap-3 p-2 rounded-md hover:bg-muted/50">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <Switch checked={cal.enabled} onCheckedChange={(v) => toggleCal(cal, v)} />
-                  <span className="text-sm truncate">
-                    {cal.summary} {cal.is_primary && <span className="text-xs text-muted-foreground">(principale)</span>}
-                  </span>
+      {connections.map(conn => {
+        const connCalendars = calendars.filter(c => c.connection_id === conn.id);
+        return (
+          <Card key={conn.id} className="p-5">
+            <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">{conn.google_email}</span>
                 </div>
-                <Input
-                  type="color"
-                  value={cal.color ?? cal.background_color ?? "#3b82f6"}
-                  onChange={(e) => updateColor(cal, e.target.value)}
-                  className="w-12 h-8 p-1 cursor-pointer"
-                />
+                {conn.last_synced_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Ultima sync: {new Date(conn.last_synced_at).toLocaleString("it-IT")}
+                  </p>
+                )}
               </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground mt-3">
-            Premi "Sincronizza" dopo aver cambiato la selezione dei calendari per aggiornare gli eventi.
-          </p>
-        </Card>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => sync(conn.id)} disabled={syncingId !== null}>
+                  {syncingId === conn.id ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <RefreshCw className="h-3.5 w-3.5 mr-1.5" />}
+                  Sincronizza
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => disconnect(conn)}>
+                  <Unlink className="h-3.5 w-3.5 mr-1.5" />
+                  Disconnetti
+                </Button>
+              </div>
+            </div>
+
+            {connCalendars.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nessun calendario caricato. Premi "Sincronizza" per scaricare la lista.</p>
+            ) : (
+              <div className="space-y-2">
+                {connCalendars.map(cal => (
+                  <div key={cal.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
+                    <Switch checked={cal.enabled} onCheckedChange={(v) => toggleCal(cal, v)} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm truncate">
+                        {cal.summary} {cal.is_primary && <span className="text-xs text-muted-foreground">(principale)</span>}
+                      </div>
+                    </div>
+                    <Select value={cal.enterprise_id ?? NONE} onValueChange={(v) => updateEnterprise(cal, v)}>
+                      <SelectTrigger className="h-8 w-[180px] text-xs">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Building2 className="h-3 w-3 shrink-0" />
+                          <SelectValue placeholder="Nessuna impresa" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>Nessuna impresa</SelectItem>
+                        {enterprises.map(e => (
+                          <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      type="color"
+                      value={cal.color ?? cal.background_color ?? "#3b82f6"}
+                      onChange={(e) => updateColor(cal, e.target.value)}
+                      className="w-12 h-8 p-1 cursor-pointer shrink-0"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        );
+      })}
+
+      {connections.length > 0 && (
+        <p className="text-xs text-muted-foreground px-1">
+          Suggerimento: associa un calendario a un'impresa per visualizzarne gli eventi nel contesto dell'impresa.
+        </p>
       )}
     </div>
   );

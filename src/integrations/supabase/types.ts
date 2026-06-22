@@ -393,6 +393,7 @@ export type Database = {
       external_calendar_events: {
         Row: {
           all_day: boolean
+          connection_id: string | null
           created_at: string
           description: string | null
           end_at: string
@@ -409,6 +410,7 @@ export type Database = {
         }
         Insert: {
           all_day?: boolean
+          connection_id?: string | null
           created_at?: string
           description?: string | null
           end_at: string
@@ -425,6 +427,7 @@ export type Database = {
         }
         Update: {
           all_day?: boolean
+          connection_id?: string | null
           created_at?: string
           description?: string | null
           end_at?: string
@@ -439,7 +442,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "external_calendar_events_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "google_calendar_connections"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feature_flags: {
         Row: {
@@ -524,6 +535,7 @@ export type Database = {
           created_at: string
           google_email: string | null
           id: string
+          label: string | null
           last_synced_at: string | null
           refresh_token: string
           scope: string | null
@@ -536,6 +548,7 @@ export type Database = {
           created_at?: string
           google_email?: string | null
           id?: string
+          label?: string | null
           last_synced_at?: string | null
           refresh_token: string
           scope?: string | null
@@ -548,6 +561,7 @@ export type Database = {
           created_at?: string
           google_email?: string | null
           id?: string
+          label?: string | null
           last_synced_at?: string | null
           refresh_token?: string
           scope?: string | null
@@ -561,9 +575,11 @@ export type Database = {
         Row: {
           background_color: string | null
           color: string | null
+          connection_id: string | null
           created_at: string
           description: string | null
           enabled: boolean
+          enterprise_id: string | null
           google_calendar_id: string
           id: string
           is_primary: boolean
@@ -574,9 +590,11 @@ export type Database = {
         Insert: {
           background_color?: string | null
           color?: string | null
+          connection_id?: string | null
           created_at?: string
           description?: string | null
           enabled?: boolean
+          enterprise_id?: string | null
           google_calendar_id: string
           id?: string
           is_primary?: boolean
@@ -587,9 +605,11 @@ export type Database = {
         Update: {
           background_color?: string | null
           color?: string | null
+          connection_id?: string | null
           created_at?: string
           description?: string | null
           enabled?: boolean
+          enterprise_id?: string | null
           google_calendar_id?: string
           id?: string
           is_primary?: boolean
@@ -597,7 +617,22 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_list_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "google_calendar_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_calendar_list_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprises"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_entries: {
         Row: {

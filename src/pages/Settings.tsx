@@ -34,7 +34,7 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="profile" className="space-y-4">
-        <TabsList className="w-full">
+        <TabsList className="w-full flex-wrap h-auto">
           <TabsTrigger value="profile" className="flex-1 gap-1.5">
             <UserCircle className="h-4 w-4" />
             Profilo
@@ -47,10 +47,18 @@ const Settings = () => {
             <Link2 className="h-4 w-4" />
             Link Pubblici
           </TabsTrigger>
+          <TabsTrigger value="integrations" className="flex-1 gap-1.5">
+            <CalendarDays className="h-4 w-4" />
+            Integrazioni
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
           <ProfileSettings />
+        </TabsContent>
+
+        <TabsContent value="integrations">
+          <GoogleCalendarSettings />
         </TabsContent>
 
         <TabsContent value="priority">

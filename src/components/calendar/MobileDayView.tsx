@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { format, addDays, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
-import { Task, Appointment, Reminder } from '@/types/prp';
+import { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
@@ -21,6 +21,13 @@ import { JournalDialog } from './JournalDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
 
+const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
+const googleTintColor = (color?: string, alpha = 0.12) => {
+  if (!color?.startsWith('#')) return `hsl(${color || '210 80% 50%'} / ${alpha})`;
+  const hexAlpha = Math.round(alpha * 255).toString(16).padStart(2, '0');
+  return `${color}${hexAlpha}`;
+};
+
 export function MobileDayView() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
@@ -36,10 +43,11 @@ export function MobileDayView() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
+  const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const [moonDate, setMoonDate] = useState<Date | null>(null);
   const dayAppts = getAppointmentsForDate(dateStr);
+  const dayExternalEvents = getExternalCalendarEventsForDate(dateStr);
   const dayReminders = getRemindersForDate(dateStr);
 
   const dayTasks = tasks.filter(t => t.scheduledDate === dateStr && (t.status === 'scheduled' || t.status === 'done'));

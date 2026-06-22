@@ -711,6 +711,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getTasksForProject = useCallback((pid: string) => tasks.filter(t => t.projectId === pid), [tasks]);
   const getTasksForDate = useCallback((date: string) => tasks.filter(t => t.scheduledDate === date && t.status !== 'done'), [tasks]);
   const getAppointmentsForDate = useCallback((date: string) => appointments.filter(a => a.date === date), [appointments]);
+  const getExternalCalendarEventsForDate = useCallback((date: string) => externalCalendarEvents.filter(e => e.date === date), [externalCalendarEvents]);
   const getBacklogTasks = useCallback(() => tasks.filter(t => t.status === 'backlog'), [tasks]);
   const getSortedBacklogTasks = useCallback(() => {
     const backlog = tasks.filter(t => t.status === 'backlog');
@@ -917,7 +918,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   return (
     <PrpContext.Provider value={{
-      enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
+      enterprises, projects, tasks, appointments, externalCalendarEvents, focusPeriods, objectives, keyResults,
       prioritySettings, loading, setPrioritySettings,
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
@@ -928,7 +929,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       addObjective, updateObjective, deleteObjective,
       addKeyResult, updateKeyResult, deleteKeyResult,
       getEnterprise, getProject, getProjectType, getProjectsForEnterprise, getTasksForProject,
-      getTasksForDate, getAppointmentsForDate, getBacklogTasks, getSortedBacklogTasks,
+      getTasksForDate, getAppointmentsForDate, getExternalCalendarEventsForDate, getBacklogTasks, getSortedBacklogTasks,
       getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective,
       getProjectsForKeyResult, getTasksForEnterprise,
       activityLogs, timeEntries,

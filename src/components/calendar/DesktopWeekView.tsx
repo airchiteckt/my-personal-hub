@@ -28,7 +28,7 @@ import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon, type RitualData } from '@/lib/ritual-utils';
-import { slotH as SH } from '@/lib/calendar-utils';
+
 import { JournalDialog } from './JournalDialog';
 
 interface RitualCalendarCardProps {

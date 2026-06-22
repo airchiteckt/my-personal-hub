@@ -20,6 +20,7 @@ import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@
 import { JournalDialog } from './JournalDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
+import { ExternalEventDetailDialog } from './ExternalEventDetailDialog';
 
 const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
 const googleTintColor = (color?: string, alpha = 0.12) => {
@@ -46,6 +47,7 @@ export function MobileDayView() {
   const { tasks, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask, deleteAppointment, getSortedBacklogTasks, prioritySettings, getRitualsForDate, isRitualCompleted, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate } = usePrp();
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const [moonDate, setMoonDate] = useState<Date | null>(null);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
   const dayAppts = getAppointmentsForDate(dateStr);
   const dayExternalEvents = getExternalCalendarEventsForDate(dateStr);
   const dayReminders = getRemindersForDate(dateStr);
@@ -294,7 +296,7 @@ export function MobileDayView() {
                   return (
                     <div
                       key={`gcal-${event.id}`}
-                      onClick={() => { if (event.htmlLink) window.open(event.htmlLink, '_blank', 'noopener,noreferrer'); }}
+                      onClick={() => setSelectedExternalEvent(event)}
                       className="absolute rounded-xl overflow-hidden z-10 border cursor-pointer active:scale-[0.98] transition-transform"
                       style={{
                         top,
@@ -625,6 +627,13 @@ export function MobileDayView() {
           date={moonDate}
         />
       )}
+
+      <ExternalEventDetailDialog
+        open={!!selectedExternalEvent}
+        onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
+        event={selectedExternalEvent}
+        enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
 import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
+import { ExternalEventDetailDialog } from './ExternalEventDetailDialog';
 import { supabase } from '@/integrations/supabase/client';
 import type { RitualCompletion } from '@/lib/ritual-utils';
 import {
@@ -139,6 +140,7 @@ export function DesktopWeekView() {
   const [journalDate, setJournalDate] = useState<string | null>(null);
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const [moonDate, setMoonDate] = useState<Date | null>(null);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
   const [isDraggingItem, setIsDraggingItem] = useState(false);
   const dragNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -729,7 +731,7 @@ export function DesktopWeekView() {
                               <div
                                 key={`gcal-${event.id}`}
                                 onMouseDown={e => e.stopPropagation()}
-                                onClick={e => { e.stopPropagation(); if (event.htmlLink) window.open(event.htmlLink, '_blank', 'noopener,noreferrer'); }}
+                                onClick={e => { e.stopPropagation(); setSelectedExternalEvent(event); }}
                                 className="absolute rounded-lg overflow-hidden z-10 border cursor-pointer"
                                 style={{
                                   top: top + 1,
@@ -961,6 +963,13 @@ export function DesktopWeekView() {
         onRemoveSlot={(i) => setSelectedSlots(prev => prev.filter((_, idx) => idx !== i))}
         onClearSlots={() => setSelectedSlots([])}
         weekDays={days}
+      />
+
+      <ExternalEventDetailDialog
+        open={!!selectedExternalEvent}
+        onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
+        event={selectedExternalEvent}
+        enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
       />
     </div>
   );

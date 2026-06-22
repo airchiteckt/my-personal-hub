@@ -39,6 +39,7 @@ interface RitualCalendarCardProps {
   color: string;
   CatIcon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   time: string;
+  slotH: number;
   onComplete: () => void;
   onSkip: () => void;
   onDelete?: () => void;

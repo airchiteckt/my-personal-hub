@@ -349,6 +349,30 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       supabase.channel('appointments-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setAppointments(data.map(dbToAppointment)); });
       }).subscribe(),
+      supabase.channel('external-calendar-events-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'external_calendar_events', filter: `user_id=eq.${userId}` }, async () => {
+        const [{ data: events }, { data: calendars }] = await Promise.all([
+          supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+          supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
+        ]);
+        const calendarMap = new Map((calendars ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        if (events) setExternalCalendarEvents(events
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
+      }).subscribe(),
+      supabase.channel('google-calendar-list-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'google_calendar_list', filter: `user_id=eq.${userId}` }, async () => {
+        const [{ data: events }, { data: calendars }] = await Promise.all([
+          supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+          supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
+        ]);
+        const calendarMap = new Map((calendars ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        if (events) setExternalCalendarEvents(events
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
+      }).subscribe(),
       supabase.channel('focus-periods-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'focus_periods', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setFocusPeriods(data.map(dbToFocusPeriod)); });
       }).subscribe(),

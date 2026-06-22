@@ -210,6 +210,24 @@ export interface Appointment {
   createdAt: string;
 }
 
+export interface ExternalCalendarEvent {
+  id: string;
+  enterpriseId?: string;
+  calendarId: string;
+  calendarName?: string;
+  connectionId?: string;
+  title: string;
+  description?: string;
+  location?: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  allDay: boolean;
+  htmlLink?: string;
+  color?: string;
+  createdAt: string;
+}
+
 export type FocusPeriodStatus = 'active' | 'future' | 'archived';
 export type MetricType = 'number' | 'percentage' | 'boolean';
 export type KRStatus = 'active' | 'at_risk' | 'completed';

@@ -627,6 +627,13 @@ export function MobileDayView() {
           date={moonDate}
         />
       )}
+
+      <ExternalEventDetailDialog
+        open={!!selectedExternalEvent}
+        onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
+        event={selectedExternalEvent}
+        enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
+      />
     </div>
   );
 }

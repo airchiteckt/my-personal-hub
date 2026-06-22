@@ -867,14 +867,25 @@ export function DesktopWeekView() {
           </div>
         </div>
 
-        {backlogOpen && (
-          <SmartBacklog
-            onDragStart={handleDragStart}
-            onDrop={handleBacklogDrop}
-            onTaskClick={task => setEditingTask(task)}
-          />
-        )}
       </div>
+
+      <Sheet open={backlogOpen} onOpenChange={setBacklogOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">
+          <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <SheetTitle className="text-sm font-semibold">Backlog</SheetTitle>
+            <Button asChild variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-6" onClick={() => setBacklogOpen(false)}>
+              <Link to="/backlog"><Maximize2 className="h-3.5 w-3.5" /> Apri pagina</Link>
+            </Button>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden p-3">
+            <SmartBacklog
+              onDragStart={handleDragStart}
+              onDrop={handleBacklogDrop}
+              onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <CalendarCreateChoice
         open={showChoice}

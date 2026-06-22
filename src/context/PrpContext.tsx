@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
+import { Enterprise, Project, Task, Appointment, ExternalCalendarEvent, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,7 @@ interface PrpContextType {
   projects: Project[];
   tasks: Task[];
   appointments: Appointment[];
+  externalCalendarEvents: ExternalCalendarEvent[];
   focusPeriods: FocusPeriod[];
   objectives: Objective[];
   keyResults: KeyResult[];
@@ -74,6 +75,7 @@ interface PrpContextType {
   getTasksForProject: (projectId: string) => Task[];
   getTasksForDate: (date: string) => Task[];
   getAppointmentsForDate: (date: string) => Appointment[];
+  getExternalCalendarEventsForDate: (date: string) => ExternalCalendarEvent[];
   getBacklogTasks: () => Task[];
   getSortedBacklogTasks: () => Task[];
   getFocusPeriodsForEnterprise: (enterpriseId: string) => FocusPeriod[];
@@ -153,6 +155,27 @@ function dbToAppointment(row: any): Appointment {
     color: row.color ?? undefined, createdAt: row.created_at,
   };
 }
+function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEvent {
+  const start = new Date(row.start_at);
+  const end = new Date(row.end_at);
+  return {
+    id: row.id,
+    enterpriseId: calendar?.enterprise_id ?? undefined,
+    calendarId: row.google_calendar_id,
+    calendarName: calendar?.summary ?? undefined,
+    connectionId: row.connection_id ?? undefined,
+    title: row.title ?? '(senza titolo)',
+    description: row.description ?? undefined,
+    location: row.location ?? undefined,
+    date: format(start, 'yyyy-MM-dd'),
+    startTime: row.all_day ? '00:00' : format(start, 'HH:mm'),
+    endTime: row.all_day ? '23:59' : format(end, 'HH:mm'),
+    allDay: row.all_day,
+    htmlLink: row.html_link ?? undefined,
+    color: calendar?.color ?? calendar?.background_color ?? undefined,
+    createdAt: row.created_at,
+  };
+}
 function dbToFocusPeriod(row: any): FocusPeriod {
   return {
     id: row.id, enterpriseId: row.enterprise_id, name: row.name,
@@ -230,6 +253,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [externalCalendarEvents, setExternalCalendarEvents] = useState<ExternalCalendarEvent[]>([]);
   const [focusPeriods, setFocusPeriods] = useState<FocusPeriod[]>([]);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [keyResults, setKeyResults] = useState<KeyResult[]>([]);
@@ -250,12 +274,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     async function load() {
-      const [eRes, pRes, tRes, sRes, aRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes, remRes] = await Promise.all([
+      const [eRes, pRes, tRes, sRes, aRes, extEventsRes, calListRes, fpRes, oRes, krRes, alRes, teRes, rRes, rcRes, jRes, remRes] = await Promise.all([
         supabase.from('enterprises').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('projects').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('tasks').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('priority_settings').select('*').eq('user_id', userId).limit(1).maybeSingle(),
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at'),
+        supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+        supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
         supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('objectives').select('*').eq('user_id', userId).order('created_at'),
         supabase.from('key_results').select('*').eq('user_id', userId).order('created_at'),
@@ -270,6 +296,14 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       if (pRes.data) setProjects(pRes.data.map(dbToProject));
       if (tRes.data) setTasks(tRes.data.map(dbToTask));
       if (aRes.data) setAppointments(aRes.data.map(dbToAppointment));
+      if (extEventsRes.data) {
+        const calendarMap = new Map((calListRes.data ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        setExternalCalendarEvents(extEventsRes.data
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
+      }
       if (fpRes.data) setFocusPeriods(fpRes.data.map(dbToFocusPeriod));
       if (oRes.data) setObjectives(oRes.data.map(dbToObjective));
       if (krRes.data) setKeyResults(krRes.data.map(dbToKeyResult));
@@ -314,6 +348,30 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
       supabase.channel('appointments-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('appointments').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setAppointments(data.map(dbToAppointment)); });
+      }).subscribe(),
+      supabase.channel('external-calendar-events-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'external_calendar_events', filter: `user_id=eq.${userId}` }, async () => {
+        const [{ data: events }, { data: calendars }] = await Promise.all([
+          supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+          supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
+        ]);
+        const calendarMap = new Map((calendars ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        if (events) setExternalCalendarEvents(events
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
+      }).subscribe(),
+      supabase.channel('google-calendar-list-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'google_calendar_list', filter: `user_id=eq.${userId}` }, async () => {
+        const [{ data: events }, { data: calendars }] = await Promise.all([
+          supabase.from('external_calendar_events').select('*').eq('user_id', userId).order('start_at'),
+          supabase.from('google_calendar_list').select('connection_id, google_calendar_id, summary, color, background_color, enterprise_id, enabled').eq('user_id', userId),
+        ]);
+        const calendarMap = new Map((calendars ?? []).map((c: any) => [`${c.connection_id ?? ''}:${c.google_calendar_id}`, c]));
+        if (events) setExternalCalendarEvents(events
+          .map((r: any) => ({ row: r, calendar: calendarMap.get(`${r.connection_id ?? ''}:${r.google_calendar_id}`) }))
+          .filter(({ calendar }: any) => calendar?.enabled !== false)
+          .map(({ row, calendar }: any) => dbToExternalCalendarEvent(row, calendar))
+        );
       }).subscribe(),
       supabase.channel('focus-periods-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'focus_periods', filter: `user_id=eq.${userId}` }, () => {
         supabase.from('focus_periods').select('*').eq('user_id', userId).order('created_at').then(({ data }) => { if (data) setFocusPeriods(data.map(dbToFocusPeriod)); });
@@ -653,6 +711,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getTasksForProject = useCallback((pid: string) => tasks.filter(t => t.projectId === pid), [tasks]);
   const getTasksForDate = useCallback((date: string) => tasks.filter(t => t.scheduledDate === date && t.status !== 'done'), [tasks]);
   const getAppointmentsForDate = useCallback((date: string) => appointments.filter(a => a.date === date), [appointments]);
+  const getExternalCalendarEventsForDate = useCallback((date: string) => externalCalendarEvents.filter(e => e.date === date), [externalCalendarEvents]);
   const getBacklogTasks = useCallback(() => tasks.filter(t => t.status === 'backlog'), [tasks]);
   const getSortedBacklogTasks = useCallback(() => {
     const backlog = tasks.filter(t => t.status === 'backlog');
@@ -859,7 +918,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   return (
     <PrpContext.Provider value={{
-      enterprises, projects, tasks, appointments, focusPeriods, objectives, keyResults,
+      enterprises, projects, tasks, appointments, externalCalendarEvents, focusPeriods, objectives, keyResults,
       prioritySettings, loading, setPrioritySettings,
       addEnterprise, updateEnterprise, deleteEnterprise,
       addProject, updateProject, deleteProject,
@@ -870,7 +929,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       addObjective, updateObjective, deleteObjective,
       addKeyResult, updateKeyResult, deleteKeyResult,
       getEnterprise, getProject, getProjectType, getProjectsForEnterprise, getTasksForProject,
-      getTasksForDate, getAppointmentsForDate, getBacklogTasks, getSortedBacklogTasks,
+      getTasksForDate, getAppointmentsForDate, getExternalCalendarEventsForDate, getBacklogTasks, getSortedBacklogTasks,
       getFocusPeriodsForEnterprise, getObjectivesForFocus, getKeyResultsForObjective,
       getProjectsForKeyResult, getTasksForEnterprise,
       activityLogs, timeEntries,

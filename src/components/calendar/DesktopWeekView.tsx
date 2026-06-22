@@ -777,7 +777,7 @@ export function DesktopWeekView() {
                             return (
                               <RitualCalendarCard
                                 key={`ritual-${ritual.id}-${dayDate}`}
-                                ritual={ritual} status={rstatus} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                ritual={ritual} status={rstatus} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time} slotH={slotH}
                                 onComplete={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => completeRitualOnDate(ritual.id, dayDate)); } else { completeRitualOnDate(ritual.id, dayDate); } }}
                                 onSkip={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => skipRitualOnDate(ritual.id, dayDate)); } else { skipRitualOnDate(ritual.id, dayDate); } }}
                                 onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
@@ -797,7 +797,7 @@ export function DesktopWeekView() {
                             return (
                               <RitualCalendarCard
                                 key={`ritual-comp-${comp.id}`}
-                                ritual={ritual} status={comp.status} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                ritual={ritual} status={comp.status} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time} slotH={slotH}
                                 onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
                                 onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
                                 onDelete={() => deleteRitualCompletion(comp.id)}

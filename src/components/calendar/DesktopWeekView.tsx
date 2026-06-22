@@ -13,7 +13,7 @@ import { EditReminderDialog } from '@/components/EditReminderDialog';
 import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
-import type { Task, Appointment, Reminder } from '@/types/prp';
+import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
 import { supabase } from '@/integrations/supabase/client';
 import type { RitualCompletion } from '@/lib/ritual-utils';
 import {
@@ -45,6 +45,13 @@ interface RitualCalendarCardProps {
   onClick?: () => void;
   style?: { left: string; width: string };
 }
+
+const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
+const googleTintColor = (color?: string, alpha = 0.12) => {
+  if (!color?.startsWith('#')) return `hsl(${color || '210 80% 50%'} / ${alpha})`;
+  const hexAlpha = Math.round(alpha * 255).toString(16).padStart(2, '0');
+  return `${color}${hexAlpha}`;
+};
 
 function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
   const isDone = status === 'done';
@@ -118,7 +125,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);

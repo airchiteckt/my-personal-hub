@@ -140,6 +140,7 @@ export function DesktopWeekView() {
   const [journalDate, setJournalDate] = useState<string | null>(null);
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const [moonDate, setMoonDate] = useState<Date | null>(null);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
   const [isDraggingItem, setIsDraggingItem] = useState(false);
   const dragNavTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 

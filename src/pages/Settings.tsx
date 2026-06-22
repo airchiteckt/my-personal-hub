@@ -7,9 +7,10 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle, Briefcase } from 'lucide-react';
+import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle, Briefcase, CalendarDays } from 'lucide-react';
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
+import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
 
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();

@@ -20,6 +20,7 @@ import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@
 import { JournalDialog } from './JournalDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
+import { ExternalEventDetailDialog } from './ExternalEventDetailDialog';
 
 const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
 const googleTintColor = (color?: string, alpha = 0.12) => {

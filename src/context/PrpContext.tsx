@@ -179,6 +179,7 @@ function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEv
     htmlLink: row.html_link ?? undefined,
     color: calendar?.color ?? calendar?.background_color ?? undefined,
     createdAt: row.created_at,
+    googleEventId: row.google_event_id ?? undefined,
     attendees: Array.isArray(row.attendees) ? row.attendees : undefined,
     organizer: row.organizer ?? undefined,
     creator: row.creator ?? undefined,
@@ -764,7 +765,8 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const getTasksForProject = useCallback((pid: string) => tasks.filter(t => t.projectId === pid), [tasks]);
   const getTasksForDate = useCallback((date: string) => tasks.filter(t => t.scheduledDate === date && t.status !== 'done'), [tasks]);
   const getAppointmentsForDate = useCallback((date: string) => appointments.filter(a => a.date === date), [appointments]);
-  const getExternalCalendarEventsForDate = useCallback((date: string) => externalCalendarEvents.filter(e => e.date === date), [externalCalendarEvents]);
+  const syncedAppointmentEventIds = useMemo(() => new Set(appointments.map(a => a.googleEventId).filter(Boolean) as string[]), [appointments]);
+  const getExternalCalendarEventsForDate = useCallback((date: string) => externalCalendarEvents.filter(e => e.date === date && !(e.googleEventId && syncedAppointmentEventIds.has(e.googleEventId))), [externalCalendarEvents, syncedAppointmentEventIds]);
   const getBacklogTasks = useCallback(() => tasks.filter(t => t.status === 'backlog'), [tasks]);
   const getSortedBacklogTasks = useCallback(() => {
     const backlog = tasks.filter(t => t.status === 'backlog');

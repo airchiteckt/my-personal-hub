@@ -210,6 +210,21 @@ export interface Appointment {
   createdAt: string;
 }
 
+export interface ExternalEventAttendee {
+  email?: string;
+  displayName?: string;
+  responseStatus?: 'needsAction' | 'declined' | 'tentative' | 'accepted' | string;
+  organizer?: boolean;
+  self?: boolean;
+  optional?: boolean;
+}
+
+export interface ExternalEventPerson {
+  email?: string;
+  displayName?: string;
+  self?: boolean;
+}
+
 export interface ExternalCalendarEvent {
   id: string;
   enterpriseId?: string;
@@ -226,6 +241,11 @@ export interface ExternalCalendarEvent {
   htmlLink?: string;
   color?: string;
   createdAt: string;
+  attendees?: ExternalEventAttendee[];
+  organizer?: ExternalEventPerson;
+  creator?: ExternalEventPerson;
+  hangoutLink?: string;
+  conferenceData?: any;
 }
 
 export type FocusPeriodStatus = 'active' | 'future' | 'archived';

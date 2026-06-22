@@ -14,6 +14,7 @@ import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from './RitualQuickDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
 import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
+import { ExternalEventDetailDialog } from './ExternalEventDetailDialog';
 import { supabase } from '@/integrations/supabase/client';
 import type { RitualCompletion } from '@/lib/ritual-utils';
 import {

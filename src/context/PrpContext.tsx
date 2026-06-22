@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { Enterprise, Project, Task, Appointment, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
+import { Enterprise, Project, Task, Appointment, ExternalCalendarEvent, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,7 @@ interface PrpContextType {
   projects: Project[];
   tasks: Task[];
   appointments: Appointment[];
+  externalCalendarEvents: ExternalCalendarEvent[];
   focusPeriods: FocusPeriod[];
   objectives: Objective[];
   keyResults: KeyResult[];
@@ -74,6 +75,7 @@ interface PrpContextType {
   getTasksForProject: (projectId: string) => Task[];
   getTasksForDate: (date: string) => Task[];
   getAppointmentsForDate: (date: string) => Appointment[];
+  getExternalCalendarEventsForDate: (date: string) => ExternalCalendarEvent[];
   getBacklogTasks: () => Task[];
   getSortedBacklogTasks: () => Task[];
   getFocusPeriodsForEnterprise: (enterpriseId: string) => FocusPeriod[];
@@ -151,6 +153,27 @@ function dbToAppointment(row: any): Appointment {
     title: row.title, description: row.description ?? undefined,
     date: row.date, startTime: row.start_time, endTime: row.end_time,
     color: row.color ?? undefined, createdAt: row.created_at,
+  };
+}
+function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEvent {
+  const start = new Date(row.start_at);
+  const end = new Date(row.end_at);
+  return {
+    id: row.id,
+    enterpriseId: calendar?.enterprise_id ?? undefined,
+    calendarId: row.google_calendar_id,
+    calendarName: calendar?.summary ?? undefined,
+    connectionId: row.connection_id ?? undefined,
+    title: row.title ?? '(senza titolo)',
+    description: row.description ?? undefined,
+    location: row.location ?? undefined,
+    date: format(start, 'yyyy-MM-dd'),
+    startTime: row.all_day ? '00:00' : format(start, 'HH:mm'),
+    endTime: row.all_day ? '23:59' : format(end, 'HH:mm'),
+    allDay: row.all_day,
+    htmlLink: row.html_link ?? undefined,
+    color: calendar?.color ?? calendar?.background_color ?? undefined,
+    createdAt: row.created_at,
   };
 }
 function dbToFocusPeriod(row: any): FocusPeriod {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { Enterprise, Project, Task, Appointment, ExternalCalendarEvent, PrioritySettings, DEFAULT_PRIORITY_SETTINGS, ProjectType, FocusPeriod, Objective, KeyResult, Reminder } from '@/types/prp';
 import { format } from 'date-fns';
 import { sortByEffectivePriority } from '@/lib/priority-engine';

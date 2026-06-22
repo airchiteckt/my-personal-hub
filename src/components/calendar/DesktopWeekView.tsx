@@ -3,7 +3,10 @@ import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, ZoomIn, ZoomOut } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Link } from 'react-router-dom';
+import { Maximize2 } from 'lucide-react';
 import { SlotSelectionDialog, SelectedSlot } from './SlotSelectionMode';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
@@ -28,7 +31,7 @@ import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon, type RitualData } from '@/lib/ritual-utils';
-import { DESKTOP_SLOT_HEIGHT as SH } from '@/lib/calendar-utils';
+
 import { JournalDialog } from './JournalDialog';
 
 interface RitualCalendarCardProps {
@@ -39,6 +42,7 @@ interface RitualCalendarCardProps {
   color: string;
   CatIcon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   time: string;
+  slotH: number;
   onComplete: () => void;
   onSkip: () => void;
   onDelete?: () => void;
@@ -54,7 +58,7 @@ const googleTintColor = (color?: string, alpha = 0.12) => {
   return `${color}${hexAlpha}`;
 };
 
-function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
+function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, slotH, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
   const isDone = status === 'done';
   const isSkipped = status === 'skipped';
   const isPlanned = status === 'planned' || status === 'pending';
@@ -69,7 +73,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
       className={`absolute rounded-lg overflow-hidden z-10 border-2 cursor-pointer group ${isDone ? 'border-solid opacity-60' : isSkipped ? 'border-dashed opacity-30' : 'border-dotted'}`}
       style={{
         top: top + 1,
-        height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+        height: Math.max(height - 2, slotH - 4),
         left: posStyle?.left ?? 2,
         width: posStyle?.width,
         right: posStyle ? undefined : 2,
@@ -148,7 +152,14 @@ export function DesktopWeekView() {
   const [slotSelectMode, setSlotSelectMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
-  const [backlogOpen, setBacklogOpen] = useState(true);
+  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [zoom, setZoom] = useState<number>(() => {
+    if (typeof window === 'undefined') return 1;
+    const stored = parseFloat(window.localStorage.getItem('calendar-zoom') || '1');
+    return isNaN(stored) ? 1 : Math.max(0.5, Math.min(2, stored));
+  });
+  const slotH = DESKTOP_SLOT_HEIGHT * zoom;
+  useEffect(() => { try { window.localStorage.setItem('calendar-zoom', String(zoom)); } catch {} }, [zoom]);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
@@ -172,7 +183,7 @@ export function DesktopWeekView() {
   // Auto-scroll to ~8am on mount
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = timeToSlot('08:00') * DESKTOP_SLOT_HEIGHT;
+      scrollRef.current.scrollTop = timeToSlot('08:00') * slotH;
     }
   }, []);
 
@@ -231,7 +242,7 @@ export function DesktopWeekView() {
     
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = e.clientY - rect.top;
-    const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
+    const slotIndex = Math.max(0, Math.min(Math.floor(relativeY / slotH), TOTAL_SLOTS - 1));
     const time = slotToTime(slotIndex);
 
     const payload = e.dataTransfer.getData('text/plain');
@@ -302,14 +313,23 @@ export function DesktopWeekView() {
             <Send className="h-3 w-3 mr-1" />
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
+          <div className="w-px h-5 bg-border mx-0.5" />
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Riduci zoom" disabled={zoom <= 0.5}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-center cursor-pointer" onClick={() => setZoom(1)} title="Reset zoom">{Math.round(zoom * 100)}%</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Aumenta zoom" disabled={zoom >= 2}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setBacklogOpen(v => !v)}
-            title={backlogOpen ? 'Chiudi backlog' : 'Apri backlog'}
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs px-2"
+            onClick={() => setBacklogOpen(true)}
+            title="Apri backlog"
           >
-            {backlogOpen ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelRightOpen className="h-3.5 w-3.5" />}
+            <ListTodo className="h-3.5 w-3.5 mr-1" />
+            Backlog
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
@@ -447,7 +467,7 @@ export function DesktopWeekView() {
           <div ref={scrollRef} className="flex-1 overflow-auto">
             <div
               className="grid"
-              style={{ gridTemplateColumns: '40px repeat(7, 1fr)', height: TOTAL_SLOTS * DESKTOP_SLOT_HEIGHT }}
+              style={{ gridTemplateColumns: '40px repeat(7, 1fr)', height: TOTAL_SLOTS * slotH }}
             >
               {/* Time column */}
               <div className="relative">
@@ -457,7 +477,7 @@ export function DesktopWeekView() {
                     <div
                       key={i}
                      className="absolute right-1 text-[10px] text-muted-foreground tabular-nums"
-                     style={{ top: i * DESKTOP_SLOT_HEIGHT - 6 }}
+                     style={{ top: i * slotH - 6 }}
                     >
                       {slotToTime(i)}
                     </div>
@@ -486,7 +506,7 @@ export function DesktopWeekView() {
                       if ((e.target as HTMLElement).closest('[draggable]')) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const relativeY = e.clientY - rect.top;
-                      const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT), TOTAL_SLOTS - 1));
+                      const slot = Math.max(0, Math.min(Math.floor(relativeY / slotH), TOTAL_SLOTS - 1));
                       isDraggingCreate.current = true;
                       setDragCreate({ dayDate, startSlot: slot, endSlot: slot + 1 });
                     }}
@@ -494,7 +514,7 @@ export function DesktopWeekView() {
                       if (!isDraggingCreate.current || !dragCreate || dragCreate.dayDate !== dayDate) return;
                       const rect = e.currentTarget.getBoundingClientRect();
                       const relativeY = e.clientY - rect.top;
-                      const slot = Math.max(0, Math.min(Math.floor(relativeY / DESKTOP_SLOT_HEIGHT) + 1, TOTAL_SLOTS));
+                      const slot = Math.max(0, Math.min(Math.floor(relativeY / slotH) + 1, TOTAL_SLOTS));
                       if (slot !== dragCreate.endSlot) {
                         setDragCreate(prev => prev ? { ...prev, endSlot: Math.max(prev.startSlot + 1, slot) } : null);
                       }
@@ -536,7 +556,7 @@ export function DesktopWeekView() {
                       <div
                         key={i}
                         className={`absolute left-0 right-0 h-px ${i % 2 === 0 ? 'bg-border/60' : 'bg-border/25'}`}
-                        style={{ top: i * DESKTOP_SLOT_HEIGHT }}
+                        style={{ top: i * slotH }}
                       />
                     ))}
 
@@ -549,8 +569,8 @@ export function DesktopWeekView() {
                           key={`sel-${i}`}
                           className="absolute left-1 right-1 rounded-lg bg-primary/25 border-2 border-primary/50 z-25 pointer-events-none flex items-center justify-center"
                           style={{
-                            top: startS * DESKTOP_SLOT_HEIGHT,
-                            height: (endS - startS) * DESKTOP_SLOT_HEIGHT,
+                            top: startS * slotH,
+                            height: (endS - startS) * slotH,
                           }}
                         >
                           <span className="text-[10px] font-bold text-primary">
@@ -565,8 +585,8 @@ export function DesktopWeekView() {
                       <div
                         className="absolute left-1 right-1 rounded-lg bg-primary/20 border-2 border-primary/40 z-30 pointer-events-none flex items-center justify-center"
                         style={{
-                          top: Math.min(dragCreate.startSlot, dragCreate.endSlot) * DESKTOP_SLOT_HEIGHT,
-                          height: Math.abs(dragCreate.endSlot - dragCreate.startSlot) * DESKTOP_SLOT_HEIGHT,
+                          top: Math.min(dragCreate.startSlot, dragCreate.endSlot) * slotH,
+                          height: Math.abs(dragCreate.endSlot - dragCreate.startSlot) * slotH,
                         }}
                       >
                         <span className="text-xs font-medium text-primary">
@@ -579,7 +599,7 @@ export function DesktopWeekView() {
                     {isCurrent && (
                       <div
                         className="absolute left-0 right-0 flex items-center z-20 pointer-events-none"
-                        style={{ top: nowSlot * DESKTOP_SLOT_HEIGHT }}
+                        style={{ top: nowSlot * slotH }}
                       >
                         <div className="h-2.5 w-2.5 rounded-full bg-destructive -ml-1" />
                         <div className="flex-1 h-0.5 bg-destructive" />
@@ -637,7 +657,7 @@ export function DesktopWeekView() {
                         <>
                           {dayTasks.map(task => {
                             const time = task.scheduledTime || '09:00';
-                            const { top, height } = getTaskPosition(time, task.estimatedMinutes, DESKTOP_SLOT_HEIGHT);
+                            const { top, height } = getTaskPosition(time, task.estimatedMinutes, slotH);
                             const ent = getEnterprise(task.enterpriseId);
                             const isDone = task.status === 'done';
                             const sty = uLS(task.id);
@@ -651,7 +671,7 @@ export function DesktopWeekView() {
                                 className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
                                 style={{
                                   top: top + 1,
-                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(height - 2, slotH - 4),
                                   ...sty,
                                   backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
                                   borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
@@ -681,8 +701,8 @@ export function DesktopWeekView() {
                             const startSlot = timeToSlot(appt.startTime);
                             const endSlot = timeToSlot(appt.endTime);
                             const slots = Math.max(1, endSlot - startSlot);
-                            const top = startSlot * DESKTOP_SLOT_HEIGHT;
-                            const height = slots * DESKTOP_SLOT_HEIGHT;
+                            const top = startSlot * slotH;
+                            const height = slots * slotH;
                             const ent = appt.enterpriseId ? getEnterprise(appt.enterpriseId) : null;
                             const color = appt.color || ent?.color || '270 60% 55%';
                             const sty = uLS(`appt-${appt.id}`);
@@ -694,7 +714,7 @@ export function DesktopWeekView() {
                                 className="absolute rounded-lg overflow-hidden z-10 border-2 border-dashed cursor-pointer group"
                                 style={{
                                   top: top + 1,
-                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(height - 2, slotH - 4),
                                   ...sty,
                                   backgroundColor: `hsl(${color} / 0.1)`,
                                   borderColor: `hsl(${color} / 0.4)`,
@@ -722,8 +742,8 @@ export function DesktopWeekView() {
                             const startSlot = timeToSlot(event.startTime);
                             const endSlot = timeToSlot(event.endTime);
                             const slots = Math.max(1, endSlot - startSlot);
-                            const top = startSlot * DESKTOP_SLOT_HEIGHT;
-                            const height = slots * DESKTOP_SLOT_HEIGHT;
+                            const top = startSlot * slotH;
+                            const height = slots * slotH;
                             const ent = event.enterpriseId ? getEnterprise(event.enterpriseId) : null;
                             const color = event.color || ent?.color || '210 80% 50%';
                             const sty = uLS(`gcal-${event.id}`);
@@ -735,7 +755,7 @@ export function DesktopWeekView() {
                                 className="absolute rounded-lg overflow-hidden z-10 border cursor-pointer"
                                 style={{
                                   top: top + 1,
-                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(height - 2, slotH - 4),
                                   ...sty,
                                   backgroundColor: googleTintColor(color, 0.12),
                                   borderColor: googleTintColor(color, 0.55),
@@ -760,8 +780,8 @@ export function DesktopWeekView() {
                             const time = ritual.suggested_time || '07:00';
                             const startSlot = timeToSlot(time);
                             const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                            const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
-                            const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                            const topPos = startSlot * slotH;
+                            const heightVal = slotsNeeded * slotH;
                             const color = getRitualCalendarColor(ritual.category);
                             const comp = ritualCompletions.find(c => c.ritual_id === ritual.id && c.completed_date === dayDate);
                             const rstatus = comp?.status || 'pending';
@@ -769,7 +789,7 @@ export function DesktopWeekView() {
                             return (
                               <RitualCalendarCard
                                 key={`ritual-${ritual.id}-${dayDate}`}
-                                ritual={ritual} status={rstatus} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                ritual={ritual} status={rstatus} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time} slotH={slotH}
                                 onComplete={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => completeRitualOnDate(ritual.id, dayDate)); } else { completeRitualOnDate(ritual.id, dayDate); } }}
                                 onSkip={() => { if (!comp) { planRitualOnDate(ritual.id, dayDate, time).then(() => skipRitualOnDate(ritual.id, dayDate)); } else { skipRitualOnDate(ritual.id, dayDate); } }}
                                 onDelete={comp ? () => deleteRitualCompletion(comp.id) : undefined}
@@ -782,14 +802,14 @@ export function DesktopWeekView() {
                             const time = comp.completed_time!;
                             const startSlot = timeToSlot(time);
                             const slotsNeeded = Math.ceil(ritual.estimated_minutes / 30);
-                            const topPos = startSlot * DESKTOP_SLOT_HEIGHT;
-                            const heightVal = slotsNeeded * DESKTOP_SLOT_HEIGHT;
+                            const topPos = startSlot * slotH;
+                            const heightVal = slotsNeeded * slotH;
                             const color = getRitualCalendarColor(ritual.category);
                             const CatIcon = getRitualIcon(ritual.category);
                             return (
                               <RitualCalendarCard
                                 key={`ritual-comp-${comp.id}`}
-                                ritual={ritual} status={comp.status} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time}
+                                ritual={ritual} status={comp.status} top={topPos} height={heightVal} color={color} CatIcon={CatIcon} time={time} slotH={slotH}
                                 onComplete={() => completeRitualOnDate(ritual.id, dayDate)}
                                 onSkip={() => skipRitualOnDate(ritual.id, dayDate)}
                                 onDelete={() => deleteRitualCompletion(comp.id)}
@@ -803,7 +823,7 @@ export function DesktopWeekView() {
                           {dayReminders.map(rem => {
                             const time = rem.reminderTime || '09:00';
                             const ss = timeToSlot(time);
-                            const topPos = ss * DESKTOP_SLOT_HEIGHT;
+                            const topPos = ss * slotH;
                             const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
                             const color = rem.color || ent?.color || '45 90% 50%';
                             const sty = uLS(`rem-${rem.id}`);
@@ -817,7 +837,7 @@ export function DesktopWeekView() {
                                 className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
                                 style={{
                                   top: topPos + 1,
-                                  height: Math.max(DESKTOP_SLOT_HEIGHT * 2 - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  height: Math.max(slotH * 2 - 2, slotH - 4),
                                   ...sty,
                                   backgroundColor: `hsl(${color} / 0.12)`,
                                   borderColor: `hsl(${color} / 0.5)`,
@@ -847,14 +867,25 @@ export function DesktopWeekView() {
           </div>
         </div>
 
-        {backlogOpen && (
-          <SmartBacklog
-            onDragStart={handleDragStart}
-            onDrop={handleBacklogDrop}
-            onTaskClick={task => setEditingTask(task)}
-          />
-        )}
       </div>
+
+      <Sheet open={backlogOpen} onOpenChange={setBacklogOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">
+          <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
+            <SheetTitle className="text-sm font-semibold">Backlog</SheetTitle>
+            <Button asChild variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-6" onClick={() => setBacklogOpen(false)}>
+              <Link to="/backlog"><Maximize2 className="h-3.5 w-3.5" /> Apri pagina</Link>
+            </Button>
+          </SheetHeader>
+          <div className="flex-1 overflow-hidden p-3">
+            <SmartBacklog
+              onDragStart={handleDragStart}
+              onDrop={handleBacklogDrop}
+              onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <CalendarCreateChoice
         open={showChoice}

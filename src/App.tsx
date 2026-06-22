@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import Cockpit from "./pages/Cockpit";
 import Requests from "./pages/Requests";
 import Rituals from "./pages/Rituals";
+import Backlog from "./pages/Backlog";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import Landing from "./pages/Landing";
@@ -75,6 +76,7 @@ function ProtectedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/rituals" element={<Rituals />} />
+          <Route path="/backlog" element={<Backlog />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

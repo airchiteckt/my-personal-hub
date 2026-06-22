@@ -468,6 +468,7 @@ export function DesktopWeekView() {
                 const dayDate = format(day, 'yyyy-MM-dd');
                 const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
                 const dayAppts = getAppointmentsForDate(dayDate);
+                const dayExternalEvents = getExternalCalendarEventsForDate(dayDate);
                 const dayReminders = getRemindersForDate(dayDate);
                 const isCurrent = isToday(day);
 
@@ -596,6 +597,11 @@ export function DesktopWeekView() {
                         const ee = timeToSlot(appt.endTime);
                         allTimeInfos.push({ id: `appt-${appt.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
                       });
+                      dayExternalEvents.forEach(event => {
+                        const ss = timeToSlot(event.startTime);
+                        const ee = timeToSlot(event.endTime);
+                        allTimeInfos.push({ id: `gcal-${event.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
+                      });
                       const dayRituals = getRitualsForDate(day).filter(r => r.planning_mode === 'fixed');
                       dayRituals.forEach(ritual => {
                         const ss = timeToSlot(ritual.suggested_time || '07:00');
@@ -707,6 +713,44 @@ export function DesktopWeekView() {
                                   onClick={e => { e.stopPropagation(); deleteAppointment(appt.id); }}
                                   className="absolute top-0.5 right-0.5 hidden group-hover:flex items-center justify-center h-5 w-5 rounded bg-card/90 border shadow-sm text-[10px] text-destructive hover:bg-destructive hover:text-destructive-foreground"
                                 >×</button>
+                              </div>
+                            );
+                          })}
+                          {dayExternalEvents.map((event: ExternalCalendarEvent) => {
+                            const startSlot = timeToSlot(event.startTime);
+                            const endSlot = timeToSlot(event.endTime);
+                            const slots = Math.max(1, endSlot - startSlot);
+                            const top = startSlot * DESKTOP_SLOT_HEIGHT;
+                            const height = slots * DESKTOP_SLOT_HEIGHT;
+                            const ent = event.enterpriseId ? getEnterprise(event.enterpriseId) : null;
+                            const color = event.color || ent?.color || '210 80% 50%';
+                            const sty = uLS(`gcal-${event.id}`);
+                            return (
+                              <div
+                                key={`gcal-${event.id}`}
+                                onMouseDown={e => e.stopPropagation()}
+                                onClick={e => { e.stopPropagation(); if (event.htmlLink) window.open(event.htmlLink, '_blank', 'noopener,noreferrer'); }}
+                                className="absolute rounded-lg overflow-hidden z-10 border cursor-pointer"
+                                style={{
+                                  top: top + 1,
+                                  height: Math.max(height - 2, DESKTOP_SLOT_HEIGHT - 4),
+                                  ...sty,
+                                  backgroundColor: googleTintColor(color, 0.12),
+                                  borderColor: googleTintColor(color, 0.55),
+                                  borderLeft: `3px solid ${googleSolidColor(color)}`,
+                                }}
+                                title={`${event.title}\n${event.startTime}–${event.endTime}`}
+                              >
+                                <div className="p-1.5 h-full flex flex-col">
+                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                    <CalendarClock className="h-3 w-3 shrink-0" style={{ color: googleSolidColor(color) }} />
+                                    {event.title}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                                    {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}
+                                    {ent ? ` · ${ent.name}` : event.calendarName ? ` · ${event.calendarName}` : ''}
+                                  </p>
+                                </div>
                               </div>
                             );
                           })}

@@ -657,6 +657,44 @@ const Index = () => {
                   );
                 })}
 
+                {/* External calendar events (Google) */}
+                {dayExternalEvents.map((event) => {
+                  const startSlot = timeToSlot(event.startTime);
+                  const endSlot = timeToSlot(event.endTime);
+                  const slots = Math.max(1, endSlot - startSlot);
+                  const top = getRelativeTop(startSlot) + 1;
+                  const height = slots * SLOT_H;
+                  const ent = event.enterpriseId ? getEnterprise(event.enterpriseId) : null;
+                  const color = event.color || ent?.color || '210 80% 50%';
+                  const sty = getItemStyle(`gcal-${event.id}`);
+                  return (
+                    <div
+                      key={`gcal-${event.id}`}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); setSelectedExternalEvent(event); }}
+                      className="absolute rounded-lg overflow-hidden z-10 border cursor-pointer"
+                      style={{
+                        top, height: Math.max(height - 2, SLOT_H - 4), ...sty,
+                        backgroundColor: googleTintColor(color, 0.12),
+                        borderColor: googleTintColor(color, 0.55),
+                        borderLeft: `3px solid ${googleSolidColor(color)}`,
+                      }}
+                      title={`${event.title}\n${event.startTime}–${event.endTime}`}
+                    >
+                      <div className="p-1.5 md:p-2 h-full flex flex-col justify-center">
+                        <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                          <CalendarClock className="h-3 w-3 shrink-0" style={{ color: googleSolidColor(color) }} />
+                          {event.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                          {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}
+                          {ent ? ` · ${ent.name}` : event.calendarName ? ` · ${event.calendarName}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
                 {/* Fixed Rituals */}
                 {dayRituals.map(ritual => {
                   const time = ritual.suggested_time || '07:00';

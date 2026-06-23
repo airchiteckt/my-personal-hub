@@ -91,6 +91,7 @@ const Index = () => {
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [moonOpen, setMoonOpen] = useState(false);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
 
   // Creation state
   const [showChoice, setShowChoice] = useState(false);

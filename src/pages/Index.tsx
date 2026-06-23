@@ -158,8 +158,8 @@ const Index = () => {
     }, 600);
   }, [completeTask]);
 
-  const hasTimelineContent = scheduledTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
-  const hasContent = allTodayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
+  const hasTimelineContent = scheduledTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0 || dayExternalEvents.length > 0;
+  const hasContent = allTodayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0 || dayExternalEvents.length > 0;
   const moon = getMoonPhase(today);
 
   // Next event

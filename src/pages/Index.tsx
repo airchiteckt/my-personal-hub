@@ -123,6 +123,7 @@ const Index = () => {
       allSlots.push(ss, ss + Math.ceil(r.estimated_minutes / 30));
     });
     dayReminders.forEach(r => { allSlots.push(timeToSlot(r.reminderTime || '09:00')); });
+    dayExternalEvents.forEach(e => { allSlots.push(timeToSlot(e.startTime), timeToSlot(e.endTime)); });
 
     if (allSlots.length === 0) return { visibleStart: timeToSlot('07:00'), visibleEnd: timeToSlot('20:00') };
 
@@ -132,7 +133,7 @@ const Index = () => {
     const maxSlot = Math.min(TOTAL_SLOTS, Math.max(...allSlots) + margin);
     const end = Math.min(TOTAL_SLOTS, maxSlot + (maxSlot % 2 === 0 ? 0 : 1));
     return { visibleStart: start, visibleEnd: Math.max(end, start + 8) };
-  }, [scheduledTasks, dayAppts, dayRituals, dayReminders]);
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, dayExternalEvents]);
 
   const visibleSlots = visibleEnd - visibleStart;
 

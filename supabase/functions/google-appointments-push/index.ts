@@ -48,15 +48,14 @@ function buildEventBody(appt: { title: string; description?: string | null; date
   };
 }
 
-async function getDefaultCalendarForEnterprise(admin: any, userId: string, enterpriseId: string) {
-  const { data } = await admin
+async function getDefaultCalendar(admin: any, userId: string, enterpriseId: string | null) {
+  let q = admin
     .from("google_calendar_list")
     .select("connection_id, google_calendar_id, enabled, is_default_for_writes, enterprise_id")
     .eq("user_id", userId)
-    .eq("enterprise_id", enterpriseId)
-    .eq("is_default_for_writes", true)
-    .limit(1)
-    .maybeSingle();
+    .eq("is_default_for_writes", true);
+  q = enterpriseId === null ? q.is("enterprise_id", null) : q.eq("enterprise_id", enterpriseId);
+  const { data } = await q.limit(1).maybeSingle();
   return data;
 }
 
@@ -117,15 +116,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "Appointment not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // No enterprise → nothing to sync
-    if (!appt.enterprise_id) {
-      return new Response(JSON.stringify({ ok: true, skipped: "no enterprise" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const def = await getDefaultCalendarForEnterprise(admin, user.id, appt.enterprise_id);
+    // Find default calendar for this scope (enterprise or personal)
+    const def = await getDefaultCalendar(admin, user.id, appt.enterprise_id ?? null);
     if (!def) {
-      // If was previously synced and now enterprise's default removed: leave the existing Google event alone.
-      return new Response(JSON.stringify({ ok: true, skipped: "no default calendar for enterprise" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, skipped: "no default calendar for scope" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: conn } = await admin.from("google_calendar_connections").select("*").eq("id", def.connection_id).eq("user_id", user.id).maybeSingle();

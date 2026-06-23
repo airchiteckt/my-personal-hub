@@ -74,6 +74,7 @@ const Index = () => {
   const dayAppts = getAppointmentsForDate(todayStr);
   const dayReminders = getRemindersForDate(todayStr);
   const dayRituals = getRitualsForDate(today).filter(r => r.planning_mode === 'fixed');
+  const dayExternalEvents = getExternalCalendarEventsForDate(todayStr);
 
   const pendingTasks = allTodayTasks.filter(t => t.status !== 'done');
   const doneTasks = allTodayTasks.filter(t => t.status === 'done');

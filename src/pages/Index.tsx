@@ -29,9 +29,21 @@ import { JournalDialog } from '@/components/calendar/JournalDialog';
 import { MoonDetailDialog } from '@/components/calendar/MoonDetailDialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
-import type { Task, Appointment, Reminder } from '@/types/prp';
+import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
 import { TodayBacklog } from '@/components/today/TodayBacklog';
 import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
+import { ExternalEventDetailDialog } from '@/components/calendar/ExternalEventDetailDialog';
+
+const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
+const googleTintColor = (color?: string, alpha = 0.12) => {
+  if (color?.startsWith('#')) {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `hsl(${color || '210 80% 50%'} / ${alpha})`;
+};
 
 const Index = () => {
   useAutoReschedule();

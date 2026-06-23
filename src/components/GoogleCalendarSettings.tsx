@@ -109,38 +109,37 @@ export function GoogleCalendarSettings() {
 
   const updateEnterprise = async (cal: CalendarRow, value: string) => {
     const enterprise_id = value === NONE ? null : value;
-    // Removing the enterprise also clears the default-for-writes flag
-    const patch: any = { enterprise_id };
-    if (!enterprise_id) patch.is_default_for_writes = false;
+    // Changing scope clears the default-for-writes flag to avoid duplicates across scopes
+    const patch: any = { enterprise_id, is_default_for_writes: false };
     setCalendars(prev => prev.map(c => c.id === cal.id ? { ...c, ...patch } : c));
     const { error } = await supabase.from("google_calendar_list").update(patch).eq("id", cal.id);
     if (error) toast.error(error.message);
   };
 
   const toggleDefaultWrite = async (cal: CalendarRow) => {
-    if (!cal.enterprise_id) {
-      toast.error("Assegna prima un'impresa al calendario");
-      return;
-    }
     const becomingDefault = !cal.is_default_for_writes;
-    // Optimistically clear other defaults for the same enterprise
+    const scope = cal.enterprise_id; // null = personale
+    // Optimistically clear other defaults for the same scope (enterprise or personal)
     setCalendars(prev => prev.map(c => {
       if (c.id === cal.id) return { ...c, is_default_for_writes: becomingDefault };
-      if (becomingDefault && c.enterprise_id === cal.enterprise_id) return { ...c, is_default_for_writes: false };
+      if (becomingDefault && c.enterprise_id === scope) return { ...c, is_default_for_writes: false };
       return c;
     }));
     if (becomingDefault) {
-      // Clear other defaults for same enterprise first to satisfy unique index
-      await supabase.from("google_calendar_list")
+      // Clear other defaults for same scope first to satisfy unique index
+      let q = supabase.from("google_calendar_list")
         .update({ is_default_for_writes: false })
-        .eq("enterprise_id", cal.enterprise_id)
         .neq("id", cal.id);
+      q = scope === null ? q.is("enterprise_id", null) : q.eq("enterprise_id", scope);
+      await q;
     }
     const { error } = await supabase.from("google_calendar_list")
       .update({ is_default_for_writes: becomingDefault })
       .eq("id", cal.id);
     if (error) { toast.error(error.message); await load(); }
-    else toast.success(becomingDefault ? "Calendario predefinito per le scritture impostato" : "Predefinito rimosso");
+    else toast.success(becomingDefault
+      ? (scope ? "Predefinito per scrittura impostato" : "Predefinito personale impostato")
+      : "Predefinito rimosso");
   };
 
   if (loading) {

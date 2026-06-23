@@ -943,6 +943,12 @@ const Index = () => {
         onDragStart={handleDragStart}
         onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
       />
+      <ExternalEventDetailDialog
+        open={!!selectedExternalEvent}
+        onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
+        event={selectedExternalEvent}
+        enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
+      />
     </div>
   );
 };

@@ -29,9 +29,21 @@ import { JournalDialog } from '@/components/calendar/JournalDialog';
 import { MoonDetailDialog } from '@/components/calendar/MoonDetailDialog';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
-import type { Task, Appointment, Reminder } from '@/types/prp';
+import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
 import { TodayBacklog } from '@/components/today/TodayBacklog';
 import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
+import { ExternalEventDetailDialog } from '@/components/calendar/ExternalEventDetailDialog';
+
+const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
+const googleTintColor = (color?: string, alpha = 0.12) => {
+  if (color?.startsWith('#')) {
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `hsl(${color || '210 80% 50%'} / ${alpha})`;
+};
 
 const Index = () => {
   useAutoReschedule();
@@ -43,6 +55,7 @@ const Index = () => {
 
   const {
     tasks, getEnterprise, getProject, getAppointmentsForDate, getRemindersForDate,
+    getExternalCalendarEventsForDate,
     scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask,
     deleteAppointment, prioritySettings, updateReminder,
     getRitualsForDate, isRitualCompleted, rituals, ritualCompletions,
@@ -61,6 +74,7 @@ const Index = () => {
   const dayAppts = getAppointmentsForDate(todayStr);
   const dayReminders = getRemindersForDate(todayStr);
   const dayRituals = getRitualsForDate(today).filter(r => r.planning_mode === 'fixed');
+  const dayExternalEvents = getExternalCalendarEventsForDate(todayStr);
 
   const pendingTasks = allTodayTasks.filter(t => t.status !== 'done');
   const doneTasks = allTodayTasks.filter(t => t.status === 'done');
@@ -77,6 +91,7 @@ const Index = () => {
   const [editingRitual, setEditingRitual] = useState<{ ritual: RitualData; date: string; time: string; status: string; compId?: string } | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [moonOpen, setMoonOpen] = useState(false);
+  const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
 
   // Creation state
   const [showChoice, setShowChoice] = useState(false);
@@ -108,6 +123,7 @@ const Index = () => {
       allSlots.push(ss, ss + Math.ceil(r.estimated_minutes / 30));
     });
     dayReminders.forEach(r => { allSlots.push(timeToSlot(r.reminderTime || '09:00')); });
+    dayExternalEvents.forEach(e => { allSlots.push(timeToSlot(e.startTime), timeToSlot(e.endTime)); });
 
     if (allSlots.length === 0) return { visibleStart: timeToSlot('07:00'), visibleEnd: timeToSlot('20:00') };
 
@@ -117,7 +133,7 @@ const Index = () => {
     const maxSlot = Math.min(TOTAL_SLOTS, Math.max(...allSlots) + margin);
     const end = Math.min(TOTAL_SLOTS, maxSlot + (maxSlot % 2 === 0 ? 0 : 1));
     return { visibleStart: start, visibleEnd: Math.max(end, start + 8) };
-  }, [scheduledTasks, dayAppts, dayRituals, dayReminders]);
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, dayExternalEvents]);
 
   const visibleSlots = visibleEnd - visibleStart;
 
@@ -142,8 +158,8 @@ const Index = () => {
     }, 600);
   }, [completeTask]);
 
-  const hasTimelineContent = scheduledTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
-  const hasContent = allTodayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0;
+  const hasTimelineContent = scheduledTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0 || dayExternalEvents.length > 0;
+  const hasContent = allTodayTasks.length > 0 || dayAppts.length > 0 || dayRituals.length > 0 || dayReminders.length > 0 || dayExternalEvents.length > 0;
   const moon = getMoonPhase(today);
 
   // Next event
@@ -197,8 +213,12 @@ const Index = () => {
       const ss = timeToSlot(rem.reminderTime || '09:00');
       allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
     });
+    dayExternalEvents.forEach(event => {
+      const ss = timeToSlot(event.startTime); const ee = timeToSlot(event.endTime);
+      allTimeInfos.push({ id: `gcal-${event.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
+    });
     return computeOverlapLayout(allTimeInfos);
-  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, ritualCompletions, rituals, todayStr]);
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, dayExternalEvents, ritualCompletions, rituals, todayStr]);
 
   const getItemStyle = (itemId: string) => {
     const l = uLayout.get(itemId);
@@ -637,6 +657,44 @@ const Index = () => {
                   );
                 })}
 
+                {/* External calendar events (Google) */}
+                {dayExternalEvents.map((event) => {
+                  const startSlot = timeToSlot(event.startTime);
+                  const endSlot = timeToSlot(event.endTime);
+                  const slots = Math.max(1, endSlot - startSlot);
+                  const top = getRelativeTop(startSlot) + 1;
+                  const height = slots * SLOT_H;
+                  const ent = event.enterpriseId ? getEnterprise(event.enterpriseId) : null;
+                  const color = event.color || ent?.color || '210 80% 50%';
+                  const sty = getItemStyle(`gcal-${event.id}`);
+                  return (
+                    <div
+                      key={`gcal-${event.id}`}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); setSelectedExternalEvent(event); }}
+                      className="absolute rounded-lg overflow-hidden z-10 border cursor-pointer"
+                      style={{
+                        top, height: Math.max(height - 2, SLOT_H - 4), ...sty,
+                        backgroundColor: googleTintColor(color, 0.12),
+                        borderColor: googleTintColor(color, 0.55),
+                        borderLeft: `3px solid ${googleSolidColor(color)}`,
+                      }}
+                      title={`${event.title}\n${event.startTime}–${event.endTime}`}
+                    >
+                      <div className="p-1.5 md:p-2 h-full flex flex-col justify-center">
+                        <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                          <CalendarClock className="h-3 w-3 shrink-0" style={{ color: googleSolidColor(color) }} />
+                          {event.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                          {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}
+                          {ent ? ` · ${ent.name}` : event.calendarName ? ` · ${event.calendarName}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
                 {/* Fixed Rituals */}
                 {dayRituals.map(ritual => {
                   const time = ritual.suggested_time || '07:00';
@@ -884,6 +942,12 @@ const Index = () => {
         onOpenChange={setBacklogOpen}
         onDragStart={handleDragStart}
         onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
+      />
+      <ExternalEventDetailDialog
+        open={!!selectedExternalEvent}
+        onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
+        event={selectedExternalEvent}
+        enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
       />
     </div>
   );

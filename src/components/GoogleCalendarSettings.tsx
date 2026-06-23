@@ -234,9 +234,8 @@ export function GoogleCalendarSettings() {
                     <button
                       type="button"
                       onClick={() => toggleDefaultWrite(cal)}
-                      title={cal.enterprise_id ? (cal.is_default_for_writes ? "Calendario predefinito per scrittura appuntamenti" : "Imposta come predefinito per scrittura") : "Assegna un'impresa per abilitare"}
-                      disabled={!cal.enterprise_id}
-                      className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+                      title={cal.enterprise_id ? (cal.is_default_for_writes ? "Calendario predefinito per scrittura appuntamenti" : "Imposta come predefinito per scrittura") : "Assegna prima un'impresa al calendario"}
+                      className={`h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted shrink-0 ${!cal.enterprise_id ? "opacity-40" : ""}`}
                     >
                       <Star className={`h-4 w-4 ${cal.is_default_for_writes ? "fill-amber-400 text-amber-500" : "text-muted-foreground"}`} />
                     </button>

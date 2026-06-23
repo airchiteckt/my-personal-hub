@@ -66,11 +66,19 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!collapsed && enterprises.length > 0 && isFeatureEnabled('nav_enterprises') && (
+        {!collapsed && isFeatureEnabled('nav_enterprises') && (
           <SidebarGroup>
             <SidebarGroupLabel>Imprese</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild>
+                    <NavLink to="/calendar" className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent font-medium">
+                      <span className="mr-2 h-3 w-3 rounded-full inline-block shrink-0 bg-muted-foreground/50" />
+                      <span className="truncate">Personale</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
                 {enterprises.map(e => (
                   <SidebarMenuItem key={e.id}>
                     <SidebarMenuButton asChild>

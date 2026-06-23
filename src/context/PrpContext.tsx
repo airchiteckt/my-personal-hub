@@ -607,7 +607,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     }).select().single();
     if (error) { toast.error('Errore creazione appuntamento'); return; }
     setAppointments(prev => [...prev, dbToAppointment(data)]);
-    if (data.enterprise_id) pushAppointmentToGoogle('create', { appointment_id: data.id });
+    pushAppointmentToGoogle('create', { appointment_id: data.id });
   }, [userId, pushAppointmentToGoogle]);
 
   const updateAppointment = useCallback(async (id: string, updates: Partial<Appointment>) => {

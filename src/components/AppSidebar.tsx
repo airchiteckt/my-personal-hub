@@ -66,29 +66,27 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {!collapsed && isFeatureEnabled('nav_enterprises') && (
+        {!collapsed && enterprises.length > 0 && isFeatureEnabled('nav_enterprises') && (
           <SidebarGroup>
             <SidebarGroupLabel>Imprese</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <NavLink to="/calendar" className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent font-medium">
-                      <span className="mr-2 h-3 w-3 rounded-full inline-block shrink-0 bg-muted-foreground/50" />
-                      <span className="truncate">Personale</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {enterprises.map(e => (
-                  <SidebarMenuItem key={e.id}>
-                    <SidebarMenuButton asChild>
-                      <NavLink to={`/enterprise/${e.id}`} className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent font-medium">
-                        <span className="mr-2 h-3 w-3 rounded-full inline-block shrink-0" style={{ backgroundColor: `hsl(${e.color})` }} />
-                        <span className="truncate">{e.name}</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {[...enterprises]
+                  .sort((a, b) => {
+                    if (a.isPersonal && !b.isPersonal) return -1;
+                    if (!a.isPersonal && b.isPersonal) return 1;
+                    return 0;
+                  })
+                  .map(e => (
+                    <SidebarMenuItem key={e.id}>
+                      <SidebarMenuButton asChild>
+                        <NavLink to={`/enterprise/${e.id}`} className="hover:bg-sidebar-accent" activeClassName="bg-sidebar-accent font-medium">
+                          <span className="mr-2 h-3 w-3 rounded-full inline-block shrink-0" style={{ backgroundColor: `hsl(${e.color})` }} />
+                          <span className="truncate">{e.name}</span>
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

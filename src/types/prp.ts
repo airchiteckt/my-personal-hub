@@ -165,6 +165,7 @@ export interface Enterprise {
   priorityUntil?: string;
   is_public?: boolean;
   public_slug?: string;
+  isPersonal?: boolean;
   createdAt: string;
 }
 

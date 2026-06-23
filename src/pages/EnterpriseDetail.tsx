@@ -124,9 +124,11 @@ const EnterpriseDetail = () => {
         <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9 shrink-0" onClick={() => setShowEditEnterprise(true)}>
           <Edit2 className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9 shrink-0" onClick={() => { deleteEnterprise(id!); navigate('/enterprises'); }}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {!enterprise.isPersonal && (
+          <Button variant="outline" size="icon" className="h-8 w-8 md:h-9 md:w-9 shrink-0" onClick={() => { deleteEnterprise(id!); navigate('/enterprises'); }}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* OKR Wizard AI - always visible */}

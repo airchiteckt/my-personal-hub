@@ -129,6 +129,7 @@ function dbToEnterprise(row: any): Enterprise {
     priorityUntil: row.priority_until ?? undefined,
     is_public: row.is_public ?? false,
     public_slug: row.public_slug ?? undefined,
+    isPersonal: row.is_personal ?? false,
     createdAt: row.created_at,
   };
 }

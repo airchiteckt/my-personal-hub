@@ -364,6 +364,7 @@ export type Database = {
           enterprise_type: string
           growth_potential: number
           id: string
+          is_personal: boolean
           is_public: boolean
           name: string
           phase: string
@@ -382,6 +383,7 @@ export type Database = {
           enterprise_type?: string
           growth_potential?: number
           id?: string
+          is_personal?: boolean
           is_public?: boolean
           name: string
           phase?: string
@@ -400,6 +402,7 @@ export type Database = {
           enterprise_type?: string
           growth_potential?: number
           id?: string
+          is_personal?: boolean
           is_public?: boolean
           name?: string
           phase?: string

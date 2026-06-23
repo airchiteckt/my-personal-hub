@@ -48,15 +48,14 @@ function buildEventBody(appt: { title: string; description?: string | null; date
   };
 }
 
-async function getDefaultCalendarForEnterprise(admin: any, userId: string, enterpriseId: string) {
-  const { data } = await admin
+async function getDefaultCalendar(admin: any, userId: string, enterpriseId: string | null) {
+  let q = admin
     .from("google_calendar_list")
     .select("connection_id, google_calendar_id, enabled, is_default_for_writes, enterprise_id")
     .eq("user_id", userId)
-    .eq("enterprise_id", enterpriseId)
-    .eq("is_default_for_writes", true)
-    .limit(1)
-    .maybeSingle();
+    .eq("is_default_for_writes", true);
+  q = enterpriseId === null ? q.is("enterprise_id", null) : q.eq("enterprise_id", enterpriseId);
+  const { data } = await q.limit(1).maybeSingle();
   return data;
 }
 

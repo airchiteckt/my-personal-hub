@@ -55,6 +55,7 @@ const Index = () => {
 
   const {
     tasks, getEnterprise, getProject, getAppointmentsForDate, getRemindersForDate,
+    getExternalCalendarEventsForDate,
     scheduleTask, completeTask, uncompleteTask, unscheduleTask, updateTask,
     deleteAppointment, prioritySettings, updateReminder,
     getRitualsForDate, isRitualCompleted, rituals, ritualCompletions,

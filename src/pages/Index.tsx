@@ -213,8 +213,12 @@ const Index = () => {
       const ss = timeToSlot(rem.reminderTime || '09:00');
       allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
     });
+    dayExternalEvents.forEach(event => {
+      const ss = timeToSlot(event.startTime); const ee = timeToSlot(event.endTime);
+      allTimeInfos.push({ id: `gcal-${event.id}`, startSlot: ss, endSlot: Math.max(ss + 1, ee) });
+    });
     return computeOverlapLayout(allTimeInfos);
-  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, ritualCompletions, rituals, todayStr]);
+  }, [scheduledTasks, dayAppts, dayRituals, dayReminders, dayExternalEvents, ritualCompletions, rituals, todayStr]);
 
   const getItemStyle = (itemId: string) => {
     const l = uLayout.get(itemId);

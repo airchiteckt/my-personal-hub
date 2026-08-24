@@ -549,7 +549,7 @@ function useRadar() {
   };
 
   return {
-    view, setView, messages, setMessages, pendingActions, setPendingActions,
+    view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,

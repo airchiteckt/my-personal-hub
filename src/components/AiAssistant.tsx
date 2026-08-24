@@ -510,11 +510,27 @@ function useRadar() {
   };
 
   const rejectAction = (action: GlobalAction) => {
-    action.rejected = true;
-    setPendingActions(prev => [...prev]);
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
     toast('Azione annullata');
     if (callActiveRef.current) speakText('Annullato.');
   };
+
+  // Chronological timeline: each action card is rendered right after the assistant message that produced it
+  const timeline: TimelineItem[] = (() => {
+    const items: TimelineItem[] = [];
+    messages.forEach((msg, i) => {
+      items.push({ kind: 'msg', key: `m-${i}`, index: i, msg });
+      pendingActions
+        .filter(a => a.msgIndex === i)
+        .forEach(a => items.push({ kind: 'action', key: `a-${a.id}`, action: a }));
+    });
+    // orphan actions (no matching message index) go at the end
+    pendingActions
+      .filter(a => a.msgIndex == null || a.msgIndex >= messages.length)
+      .forEach(a => items.push({ kind: 'action', key: `a-${a.id}`, action: a }));
+    return items;
+  })();
+
 
   const tasksDueToday = tasks.filter(t => t.scheduledDate === new Date().toISOString().split('T')[0] && t.status !== 'done').length;
   const activeEnterprises = enterprises.filter(e => e.status === 'active').length;

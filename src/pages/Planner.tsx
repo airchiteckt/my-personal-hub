@@ -114,29 +114,44 @@ export default function Planner() {
     toast.success(`"${task.title}" pianificata alle ${time}`);
   };
 
-  const renderTaskRow = (task: Task) => (
-    <div
-      key={task.id}
-      className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:border-primary/40 transition-colors"
-      draggable
-      onDragStart={e => {
-        e.dataTransfer.setData('text/plain', `task:${task.id}`);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-    >
-      <span className="text-sm truncate flex-1">{task.title}</span>
-      <span className="text-[11px] text-muted-foreground shrink-0">{formatMinutes(task.estimatedMinutes)}</span>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-6 w-6 shrink-0"
-        title="Pianifica in questa giornata"
-        onClick={() => scheduleOnDay(task)}
+  const renderTaskRow = (task: Task, showEnterprise = false) => {
+    const ent = showEnterprise ? getEnterprise(task.enterpriseId) : null;
+    return (
+      <div
+        key={task.id}
+        className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:border-primary/40 transition-colors"
+        draggable
+        onDragStart={e => {
+          e.dataTransfer.setData('text/plain', `task:${task.id}`);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
       >
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
+        {ent && (
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            title={ent.name}
+            style={{ backgroundColor: `hsl(${ent.color})` }}
+          />
+        )}
+        <span className="text-sm truncate flex-1">{task.title}</span>
+        {ent && (
+          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate" title={ent.name}>
+            {ent.name}
+          </span>
+        )}
+        <span className="text-[11px] text-muted-foreground shrink-0">{formatMinutes(task.estimatedMinutes)}</span>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 shrink-0"
+          title="Pianifica in questa giornata"
+          onClick={() => scheduleOnDay(task)}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  };
 
   const renderProject = (project: Project) => {
     const projTasks = (backlogByProject.get(project.id) || []);

@@ -364,7 +364,22 @@ function useRadar() {
           try {
             const p = JSON.parse(json);
             if (p.type === 'delta' && p.content) { assistantContent += p.content; const snap = assistantContent; setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m)); }
-            if (p.type === 'actions' && p.actions?.length) { const acts: GlobalAction[] = p.actions.map((a: any) => ({ ...a, applied: false, rejected: false })); setPendingActions(prev => [...prev, ...acts]); }
+            if (p.type === 'actions' && p.actions?.length) {
+              const acts: GlobalAction[] = p.actions.map((a: any, k: number) => ({
+                ...a,
+                id: `${assistantIndex}-${Date.now()}-${k}-${Math.random().toString(36).slice(2, 7)}`,
+                msgIndex: assistantIndex,
+                applied: false,
+                rejected: false,
+              }));
+              setPendingActions(prev => {
+                // dedup: skip actions identical to ones already proposed/applied in this chat
+                const sig = (a: GlobalAction) => `${a.type}|${JSON.stringify(a.data ?? {})}`;
+                const seen = new Set(prev.map(sig));
+                return [...prev, ...acts.filter(a => !seen.has(sig(a)))];
+              });
+            }
+
           } catch { buffer = line + '\n' + buffer; break; }
         }
       }

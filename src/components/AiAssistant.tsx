@@ -295,7 +295,11 @@ function useRadar() {
     else if (path === '/calendar') currentSection = 'calendar';
     else if (path === '/radar') currentSection = 'radar';
     return {
+      azioniGiaEseguiteInQuestaChat: pendingActions.filter(a => a.applied).map(a => ({ tipo: a.type, dati: a.data })),
+      azioniRifiutateInQuestaChat: pendingActions.filter(a => a.rejected).map(a => ({ tipo: a.type, dati: a.data })),
+      notaAzioni: 'Le azioni elencate in azioniGiaEseguiteInQuestaChat sono GIÀ state eseguite e confermate: non riproporle mai. Le azioni in azioniRifiutateInQuestaChat sono state annullate dall\'utente: non riproporle a meno di richiesta esplicita.',
       currentSection, currentEnterpriseId, currentDate: today, currentQuarter: `Q${currentQ} ${now.getFullYear()}`,
+
       enterprises: enterprises.map(e => ({ id: e.id, name: e.name, status: e.status, phase: e.phase, businessCategory: e.businessCategory, color: e.color })),
       projects: projects.map(p => ({ id: p.id, name: p.name, type: p.type, enterpriseId: p.enterpriseId, isStrategicLever: p.isStrategicLever, keyResultId: p.keyResultId })),
       tasks: tasks.filter(t => t.status !== 'done').map(t => ({ id: t.id, title: t.title, priority: t.priority, status: t.status, estimatedMinutes: t.estimatedMinutes, deadline: t.deadline, scheduledDate: t.scheduledDate, scheduledTime: t.scheduledTime, projectId: t.projectId, enterpriseId: t.enterpriseId })),

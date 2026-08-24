@@ -355,12 +355,14 @@ const Index = ({ date, onBack }: DayViewProps) => {
               <Inbox className="h-3.5 w-3.5" />
               <span className="hidden md:inline text-xs">Backlog</span>
             </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/calendar" className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                <span className="hidden md:inline text-xs">Calendario</span>
-              </Link>
-            </Button>
+            {!onBack && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/calendar" className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline text-xs">Calendario</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 

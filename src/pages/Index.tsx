@@ -3,7 +3,7 @@ import { format, addDays, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen, Inbox } from 'lucide-react';
+import { Check, Clock, ArrowRight, Calendar, CalendarClock, Bell, Repeat, Zap, ListChecks, BookOpen, Inbox, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,12 +45,18 @@ const googleTintColor = (color?: string, alpha = 0.12) => {
   return `hsl(${color || '210 80% 50%'} / ${alpha})`;
 };
 
-const Index = () => {
+interface DayViewProps {
+  date?: Date;
+  onBack?: () => void;
+}
+
+const Index = ({ date, onBack }: DayViewProps) => {
   useAutoReschedule();
   const isMobile = useIsMobile();
   const SLOT_H = isMobile ? MOBILE_SLOT_HEIGHT : DESKTOP_SLOT_HEIGHT;
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const today = new Date();
+  const today = date ?? new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const isToday = todayStr === format(new Date(), 'yyyy-MM-dd');
   const tomorrow = format(addDays(today, 1), 'yyyy-MM-dd');
 
   const {
@@ -143,10 +149,10 @@ const Index = () => {
     const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
     const relativeSlot = Math.max(0, nowSlot - visibleStart - 2);
     scrollRef.current.scrollTop = relativeSlot * SLOT_H;
-  }, [SLOT_H, visibleStart]);
+  }, [SLOT_H, visibleStart, todayStr]);
 
   const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
-  const nowRelative = nowSlot - visibleStart;
+  const nowRelative = isToday ? nowSlot - visibleStart : -1;
   const nowTop = nowRelative * SLOT_H;
 
   const handleComplete = useCallback((task: Task) => {
@@ -164,6 +170,7 @@ const Index = () => {
 
   // Next event
   const nextEvent = useMemo(() => {
+    if (!isToday) return null;
     const nowTime = format(new Date(), 'HH:mm');
     const candidates: { title: string; time: string; type: string; color: string }[] = [];
     scheduledTasks.filter(t => t.status !== 'done' && t.scheduledTime! > nowTime).forEach(t => {
@@ -184,7 +191,7 @@ const Index = () => {
     const eventDate = new Date(); eventDate.setHours(h, m, 0, 0);
     const minsUntil = Math.max(0, differenceInMinutes(eventDate, new Date()));
     return { ...next, minutesUntil: minsUntil };
-  }, [scheduledTasks, dayAppts, dayRituals, todayStr]);
+  }, [scheduledTasks, dayAppts, dayRituals, todayStr, isToday]);
 
   // Overlap layout
   const uLayout = useMemo(() => {
@@ -297,6 +304,13 @@ const Index = () => {
       {/* Header */}
       <div className="px-4 md:px-6 py-3 md:py-4 border-b bg-card/80 backdrop-blur-sm shrink-0">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0 -ml-2">
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden md:inline text-xs">Settimana</span>
+              </Button>
+            )}
           <div>
             <h1 className="text-xl md:text-2xl font-bold capitalize flex items-center gap-2">
               {format(today, 'EEEE d MMMM', { locale: it })}
@@ -316,6 +330,7 @@ const Index = () => {
               {doneTasks.length > 0 && ` · ${doneTasks.length} completat${doneTasks.length === 1 ? 'a' : 'e'}`}
               {dayAppts.length > 0 && ` · ${dayAppts.length} appuntament${dayAppts.length === 1 ? 'o' : 'i'}`}
             </p>
+          </div>
           </div>
           <div className="flex items-center gap-1.5">
             <TooltipProvider delayDuration={200}>
@@ -340,12 +355,14 @@ const Index = () => {
               <Inbox className="h-3.5 w-3.5" />
               <span className="hidden md:inline text-xs">Backlog</span>
             </Button>
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/calendar" className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5" />
-                <span className="hidden md:inline text-xs">Calendario</span>
-              </Link>
-            </Button>
+            {!onBack && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/calendar" className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline text-xs">Calendario</span>
+                </Link>
+              </Button>
+            )}
           </div>
         </div>
 

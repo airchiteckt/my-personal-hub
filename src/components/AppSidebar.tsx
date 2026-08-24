@@ -28,7 +28,7 @@ export function AppSidebar() {
   const { isFeatureEnabled } = useFeatureFlags();
 
   const visibleItems = navItems.filter(item =>
-    item.flagKey === null || isFeatureEnabled(item.flagKey)
+    !('hidden' in item && item.hidden) && (item.flagKey === null || isFeatureEnabled(item.flagKey))
   );
 
   return (

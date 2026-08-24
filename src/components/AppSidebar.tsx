@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 
 const navItems = [
-  { title: 'Oggi', url: '/today', icon: CalendarDays, flagKey: null },
+  { title: 'Oggi', url: '/today', icon: CalendarDays, flagKey: null, hidden: true },
   { title: 'Calendario', url: '/calendar', icon: CalendarRange, flagKey: 'nav_calendar' },
   { title: 'Imprese', url: '/enterprises', icon: Building2, flagKey: 'nav_enterprises' },
   { title: 'Rituali', url: '/rituals', icon: Repeat, flagKey: 'nav_rituals' },

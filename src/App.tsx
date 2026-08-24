@@ -66,7 +66,8 @@ function ProtectedRoutes() {
     <PrpProvider>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Navigate to="/calendar" replace />} />
+          <Route path="/today" element={<Index />} />
           <Route path="/enterprises" element={<Enterprises />} />
           <Route path="/enterprise/:id" element={<EnterpriseDetail />} />
           <Route path="/calendar" element={<Calendar />} />

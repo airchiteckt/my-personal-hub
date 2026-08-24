@@ -327,7 +327,7 @@ function useRadar() {
         case 'complete_task': completeTask(action.data.task_id); toast.success('Task completata'); break;
         case 'create_appointment': addAppointment({ title: action.data.title, date: action.data.date, startTime: action.data.start_time, endTime: action.data.end_time, description: action.data.description || null, color: null, enterpriseId: action.data.enterprise_id || null }); toast.success(`Appuntamento "${action.data.title}" creato`); break;
       }
-      action.applied = true; setPendingActions(prev => [...prev]);
+      setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
     } catch (e) { console.error(e); toast.error("Errore nell'azione"); }
   };
 

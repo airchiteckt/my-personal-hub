@@ -1114,19 +1114,19 @@ export function RadarFullPage() {
                     <p className="text-sm text-muted-foreground">Scrivi un messaggio per iniziare</p>
                   </div>
                 )}
-                {r.messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'assistant' && <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={14} className="text-primary" /></div>}
-                    <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
-{msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sm leading-relaxed"><ReactMarkdown>{stripToolCallTags(msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>}
+                {r.timeline.map((item) => item.kind === 'msg' ? (
+                  <div key={item.key} className={`flex ${item.msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {item.msg.role === 'assistant' && <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={14} className="text-primary" /></div>}
+                    <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${item.msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
+                      {item.msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sm leading-relaxed"><ReactMarkdown>{stripToolCallTags(item.msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-sm leading-relaxed">{item.msg.content}</p>}
                     </div>
                   </div>
-                ))}
-                {r.pendingActions.map((action, i) => (
-                  <div key={`a-${i}`} className="py-0.5">
-                    <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
+                ) : (
+                  <div key={item.key} className="py-0.5">
+                    <ActionConfirmCard action={item.action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(item.action)} onReject={() => r.rejectAction(item.action)} />
                   </div>
                 ))}
+
                 {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
                   <div className="flex justify-start">
                     <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2"><RadarIcon size={14} className="text-primary" /></div>

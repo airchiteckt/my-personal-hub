@@ -304,6 +304,13 @@ const Index = ({ date, onBack }: DayViewProps) => {
       {/* Header */}
       <div className="px-4 md:px-6 py-3 md:py-4 border-b bg-card/80 backdrop-blur-sm shrink-0">
         <div className="flex items-center justify-between max-w-5xl mx-auto">
+          <div className="flex items-center gap-2">
+            {onBack && (
+              <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0 -ml-2">
+                <ChevronLeft className="h-4 w-4" />
+                <span className="hidden md:inline text-xs">Settimana</span>
+              </Button>
+            )}
           <div>
             <h1 className="text-xl md:text-2xl font-bold capitalize flex items-center gap-2">
               {format(today, 'EEEE d MMMM', { locale: it })}

@@ -170,6 +170,7 @@ const Index = ({ date, onBack }: DayViewProps) => {
 
   // Next event
   const nextEvent = useMemo(() => {
+    if (!isToday) return null;
     const nowTime = format(new Date(), 'HH:mm');
     const candidates: { title: string; time: string; type: string; color: string }[] = [];
     scheduledTasks.filter(t => t.status !== 'done' && t.scheduledTime! > nowTime).forEach(t => {

@@ -153,8 +153,9 @@ export default function Planner() {
     );
   };
 
-  const renderProject = (project: Project) => {
+  const renderProject = (project: Project, showEnterprise = false) => {
     const projTasks = (backlogByProject.get(project.id) || []);
+    const ent = showEnterprise ? getEnterprise(project.enterpriseId) : null;
     const key = `p-${project.id}`;
     const open = expanded[key] ?? true;
     return (
@@ -164,7 +165,19 @@ export default function Planner() {
           onClick={() => toggle(key)}
         >
           {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+          {ent && (
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              title={ent.name}
+              style={{ backgroundColor: `hsl(${ent.color})` }}
+            />
+          )}
           <span className="text-sm font-medium truncate">{project.name}</span>
+          {ent && (
+            <span className="text-[10px] text-muted-foreground shrink-0 max-w-[100px] truncate" title={ent.name}>
+              {ent.name}
+            </span>
+          )}
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
             {PROJECT_TYPE_LABELS[project.type]}
           </Badge>

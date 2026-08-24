@@ -349,7 +349,9 @@ function useRadar() {
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }
       if (!resp.body) throw new Error('No body');
       const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      const assistantIndex = newMessages.length;
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
       let streamDone = false;
       while (!streamDone) {
         const { done, value } = await reader.read(); if (done) break;

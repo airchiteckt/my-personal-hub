@@ -294,7 +294,7 @@ export default function Planner() {
                                           <div className="mt-1 space-y-1 pl-4">
                                             {kProjects.length === 0
                                               ? <p className="text-[11px] text-muted-foreground italic">Nessun progetto collegato</p>
-                                              : kProjects.map(renderProject)}
+                                              : kProjects.map(p => renderProject(p, enterpriseFilter === 'all'))}
                                           </div>
                                         )}
                                       </div>
@@ -328,7 +328,7 @@ export default function Planner() {
                       <span className="text-sm font-semibold">Progetti operativi e di mantenimento</span>
                       <span className="text-[11px] text-muted-foreground ml-auto">{others.length}</span>
                     </button>
-                    {open && <div className="mt-2 space-y-1 pl-4">{others.map(renderProject)}</div>}
+                    {open && <div className="mt-2 space-y-1 pl-4">{others.map(p => renderProject(p, true))}</div>}
                   </div>
                 );
               })()}

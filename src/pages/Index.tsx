@@ -149,10 +149,10 @@ const Index = ({ date, onBack }: DayViewProps) => {
     const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
     const relativeSlot = Math.max(0, nowSlot - visibleStart - 2);
     scrollRef.current.scrollTop = relativeSlot * SLOT_H;
-  }, [SLOT_H, visibleStart]);
+  }, [SLOT_H, visibleStart, todayStr]);
 
   const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
-  const nowRelative = nowSlot - visibleStart;
+  const nowRelative = isToday ? nowSlot - visibleStart : -1;
   const nowTop = nowRelative * SLOT_H;
 
   const handleComplete = useCallback((task: Task) => {

@@ -12,7 +12,11 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
-type GlobalAction = { type: string; data: any; applied?: boolean; rejected?: boolean };
+type GlobalAction = { id: string; msgIndex: number; type: string; data: any; applied?: boolean; rejected?: boolean };
+type TimelineItem =
+  | { kind: 'msg'; key: string; index: number; msg: Msg }
+  | { kind: 'action'; key: string; action: GlobalAction };
+
 
 /** Strip raw <tool_call> XML blocks that the model sometimes leaks into text */
 function stripToolCallTags(text: string): string {

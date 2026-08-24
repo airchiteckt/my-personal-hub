@@ -229,6 +229,11 @@ export default function Planner() {
                       {fOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       {ent && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${ent.color})` }} />}
                       <span className="text-sm font-semibold truncate">{focus.name}</span>
+                      {ent && enterpriseFilter === 'all' && (
+                        <span className="text-[11px] text-muted-foreground shrink-0 max-w-[120px] truncate" title={ent.name}>
+                          {ent.name}
+                        </span>
+                      )}
                       <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                         {format(new Date(focus.endDate), 'd MMM', { locale: it })}
                       </span>

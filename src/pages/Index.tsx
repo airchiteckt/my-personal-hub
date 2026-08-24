@@ -191,7 +191,7 @@ const Index = ({ date, onBack }: DayViewProps) => {
     const eventDate = new Date(); eventDate.setHours(h, m, 0, 0);
     const minsUntil = Math.max(0, differenceInMinutes(eventDate, new Date()));
     return { ...next, minutesUntil: minsUntil };
-  }, [scheduledTasks, dayAppts, dayRituals, todayStr]);
+  }, [scheduledTasks, dayAppts, dayRituals, todayStr, isToday]);
 
   // Overlap layout
   const uLayout = useMemo(() => {

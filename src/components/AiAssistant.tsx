@@ -746,27 +746,38 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
       {/* Chat transcript - scrollable */}
       {messages.length > 0 && (
         <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 px-4 pb-2 min-h-0">
-          {messages.map((msg, i) => {
-            if (i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'))) return null;
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
-                  msg.role === 'user'
-                    ? 'bg-primary/10 text-foreground border border-primary/15'
-                    : 'bg-muted/50 text-foreground border border-border/40'
-                }`}>
-                  <p className="text-xs leading-relaxed">
-                    {msg.role === 'user' && <span className="text-[10px] text-muted-foreground mr-1">🎤</span>}
-                    {msg.content}
-                  </p>
+          {messages.flatMap((msg, i) => {
+            const nodes: React.ReactNode[] = [];
+            const skip = i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'));
+            if (!skip) {
+              nodes.push(
+                <motion.div
+                  key={`m-${i}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
+                    msg.role === 'user'
+                      ? 'bg-primary/10 text-foreground border border-primary/15'
+                      : 'bg-muted/50 text-foreground border border-border/40'
+                  }`}>
+                    <p className="text-xs leading-relaxed">
+                      {msg.role === 'user' && <span className="text-[10px] text-muted-foreground mr-1">🎤</span>}
+                      {msg.content}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            }
+            pendingActions.filter(a => a.msgIndex === i).forEach(action => {
+              nodes.push(
+                <div key={`va-${action.id}`} className="w-full">
+                  <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
                 </div>
-              </motion.div>
-            );
+              );
+            });
+            return nodes;
           })}
           {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
             <div className="flex justify-start">
@@ -778,12 +789,12 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
               </div>
             </div>
           )}
-          {/* Pending action cards */}
-          {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-            <div key={`va-${i}`} className="w-full">
+          {pendingActions.filter(a => a.msgIndex == null || a.msgIndex >= messages.length).map(action => (
+            <div key={`va-${action.id}`} className="w-full">
               <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
             </div>
           ))}
+
         </div>
       )}
 

@@ -114,32 +114,48 @@ export default function Planner() {
     toast.success(`"${task.title}" pianificata alle ${time}`);
   };
 
-  const renderTaskRow = (task: Task) => (
-    <div
-      key={task.id}
-      className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:border-primary/40 transition-colors"
-      draggable
-      onDragStart={e => {
-        e.dataTransfer.setData('text/plain', `task:${task.id}`);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-    >
-      <span className="text-sm truncate flex-1">{task.title}</span>
-      <span className="text-[11px] text-muted-foreground shrink-0">{formatMinutes(task.estimatedMinutes)}</span>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-6 w-6 shrink-0"
-        title="Pianifica in questa giornata"
-        onClick={() => scheduleOnDay(task)}
+  const renderTaskRow = (task: Task, showEnterprise = false) => {
+    const ent = showEnterprise ? getEnterprise(task.enterpriseId) : null;
+    return (
+      <div
+        key={task.id}
+        className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2 py-1.5 hover:border-primary/40 transition-colors"
+        draggable
+        onDragStart={e => {
+          e.dataTransfer.setData('text/plain', `task:${task.id}`);
+          e.dataTransfer.effectAllowed = 'move';
+        }}
       >
-        <Plus className="h-3.5 w-3.5" />
-      </Button>
-    </div>
-  );
+        {ent && (
+          <span
+            className="h-2 w-2 rounded-full shrink-0"
+            title={ent.name}
+            style={{ backgroundColor: `hsl(${ent.color})` }}
+          />
+        )}
+        <span className="text-sm truncate flex-1">{task.title}</span>
+        {ent && (
+          <span className="text-[10px] text-muted-foreground shrink-0 max-w-[80px] truncate" title={ent.name}>
+            {ent.name}
+          </span>
+        )}
+        <span className="text-[11px] text-muted-foreground shrink-0">{formatMinutes(task.estimatedMinutes)}</span>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 shrink-0"
+          title="Pianifica in questa giornata"
+          onClick={() => scheduleOnDay(task)}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  };
 
-  const renderProject = (project: Project) => {
+  const renderProject = (project: Project, showEnterprise = false) => {
     const projTasks = (backlogByProject.get(project.id) || []);
+    const ent = showEnterprise ? getEnterprise(project.enterpriseId) : null;
     const key = `p-${project.id}`;
     const open = expanded[key] ?? true;
     return (
@@ -149,7 +165,19 @@ export default function Planner() {
           onClick={() => toggle(key)}
         >
           {open ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
+          {ent && (
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              title={ent.name}
+              style={{ backgroundColor: `hsl(${ent.color})` }}
+            />
+          )}
           <span className="text-sm font-medium truncate">{project.name}</span>
+          {ent && (
+            <span className="text-[10px] text-muted-foreground shrink-0 max-w-[100px] truncate" title={ent.name}>
+              {ent.name}
+            </span>
+          )}
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
             {PROJECT_TYPE_LABELS[project.type]}
           </Badge>
@@ -159,7 +187,7 @@ export default function Planner() {
           <div className="space-y-1 pb-2 pl-5">
             {projTasks.length === 0
               ? <p className="text-[11px] text-muted-foreground italic py-1">Nessuna task da pianificare</p>
-              : projTasks.map(renderTaskRow)}
+              : projTasks.map(t => renderTaskRow(t, enterpriseFilter === 'all'))}
           </div>
         )}
       </div>
@@ -214,6 +242,11 @@ export default function Planner() {
                       {fOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       {ent && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${ent.color})` }} />}
                       <span className="text-sm font-semibold truncate">{focus.name}</span>
+                      {ent && enterpriseFilter === 'all' && (
+                        <span className="text-[11px] text-muted-foreground shrink-0 max-w-[120px] truncate" title={ent.name}>
+                          {ent.name}
+                        </span>
+                      )}
                       <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
                         {format(new Date(focus.endDate), 'd MMM', { locale: it })}
                       </span>
@@ -261,7 +294,7 @@ export default function Planner() {
                                           <div className="mt-1 space-y-1 pl-4">
                                             {kProjects.length === 0
                                               ? <p className="text-[11px] text-muted-foreground italic">Nessun progetto collegato</p>
-                                              : kProjects.map(renderProject)}
+                                              : kProjects.map(p => renderProject(p, enterpriseFilter === 'all'))}
                                           </div>
                                         )}
                                       </div>
@@ -295,7 +328,7 @@ export default function Planner() {
                       <span className="text-sm font-semibold">Progetti operativi e di mantenimento</span>
                       <span className="text-[11px] text-muted-foreground ml-auto">{others.length}</span>
                     </button>
-                    {open && <div className="mt-2 space-y-1 pl-4">{others.map(renderProject)}</div>}
+                    {open && <div className="mt-2 space-y-1 pl-4">{others.map(p => renderProject(p, true))}</div>}
                   </div>
                 );
               })()}

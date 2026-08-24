@@ -331,6 +331,7 @@ const Index = ({ date, onBack }: DayViewProps) => {
               {dayAppts.length > 0 && ` · ${dayAppts.length} appuntament${dayAppts.length === 1 ? 'o' : 'i'}`}
             </p>
           </div>
+          </div>
           <div className="flex items-center gap-1.5">
             <TooltipProvider delayDuration={200}>
               <Tooltip>

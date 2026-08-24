@@ -45,12 +45,18 @@ const googleTintColor = (color?: string, alpha = 0.12) => {
   return `hsl(${color || '210 80% 50%'} / ${alpha})`;
 };
 
-const Index = () => {
+interface DayViewProps {
+  date?: Date;
+  onBack?: () => void;
+}
+
+const Index = ({ date, onBack }: DayViewProps) => {
   useAutoReschedule();
   const isMobile = useIsMobile();
   const SLOT_H = isMobile ? MOBILE_SLOT_HEIGHT : DESKTOP_SLOT_HEIGHT;
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
-  const today = new Date();
+  const today = date ?? new Date();
+  const todayStr = format(today, 'yyyy-MM-dd');
+  const isToday = todayStr === format(new Date(), 'yyyy-MM-dd');
   const tomorrow = format(addDays(today, 1), 'yyyy-MM-dd');
 
   const {

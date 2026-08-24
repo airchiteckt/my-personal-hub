@@ -12,7 +12,11 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
-type GlobalAction = { type: string; data: any; applied?: boolean; rejected?: boolean };
+type GlobalAction = { id: string; msgIndex: number; type: string; data: any; applied?: boolean; rejected?: boolean };
+type TimelineItem =
+  | { kind: 'msg'; key: string; index: number; msg: Msg }
+  | { kind: 'action'; key: string; action: GlobalAction };
+
 
 /** Strip raw <tool_call> XML blocks that the model sometimes leaks into text */
 function stripToolCallTags(text: string): string {
@@ -291,7 +295,11 @@ function useRadar() {
     else if (path === '/calendar') currentSection = 'calendar';
     else if (path === '/radar') currentSection = 'radar';
     return {
+      azioniGiaEseguiteInQuestaChat: pendingActions.filter(a => a.applied).map(a => ({ tipo: a.type, dati: a.data })),
+      azioniRifiutateInQuestaChat: pendingActions.filter(a => a.rejected).map(a => ({ tipo: a.type, dati: a.data })),
+      notaAzioni: 'Le azioni elencate in azioniGiaEseguiteInQuestaChat sono GIÀ state eseguite e confermate: non riproporle mai. Le azioni in azioniRifiutateInQuestaChat sono state annullate dall\'utente: non riproporle a meno di richiesta esplicita.',
       currentSection, currentEnterpriseId, currentDate: today, currentQuarter: `Q${currentQ} ${now.getFullYear()}`,
+
       enterprises: enterprises.map(e => ({ id: e.id, name: e.name, status: e.status, phase: e.phase, businessCategory: e.businessCategory, color: e.color })),
       projects: projects.map(p => ({ id: p.id, name: p.name, type: p.type, enterpriseId: p.enterpriseId, isStrategicLever: p.isStrategicLever, keyResultId: p.keyResultId })),
       tasks: tasks.filter(t => t.status !== 'done').map(t => ({ id: t.id, title: t.title, priority: t.priority, status: t.status, estimatedMinutes: t.estimatedMinutes, deadline: t.deadline, scheduledDate: t.scheduledDate, scheduledTime: t.scheduledTime, projectId: t.projectId, enterpriseId: t.enterpriseId })),
@@ -319,7 +327,7 @@ function useRadar() {
         case 'complete_task': completeTask(action.data.task_id); toast.success('Task completata'); break;
         case 'create_appointment': addAppointment({ title: action.data.title, date: action.data.date, startTime: action.data.start_time, endTime: action.data.end_time, description: action.data.description || null, color: null, enterpriseId: action.data.enterprise_id || null }); toast.success(`Appuntamento "${action.data.title}" creato`); break;
       }
-      action.applied = true; setPendingActions(prev => [...prev]);
+      setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
     } catch (e) { console.error(e); toast.error("Errore nell'azione"); }
   };
 
@@ -341,7 +349,9 @@ function useRadar() {
       if (!resp.ok) { const err = await resp.json().catch(() => ({})); throw new Error(err.error || `Errore ${resp.status}`); }
       if (!resp.body) throw new Error('No body');
       const reader = resp.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      const assistantIndex = newMessages.length;
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
       let streamDone = false;
       while (!streamDone) {
         const { done, value } = await reader.read(); if (done) break;
@@ -356,7 +366,22 @@ function useRadar() {
           try {
             const p = JSON.parse(json);
             if (p.type === 'delta' && p.content) { assistantContent += p.content; const snap = assistantContent; setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m)); }
-            if (p.type === 'actions' && p.actions?.length) { const acts: GlobalAction[] = p.actions.map((a: any) => ({ ...a, applied: false, rejected: false })); setPendingActions(prev => [...prev, ...acts]); }
+            if (p.type === 'actions' && p.actions?.length) {
+              const acts: GlobalAction[] = p.actions.map((a: any, k: number) => ({
+                ...a,
+                id: `${assistantIndex}-${Date.now()}-${k}-${Math.random().toString(36).slice(2, 7)}`,
+                msgIndex: assistantIndex,
+                applied: false,
+                rejected: false,
+              }));
+              setPendingActions(prev => {
+                // dedup: skip actions identical to ones already proposed/applied in this chat
+                const sig = (a: GlobalAction) => `${a.type}|${JSON.stringify(a.data ?? {})}`;
+                const seen = new Set(prev.map(sig));
+                return [...prev, ...acts.filter(a => !seen.has(sig(a)))];
+              });
+            }
+
           } catch { buffer = line + '\n' + buffer; break; }
         }
       }
@@ -485,11 +510,27 @@ function useRadar() {
   };
 
   const rejectAction = (action: GlobalAction) => {
-    action.rejected = true;
-    setPendingActions(prev => [...prev]);
+    setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, rejected: true } : a));
     toast('Azione annullata');
     if (callActiveRef.current) speakText('Annullato.');
   };
+
+  // Chronological timeline: each action card is rendered right after the assistant message that produced it
+  const timeline: TimelineItem[] = (() => {
+    const items: TimelineItem[] = [];
+    messages.forEach((msg, i) => {
+      items.push({ kind: 'msg', key: `m-${i}`, index: i, msg });
+      pendingActions
+        .filter(a => a.msgIndex === i)
+        .forEach(a => items.push({ kind: 'action', key: `a-${a.id}`, action: a }));
+    });
+    // orphan actions (no matching message index) go at the end
+    pendingActions
+      .filter(a => a.msgIndex == null || a.msgIndex >= messages.length)
+      .forEach(a => items.push({ kind: 'action', key: `a-${a.id}`, action: a }));
+    return items;
+  })();
+
 
   const tasksDueToday = tasks.filter(t => t.scheduledDate === new Date().toISOString().split('T')[0] && t.status !== 'done').length;
   const activeEnterprises = enterprises.filter(e => e.status === 'active').length;
@@ -508,7 +549,7 @@ function useRadar() {
   };
 
   return {
-    view, setView, messages, setMessages, pendingActions, setPendingActions,
+    view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
@@ -705,27 +746,38 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
       {/* Chat transcript - scrollable */}
       {messages.length > 0 && (
         <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-2 px-4 pb-2 min-h-0">
-          {messages.map((msg, i) => {
-            if (i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'))) return null;
-            return (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
-                  msg.role === 'user'
-                    ? 'bg-primary/10 text-foreground border border-primary/15'
-                    : 'bg-muted/50 text-foreground border border-border/40'
-                }`}>
-                  <p className="text-xs leading-relaxed">
-                    {msg.role === 'user' && <span className="text-[10px] text-muted-foreground mr-1">🎤</span>}
-                    {msg.content}
-                  </p>
+          {messages.flatMap((msg, i) => {
+            const nodes: React.ReactNode[] = [];
+            const skip = i === 0 && msg.role === 'user' && (msg.content.includes('Salutami brevemente') || msg.content.includes('Rispondi solo'));
+            if (!skip) {
+              nodes.push(
+                <motion.div
+                  key={`m-${i}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`max-w-[85%] rounded-xl px-3 py-2 ${
+                    msg.role === 'user'
+                      ? 'bg-primary/10 text-foreground border border-primary/15'
+                      : 'bg-muted/50 text-foreground border border-border/40'
+                  }`}>
+                    <p className="text-xs leading-relaxed">
+                      {msg.role === 'user' && <span className="text-[10px] text-muted-foreground mr-1">🎤</span>}
+                      {msg.content}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            }
+            pendingActions.filter(a => a.msgIndex === i).forEach(action => {
+              nodes.push(
+                <div key={`va-${action.id}`} className="w-full">
+                  <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
                 </div>
-              </motion.div>
-            );
+              );
+            });
+            return nodes;
           })}
           {isLoading && messages[messages.length - 1]?.role !== 'assistant' && (
             <div className="flex justify-start">
@@ -737,12 +789,12 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
               </div>
             </div>
           )}
-          {/* Pending action cards */}
-          {pendingActions.filter(a => !a.applied && !a.rejected).map((action, i) => (
-            <div key={`va-${i}`} className="w-full">
+          {pendingActions.filter(a => a.msgIndex == null || a.msgIndex >= messages.length).map(action => (
+            <div key={`va-${action.id}`} className="w-full">
               <ActionConfirmCard action={action} getActionIcon={getActionIcon} getActionLabel={getActionLabel} getActionDescription={getActionDescription} getActionTypeLabel={getActionTypeLabel} onApprove={() => approveAction(action)} onReject={() => rejectAction(action)} />
             </div>
           ))}
+
         </div>
       )}
 
@@ -915,19 +967,19 @@ export function AiAssistant() {
                       </div>
                     </div>
                   )}
-                  {r.messages.map((msg, i) => (
-                    <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'assistant' && <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={12} className="text-primary" /></div>}
-                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
-                        {msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed"><ReactMarkdown>{stripToolCallTags(msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{msg.content}</p>}
+                  {r.timeline.map((item) => item.kind === 'msg' ? (
+                    <div key={item.key} className={`flex ${item.msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {item.msg.role === 'assistant' && <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={12} className="text-primary" /></div>}
+                      <div className={`max-w-[82%] rounded-2xl px-3.5 py-2.5 ${item.msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
+                        {item.msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-[13px] leading-relaxed"><ReactMarkdown>{stripToolCallTags(item.msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{item.msg.content}</p>}
                       </div>
                     </div>
-                  ))}
-                  {r.pendingActions.map((action, i) => (
-                    <div key={`a-${i}`} className="py-0.5">
-                      <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
+                  ) : (
+                    <div key={item.key} className="py-0.5">
+                      <ActionConfirmCard action={item.action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(item.action)} onReject={() => r.rejectAction(item.action)} />
                     </div>
                   ))}
+
                   {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
                     <div className="flex justify-start">
                       <div className="h-6 w-6 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2"><RadarIcon size={12} className="text-primary" /></div>
@@ -1073,19 +1125,19 @@ export function RadarFullPage() {
                     <p className="text-sm text-muted-foreground">Scrivi un messaggio per iniziare</p>
                   </div>
                 )}
-                {r.messages.map((msg, i) => (
-                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'assistant' && <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={14} className="text-primary" /></div>}
-                    <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
-{msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sm leading-relaxed"><ReactMarkdown>{stripToolCallTags(msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>}
+                {r.timeline.map((item) => item.kind === 'msg' ? (
+                  <div key={item.key} className={`flex ${item.msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {item.msg.role === 'assistant' && <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2 mt-0.5"><RadarIcon size={14} className="text-primary" /></div>}
+                    <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${item.msg.role === 'user' ? 'bg-primary text-primary-foreground rounded-br-lg' : 'bg-muted/50 text-foreground rounded-bl-lg border border-border/40'}`}>
+                      {item.msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sm leading-relaxed"><ReactMarkdown>{stripToolCallTags(item.msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-sm leading-relaxed">{item.msg.content}</p>}
                     </div>
                   </div>
-                ))}
-                {r.pendingActions.map((action, i) => (
-                  <div key={`a-${i}`} className="py-0.5">
-                    <ActionConfirmCard action={action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(action)} onReject={() => r.rejectAction(action)} />
+                ) : (
+                  <div key={item.key} className="py-0.5">
+                    <ActionConfirmCard action={item.action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(item.action)} onReject={() => r.rejectAction(item.action)} />
                   </div>
                 ))}
+
                 {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
                   <div className="flex justify-start">
                     <div className="h-7 w-7 rounded-lg bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0 mr-2"><RadarIcon size={14} className="text-primary" /></div>

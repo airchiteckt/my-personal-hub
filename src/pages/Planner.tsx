@@ -174,7 +174,7 @@ export default function Planner() {
           <div className="space-y-1 pb-2 pl-5">
             {projTasks.length === 0
               ? <p className="text-[11px] text-muted-foreground italic py-1">Nessuna task da pianificare</p>
-              : projTasks.map(renderTaskRow)}
+              : projTasks.map(t => renderTaskRow(t, enterpriseFilter === 'all'))}
           </div>
         )}
       </div>

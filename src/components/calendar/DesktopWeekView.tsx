@@ -128,7 +128,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
   );
 }
 
-export function DesktopWeekView() {
+export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => void } = {}) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);

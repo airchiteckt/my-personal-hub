@@ -421,7 +421,12 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
               const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
               const totalMins = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
               return (
-                <div key={day.toISOString()} className="px-1 py-1.5 text-center border-l">
+                <div
+                  key={day.toISOString()}
+                  className={`px-1 py-1.5 text-center border-l ${onOpenDay ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+                  onClick={() => onOpenDay?.(day)}
+                  title={onOpenDay ? 'Apri la vista giorno' : undefined}
+                >
                   <p className="text-[10px] text-muted-foreground uppercase font-medium leading-none">
                     {format(day, 'EEE', { locale: it })}
                   </p>

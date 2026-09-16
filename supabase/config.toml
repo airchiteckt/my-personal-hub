@@ -3,6 +3,9 @@ project_id = "qjafzzejqksysgakbmhl"
 [functions.telegram-webhook]
 verify_jwt = false
 
+[functions.telegram-morning-briefing]
+verify_jwt = false
+
 [functions.ai-assistant]
 verify_jwt = false
 

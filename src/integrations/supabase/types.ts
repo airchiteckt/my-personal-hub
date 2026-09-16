@@ -1375,6 +1375,114 @@ export type Database = {
           },
         ]
       }
+      telegram_conversations: {
+        Row: {
+          chat_id: number
+          messages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          messages?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          messages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_link_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_links: {
+        Row: {
+          chat_id: number
+          created_at: string
+          id: string
+          telegram_first_name: string | null
+          telegram_username: string | null
+          user_id: string
+        }
+        Insert: {
+          chat_id: number
+          created_at?: string
+          id?: string
+          telegram_first_name?: string | null
+          telegram_username?: string | null
+          user_id: string
+        }
+        Update: {
+          chat_id?: number
+          created_at?: string
+          id?: string
+          telegram_first_name?: string | null
+          telegram_username?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_pending_actions: {
+        Row: {
+          action_name: string
+          args: Json
+          chat_id: number
+          created_at: string
+          entity_id: string | null
+          entity_table: string | null
+          id: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          action_name: string
+          args?: Json
+          chat_id: number
+          created_at?: string
+          entity_id?: string | null
+          entity_table?: string | null
+          id?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          action_name?: string
+          args?: Json
+          chat_id?: number
+          created_at?: string
+          entity_id?: string | null
+          entity_table?: string | null
+          id?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       time_entries: {
         Row: {
           created_at: string

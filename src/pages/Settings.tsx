@@ -11,6 +11,8 @@ import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
+import { TelegramSettings } from '@/components/TelegramSettings';
+
 
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();
@@ -57,9 +59,11 @@ const Settings = () => {
           <ProfileSettings />
         </TabsContent>
 
-        <TabsContent value="integrations">
+        <TabsContent value="integrations" className="space-y-4">
           <GoogleCalendarSettings />
+          <TelegramSettings />
         </TabsContent>
+
 
         <TabsContent value="priority">
           <div className="space-y-4">

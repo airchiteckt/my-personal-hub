@@ -577,6 +577,7 @@ REGOLE:
 - Per gli appuntamenti, se manca la durata usa 60 minuti.
 - Non ripetere azioni già eseguite nella conversazione.
 - Quando l'utente chiede informazioni, rispondi con i dati del contesto.
+- DOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.) e non inventare URL.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

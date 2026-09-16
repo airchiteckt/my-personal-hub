@@ -873,8 +873,11 @@ REGOLE:
 
 CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal contesto per le azioni.`;
 
+      const DOMAIN_RULE = `\n\nDOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.). Se non conosci l'URL esatto di una pagina, non inventarlo: indica il percorso nell'app (es. Impostazioni → Integrazioni).`;
+
       // Override system prompt
-      aiMessages[0] = { role: "system", content: globalSystemPrompt };
+      aiMessages[0] = { role: "system", content: globalSystemPrompt + DOMAIN_RULE };
+
 
       const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",

@@ -57,9 +57,11 @@ const Settings = () => {
           <ProfileSettings />
         </TabsContent>
 
-        <TabsContent value="integrations">
+        <TabsContent value="integrations" className="space-y-4">
           <GoogleCalendarSettings />
+          <TelegramSettings />
         </TabsContent>
+
 
         <TabsContent value="priority">
           <div className="space-y-4">

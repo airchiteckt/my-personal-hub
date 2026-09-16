@@ -11,6 +11,8 @@ import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
+import { TelegramSettings } from '@/components/TelegramSettings';
+
 
 const Settings = () => {
   const { prioritySettings, setPrioritySettings } = usePrp();

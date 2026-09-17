@@ -63,6 +63,7 @@ const Settings = () => {
         <TabsContent value="integrations" className="space-y-4">
           <GoogleCalendarSettings />
           <TelegramSettings />
+          <RadarProactiveSettings />
         </TabsContent>
 
 

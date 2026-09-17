@@ -686,6 +686,20 @@ Deno.serve(async (req) => {
       await send(chatId, "🧹 Conversazione azzerata.");
       return new Response(JSON.stringify({ ok: true }));
     }
+    if (/^\/pausa/i.test(text)) {
+      const hours = Number((/\d+/.exec(text) ?? [])[0] ?? 3);
+      await admin.from("radar_preferences").upsert({
+        user_id: userId,
+        snoozed_until: new Date(Date.now() + hours * 3600_000).toISOString(),
+      }, { onConflict: "user_id" });
+      await send(chatId, `🔕 Ok, non ti disturbo per ${hours} ore. Scrivi /riprendi per riattivarmi.`);
+      return new Response(JSON.stringify({ ok: true }));
+    }
+    if (/^\/riprendi/i.test(text)) {
+      await admin.from("radar_preferences").upsert({ user_id: userId, snoozed_until: null, enabled: true }, { onConflict: "user_id" });
+      await send(chatId, "🔔 Torno a monitorare la tua giornata.");
+      return new Response(JSON.stringify({ ok: true }));
+    }
 
     await tg("sendChatAction", { chat_id: chatId, action: "typing" });
 

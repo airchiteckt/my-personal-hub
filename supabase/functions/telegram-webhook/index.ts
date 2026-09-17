@@ -323,10 +323,56 @@ async function executeAction(
       return { table: "reminders", id: data.id };
     }
     if (name === "create_task") {
+      // Validate/resolve project: the AI may pass a non-existent or stale id
+      let projectId: string | null = null;
+      let enterpriseId: string | null = a.enterprise_id ?? null;
+
+      if (a.project_id) {
+        const { data: p } = await admin.from("projects")
+          .select("id,enterprise_id").eq("id", a.project_id).eq("user_id", userId).maybeSingle();
+        if (p) { projectId = p.id; enterpriseId = p.enterprise_id ?? enterpriseId; }
+      }
+
+      if (!projectId) {
+        // validate enterprise, else fall back to the personal one
+        if (enterpriseId) {
+          const { data: e } = await admin.from("enterprises")
+            .select("id").eq("id", enterpriseId).eq("user_id", userId).maybeSingle();
+          if (!e) enterpriseId = null;
+        }
+        if (!enterpriseId) {
+          const { data: pe } = await admin.from("enterprises")
+            .select("id").eq("user_id", userId).eq("is_personal", true).maybeSingle();
+          enterpriseId = pe?.id ?? null;
+        }
+        if (!enterpriseId) {
+          const { data: anyE } = await admin.from("enterprises")
+            .select("id").eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
+          enterpriseId = anyE?.id ?? null;
+        }
+        if (!enterpriseId) return { error: "Nessuna impresa disponibile: creane una prima di aggiungere attività." };
+
+        // reuse an existing operational project of that enterprise, else create one
+        const { data: existing } = await admin.from("projects")
+          .select("id").eq("user_id", userId).eq("enterprise_id", enterpriseId)
+          .eq("type", "operational").order("created_at", { ascending: true }).limit(1).maybeSingle();
+        if (existing) projectId = existing.id;
+        else {
+          const { data: created, error: pErr } = await admin.from("projects").insert({
+            user_id: userId,
+            enterprise_id: enterpriseId,
+            name: "Attività varie",
+            type: "operational",
+          }).select("id").single();
+          if (pErr) throw pErr;
+          projectId = created.id;
+        }
+      }
+
       const { data, error } = await admin.from("tasks").insert({
         user_id: userId,
-        enterprise_id: a.enterprise_id,
-        project_id: a.project_id,
+        enterprise_id: enterpriseId,
+        project_id: projectId,
         title: a.title,
         description: a.description ?? null,
         priority: a.priority ?? "medium",
@@ -339,6 +385,7 @@ async function executeAction(
       if (error) throw error;
       return { table: "tasks", id: data.id };
     }
+
     if (name === "schedule_task") {
       const { error } = await admin.from("tasks")
         .update({ status: "scheduled", scheduled_date: a.date, scheduled_time: a.time ?? null })

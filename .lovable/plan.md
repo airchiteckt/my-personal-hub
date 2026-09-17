@@ -1,66 +1,69 @@
-## Obiettivo
+# Radar proattivo — assistente che monitora la giornata
 
-Quando crei / modifichi / elimini un **appuntamento** su FlyDeck, l'evento viene anche scritto sul Google Calendar predefinito dell'impresa associata. Gli eventi di Google continuano a essere visualizzati come oggi (read-only, separati dagli appuntamenti).
+Oggi Radar risponde solo quando gli scrivi (app o Telegram), più il briefing delle 8:00.
+L'idea è renderlo presente durante la giornata: ti avvisa prima, controlla durante, chiude la sera.
 
-## 1. Permessi Google (riconnessione)
+## Come si comporterà
 
-Le connessioni Google attuali hanno solo lo scope `calendar.readonly`. Per scrivere serve `https://www.googleapis.com/auth/calendar.events`.
+**Prima di un'attività** (default 10 minuti prima)
+"Tra 10 min: *Revisione offerta Zapper* (45 min)."
+Pulsanti: `Inizio ora` · `Sposta di 30 min` · `Oggi non la faccio`
 
-Aggiornerò il flow OAuth (`google-oauth-start`) per richiedere il nuovo scope e ti chiederò di **riconnettere** gli account Google esistenti. Senza riconnessione le scritture falliranno con 403.
+**Durante / a fine attività** (allo scadere del tempo stimato)
+"*Revisione offerta* doveva finire alle 11:15. È completata?"
+Pulsanti: `Completata` · `+15 min` · `+30 min` · `Riprogramma`
+Con `+15/+30` il tempo stimato viene aggiornato davvero, così la giornata si ricalcola.
 
-## 2. Calendario predefinito per impresa
+**Appuntamenti** (15 minuti prima)
+Titolo, orario, luogo e link della videocall, se presenti.
 
-Aggiungo una colonna `is_default_for_writes boolean` su `google_calendar_list`. Vincolo: max **un** calendario di default per impresa.
+**Buchi liberi** (spazio libero ≥ 45 min in orario di lavoro, max 1 proposta ogni 2 ore)
+"Hai 1h libera fino alle 15:00. Ti propongo *X* (50 min), priorità alta."
+Pulsanti: `Pianifica ora` · `No grazie`
 
-Nella pagina **Impostazioni → Integrazioni Google**, accanto a ciascun calendario assegnato a un'impresa compare una stella "Imposta come predefinito per scrittura". Se un'impresa non ha un calendario di default, gli appuntamenti vengono creati solo su FlyDeck (nessuna scrittura su Google, nessun errore).
+**Scadenze a rischio** (deadline entro 48h e attività non ancora pianificata)
+"*Y* scade domani e non è in agenda. La metto oggi alle 16:00?"
 
-## 3. Schema appuntamenti
+**Attività rimandate troppe volte** (dal 3° rinvio)
+"*Z* l'hai rimandata 3 volte. La spezzo, la ridimensiono o la elimino?"
 
-Aggiungo a `appointments`:
-- `google_event_id text` — id dell'evento su Google
-- `google_calendar_id text` — calendario di destinazione usato
-- `google_connection_id uuid` — quale account Google ha scritto
-- `synced_at timestamptz`
-- `sync_error text` — ultimo errore (se la push fallisce non blocco il salvataggio)
+**Chiusura giornata** (18:30, orario configurabile)
+Riepilogo: completate, non completate, tempo effettivo vs stimato.
+Pulsanti: `Chiudi giornata` (sposta le rimanenti a domani) · `Vedo dopo`
 
-## 4. Push verso Google
+**Revisione settimanale** (domenica 18:00)
+Focus e key result fermi da 7+ giorni, progetti senza attività, carico della settimana entrante.
 
-Nuova edge function `google-appointments-push` (invocata dal client dopo create/update/delete dell'appuntamento) che:
+## Regole anti-disturbo
 
-```text
-CREATE  → POST   /calendars/{calId}/events
-UPDATE  → PATCH  /calendars/{calId}/events/{googleEventId}
-DELETE  → DELETE /calendars/{calId}/events/{googleEventId}
-```
+- Orari silenziosi: nessun messaggio fuori dalla fascia oraria di lavoro (default 09:00–19:00, presa dalle impostazioni esistenti).
+- Massimo messaggi/ora configurabile (default 4); i check-in sulle attività hanno priorità sulle proposte.
+- Un solo messaggio per evento: niente doppioni se il cron rigira.
+- Comando `/pausa 2h` (e `/riprendi`) su Telegram per silenziare Radar.
+- Ogni tipo di segnalazione si può spegnere singolarmente.
 
-Logica:
-1. Carica appuntamento + impresa + calendario di default + connessione Google.
-2. Se nessun calendario di default → no-op (success silenzioso).
-3. Rinfresca l'access token se scaduto (riusa `refreshAccessToken` di `google-calendar-sync`).
-4. Costruisce il payload con `summary`, `description`, `start`/`end` in `Europe/Rome`, `location`.
-5. Scrive `google_event_id` / `google_calendar_id` / `google_connection_id` / `synced_at` sull'appuntamento; in caso di errore registra `sync_error` ma non rompe l'app.
+## Dove si configura
 
-Wiring: chiamata dal client (`PrpContext`) dopo `addAppointment` / `updateAppointment` / `deleteAppointment`. Fire-and-forget con toast su errore.
+Impostazioni → Integrazioni → **Radar proattivo**: interruttore generale, un interruttore per ogni tipo di segnalazione, anticipo in minuti, orario di chiusura giornata, limite messaggi/ora.
 
-## 5. Anti-loop
+## Dettagli tecnici
 
-Il sync inverso (`google-calendar-sync`) popola la tabella `external_calendar_events`, **separata** da `appointments`. Per evitare di vedere lo stesso appuntamento due volte (una come blocco FlyDeck e una come "evento Google"), il filtro che alimenta gli eventi nel calendario scarta le righe di `external_calendar_events` il cui `google_event_id` corrisponde a un appuntamento già presente.
+**Database (nuova migrazione)**
+- `radar_preferences` (1 riga per utente): `enabled`, flag per tipo (`pre_task`, `task_checkin`, `appointment`, `free_slot`, `deadline_risk`, `postponed`, `day_close`, `weekly_review`), `lead_minutes`, `day_close_time`, `max_per_hour`, `snoozed_until`. RLS per utente + GRANT authenticated/service_role.
+- `radar_nudges`: `user_id`, `kind`, `entity_table`, `entity_id`, `dedupe_key` (unique con user_id), `sent_at`, `telegram_message_id`, `response`, `responded_at`. Serve per deduplica, rate limit e per misurare cosa è utile.
+- Colonna `postpone_count` su `tasks` se non esiste già (la usa la regola sui rinvii).
 
-## 6. Cosa NON cambia
+**Edge function `radar-pulse`** (verify_jwt = false), cron ogni 5 minuti:
+per ogni riga di `telegram_links` → carica preferenze, ora locale Europe/Rome, verifica fascia oraria, snooze e rate limit → valuta le regole in ordine di priorità (check-in > pre-attività > appuntamento > scadenza > buco libero > rinvii) → per ogni trigger non ancora inviato (`dedupe_key`) genera il testo (frase breve dal modello `openai/gpt-6-astra`, con fallback a testo fisso se il gateway fallisce) e invia via gateway Telegram con `inline_keyboard`.
+Riuso di `romeNow`/`romeDayBounds` e dell'helper `tg()` già presenti in `telegram-morning-briefing`.
+Le regole su tempo libero/fit riusano la logica di `src/lib/scheduling-utils.ts` portata lato server.
 
-- I task schedulati restano locali (richiesto).
-- Gli eventi Google esistenti restano visualizzati read-only come adesso.
-- Nessun cambio sulla mail serale.
+**`telegram-webhook`**: nuovi prefissi di callback `rd:done:`, `rd:more:15`, `rd:more:30`, `rd:start:`, `rd:resched:`, `rd:plan:`, `rd:skip:`, `rd:closeday:`, `rd:no:` che aggiornano tasks/appointments, registrano la risposta in `radar_nudges` e modificano il messaggio con l'esito. Aggiunti i comandi `/pausa` e `/riprendi`.
 
----
+**Cron**: due job (`0 * * * *` non basta) → `*/5 * * * *` per `radar-pulse`; la chiusura giornata e la revisione settimanale sono valutate dentro la stessa funzione in base all'ora locale, quindi non servono job extra.
 
-## File toccati
+**UI**: nuovo `src/components/RadarProactiveSettings.tsx` dentro il tab Integrazioni di `src/pages/Settings.tsx`.
 
-- **Migration**: colonne `appointments.google_*`, `google_calendar_list.is_default_for_writes` + indice unico parziale.
-- **Edge function nuova**: `supabase/functions/google-appointments-push/index.ts`.
-- **Edge function modificata**: `google-oauth-start` (aggiunge scope `calendar.events`).
-- **UI**: `src/pages/Settings.tsx` (o componente integrazioni Google) — toggle "predefinito per scrittura".
-- **Context**: `PrpContext.tsx` — invoca la push dopo CRUD appuntamenti; filtra `external_calendar_events` duplicati.
-- **Types**: `src/types/prp.ts` aggiunge campi `googleEventId`, ecc.
+## Fuori perimetro
 
-Dopo l'approvazione procedo con migration + codice in un solo passaggio, poi ti chiedo di riconnettere i 2 account Google per ottenere lo scope di scrittura.
+Notifiche push nel browser e notifiche in-app: per ora tutto su Telegram, dove Radar già vive.

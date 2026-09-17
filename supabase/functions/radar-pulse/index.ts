@@ -134,7 +134,7 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
       .eq("user_id", userId).neq("status", "done"),
     admin.from("appointments").select("id,title,date,start_time,end_time,description")
       .eq("user_id", userId).eq("date", today),
-    admin.from("external_calendar_events").select("title,start_at,end_at,all_day")
+    admin.from("external_calendar_events").select("title,start_at,end_at,all_day,google_event_id")
       .eq("user_id", userId)
       .gte("start_at", romeDayBounds(today).start.toISOString())
       .lt("start_at", romeDayBounds(today).end.toISOString()),

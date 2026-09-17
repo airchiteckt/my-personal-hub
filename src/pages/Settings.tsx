@@ -12,6 +12,7 @@ import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
 import { TelegramSettings } from '@/components/TelegramSettings';
+import { RadarProactiveSettings } from '@/components/RadarProactiveSettings';
 
 
 const Settings = () => {

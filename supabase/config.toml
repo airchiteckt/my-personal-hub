@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.telegram-morning-briefing]
 verify_jwt = false
 
+[functions.radar-pulse]
+verify_jwt = false
+
 [functions.ai-assistant]
 verify_jwt = false
 

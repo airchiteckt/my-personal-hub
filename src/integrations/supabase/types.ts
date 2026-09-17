@@ -989,6 +989,105 @@ export type Database = {
           },
         ]
       }
+      radar_nudges: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          entity_id: string | null
+          entity_table: string | null
+          id: string
+          kind: string
+          responded_at: string | null
+          response: string | null
+          sent_at: string
+          telegram_message_id: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          entity_id?: string | null
+          entity_table?: string | null
+          id?: string
+          kind: string
+          responded_at?: string | null
+          response?: string | null
+          sent_at?: string
+          telegram_message_id?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          entity_id?: string | null
+          entity_table?: string | null
+          id?: string
+          kind?: string
+          responded_at?: string | null
+          response?: string | null
+          sent_at?: string
+          telegram_message_id?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      radar_preferences: {
+        Row: {
+          appointment: boolean
+          created_at: string
+          day_close: boolean
+          day_close_time: string
+          deadline_risk: boolean
+          enabled: boolean
+          free_slot: boolean
+          lead_minutes: number
+          max_per_hour: number
+          postponed: boolean
+          pre_task: boolean
+          snoozed_until: string | null
+          task_checkin: boolean
+          updated_at: string
+          user_id: string
+          weekly_review: boolean
+        }
+        Insert: {
+          appointment?: boolean
+          created_at?: string
+          day_close?: boolean
+          day_close_time?: string
+          deadline_risk?: boolean
+          enabled?: boolean
+          free_slot?: boolean
+          lead_minutes?: number
+          max_per_hour?: number
+          postponed?: boolean
+          pre_task?: boolean
+          snoozed_until?: string | null
+          task_checkin?: boolean
+          updated_at?: string
+          user_id: string
+          weekly_review?: boolean
+        }
+        Update: {
+          appointment?: boolean
+          created_at?: string
+          day_close?: boolean
+          day_close_time?: string
+          deadline_risk?: boolean
+          enabled?: boolean
+          free_slot?: boolean
+          lead_minutes?: number
+          max_per_hour?: number
+          postponed?: boolean
+          pre_task?: boolean
+          snoozed_until?: string | null
+          task_checkin?: boolean
+          updated_at?: string
+          user_id?: string
+          weekly_review?: boolean
+        }
+        Relationships: []
+      }
       reminders: {
         Row: {
           color: string | null
@@ -1309,6 +1408,7 @@ export type Database = {
           id: string
           impact: number | null
           is_recurring: boolean
+          postpone_count: number
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string
           recurring_frequency: string | null
@@ -1329,6 +1429,7 @@ export type Database = {
           id?: string
           impact?: number | null
           is_recurring?: boolean
+          postpone_count?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id: string
           recurring_frequency?: string | null
@@ -1349,6 +1450,7 @@ export type Database = {
           id?: string
           impact?: number | null
           is_recurring?: boolean
+          postpone_count?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string
           recurring_frequency?: string | null

@@ -513,6 +513,89 @@ Deno.serve(async (req) => {
       const { data: link } = await admin.from("telegram_links").select("user_id").eq("chat_id", chatId).maybeSingle();
       if (!link) return new Response(JSON.stringify({ ok: true }));
 
+      // ----- Radar proattivo -----
+      if (kind === "rd") {
+        const [, act, target] = String(cq.data ?? "").split(":");
+        const uid = link.user_id;
+        const todayRome = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME }).format(new Date());
+        const tomorrow = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME })
+          .format(new Date(Date.now() + 86400_000));
+        const nowMin = (() => {
+          const p = new Intl.DateTimeFormat("it-IT", { timeZone: ROME, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+          const [h, m] = p.split(":").map(Number);
+          return h * 60 + m;
+        })();
+        const hhmm = (m: number) => `${String(Math.floor((m % 1440) / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
+        const getTask = async () => (await admin.from("tasks").select("*").eq("id", target).eq("user_id", uid).maybeSingle()).data;
+        let reply = "Ok.";
+
+        if (act === "done") {
+          await admin.from("tasks").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", target).eq("user_id", uid);
+          reply = "✅ Segnata come completata. Ottimo.";
+        } else if (act === "m15" || act === "m30") {
+          const t = await getTask();
+          const add = act === "m15" ? 15 : 30;
+          if (t) await admin.from("tasks").update({ estimated_minutes: (t.estimated_minutes ?? 30) + add }).eq("id", target);
+          reply = `⏳ Aggiunti ${add} minuti. Continua pure.`;
+        } else if (act === "snz") {
+          const t = await getTask();
+          if (t?.scheduled_time) {
+            const [h, m] = String(t.scheduled_time).split(":").map(Number);
+            await admin.from("tasks").update({ scheduled_time: hhmm(h * 60 + m + 30) }).eq("id", target);
+          }
+          reply = "⏭ Spostata di 30 minuti.";
+        } else if (act === "tmr") {
+          const t = await getTask();
+          await admin.from("tasks").update({
+            scheduled_date: tomorrow,
+            postpone_count: (t?.postpone_count ?? 0) + 1,
+          }).eq("id", target).eq("user_id", uid);
+          reply = "📅 Spostata a domani.";
+        } else if (act === "skip") {
+          const t = await getTask();
+          await admin.from("tasks").update({
+            scheduled_date: null, scheduled_time: null, status: "backlog",
+            postpone_count: (t?.postpone_count ?? 0) + 1,
+          }).eq("id", target).eq("user_id", uid);
+          reply = "🚫 Tolta dall'agenda di oggi.";
+        } else if (act === "plan") {
+          const slot = Math.ceil((nowMin + 5) / 15) * 15;
+          await admin.from("tasks").update({
+            scheduled_date: todayRome, scheduled_time: hhmm(slot), status: "scheduled",
+          }).eq("id", target).eq("user_id", uid);
+          reply = `📌 Pianificata oggi alle ${hhmm(slot)}.`;
+        } else if (act === "del") {
+          await admin.from("tasks").delete().eq("id", target).eq("user_id", uid);
+          reply = "🗑 Eliminata.";
+        } else if (act === "close") {
+          const { data: open } = await admin.from("tasks").select("id,postpone_count")
+            .eq("user_id", uid).eq("scheduled_date", todayRome).neq("status", "done");
+          for (const t of open ?? []) {
+            await admin.from("tasks").update({ scheduled_date: tomorrow, postpone_count: (t.postpone_count ?? 0) + 1 }).eq("id", t.id);
+          }
+          reply = `🌇 Giornata chiusa. ${open?.length ?? 0} attività spostate a domani.`;
+        } else if (act === "ack") {
+          reply = "👍 Buon lavoro.";
+        } else if (act === "no") {
+          reply = "Ok, lascio stare.";
+        }
+
+        if (target && target !== "none" && target !== "day") {
+          await admin.from("radar_nudges").update({ response: act, responded_at: new Date().toISOString() })
+            .eq("user_id", uid).eq("entity_id", target).is("response", null);
+        } else {
+          await admin.from("radar_nudges").update({ response: act, responded_at: new Date().toISOString() })
+            .eq("user_id", uid).is("response", null).gte("sent_at", new Date(Date.now() - 6 * 3600_000).toISOString());
+        }
+
+        if (cq.message?.message_id) {
+          await tg("editMessageReplyMarkup", { chat_id: chatId, message_id: cq.message.message_id, reply_markup: { inline_keyboard: [] } });
+        }
+        await send(chatId, reply);
+        return new Response(JSON.stringify({ ok: true }));
+      }
+
       const { data: row } = await admin.from("telegram_pending_actions")
         .select("*").eq("id", actionId).eq("user_id", link.user_id).maybeSingle();
       if (!row) {
@@ -601,6 +684,20 @@ Deno.serve(async (req) => {
     if (/^\/reset/i.test(text)) {
       await admin.from("telegram_conversations").upsert({ chat_id: chatId, user_id: userId, messages: [], updated_at: new Date().toISOString() });
       await send(chatId, "🧹 Conversazione azzerata.");
+      return new Response(JSON.stringify({ ok: true }));
+    }
+    if (/^\/pausa/i.test(text)) {
+      const hours = Number((/\d+/.exec(text) ?? [])[0] ?? 3);
+      await admin.from("radar_preferences").upsert({
+        user_id: userId,
+        snoozed_until: new Date(Date.now() + hours * 3600_000).toISOString(),
+      }, { onConflict: "user_id" });
+      await send(chatId, `🔕 Ok, non ti disturbo per ${hours} ore. Scrivi /riprendi per riattivarmi.`);
+      return new Response(JSON.stringify({ ok: true }));
+    }
+    if (/^\/riprendi/i.test(text)) {
+      await admin.from("radar_preferences").upsert({ user_id: userId, snoozed_until: null, enabled: true }, { onConflict: "user_id" });
+      await send(chatId, "🔔 Torno a monitorare la tua giornata.");
       return new Response(JSON.stringify({ ok: true }));
     }
 

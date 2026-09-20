@@ -31,13 +31,10 @@ verify_jwt = false
 [functions.process-reminders]
 verify_jwt = false
 
-[functions.elevenlabs-voice-webhook]
+[functions.vapi-webhook]
 verify_jwt = false
 
-[functions.elevenlabs-agent-tools]
-verify_jwt = false
-
-[functions.voice-agent-setup]
+[functions.vapi-assistant-setup]
 verify_jwt = true
 
 [functions.google-appointments-push]

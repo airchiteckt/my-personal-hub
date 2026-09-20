@@ -1,19 +1,17 @@
 # Roadmap
 
 ## Radar vocale con VAPI (sostituisce ElevenLabs ConvAI)
-- [ ] Verificare se esiste un connettore VAPI; altrimenti richiedere VAPI_API_KEY via add_secret
-- [ ] Adattare edge functions: vapi-webhook (tool calls + instradamento chiamate in entrata con riconoscimento numero), vapi-assistant-setup (crea/aggiorna assistente "Radar FlyDeck" con strumenti), chiamate in uscita per promemoria importanti via VAPI API
-- [ ] Aggiornare process-reminders: chiamata in uscita via VAPI invece di ElevenLabs
-- [ ] Aggiornare VoiceRadarSettings.tsx (stato VAPI, numero, istruzioni)
-- [ ] Aggiornare voci in ai_voice_settings (vapi_assistant_id, phone info)
-- [ ] Numero 081: acquisto su Twilio + import in VAPI (passi manuali utente)
-- [ ] Test end-to-end: chiamata in entrata (riconoscimento dal numero) e in uscita (promemoria importante)
+- [x] VAPI_API_KEY salvata (segreto)
+- [x] DB: colonne vapi_assistant_id / vapi_phone_number_id su ai_voice_settings, vapi_call_id su voice_calls
+- [x] Edge function vapi-webhook (assistant-request con riconoscimento numero, tool-calls Radar, end-of-call-report)
+- [x] Edge function vapi-assistant-setup (crea/aggiorna assistente "Radar FlyDeck", collega numero al webhook)
+- [x] process-reminders: chiamata in uscita via VAPI per promemoria importanti
+- [x] VoiceRadarSettings.tsx aggiornato (attivazione, collegamento numero, registro chiamate)
+- [x] Vecchie funzioni ElevenLabs ConvAI rimosse (codice + deploy)
+- [x] Typecheck OK, webhook testato (auth OK)
 
-## Completato
-- [x] Rinomina "Urgente" → "Importante" (UI + messaggi Radar) e redeploy funzioni
-- [x] DB: profiles.phone_number, reminders.is_urgent/call_status, voice_calls, radar_nudges reuse
-- [x] Modulo condiviso _shared/radar-actions.ts (riusato anche da VAPI)
-
-## In attesa (bloccanti esterni)
-- Numero Twilio 081: regulatory bundle + acquisto (utente, console Twilio)
-- VAPI: chiave API dall'account utente
+## In attesa (passi manuali utente)
+- Twilio: regulatory bundle Italia + acquisto numero 081
+- VAPI dashboard → Phone Numbers → Import from Twilio (numero 081), senza assegnare assistente
+- FlyDeck → Impostazioni → Integrazioni → "Radar al telefono": cliccare "Attiva Radar vocale", poi incollare l'ID numero VAPI e premere "Collega"
+- Test end-to-end: chiamata in entrata (riconoscimento dal numero) e promemoria importante (chiamata in uscita)

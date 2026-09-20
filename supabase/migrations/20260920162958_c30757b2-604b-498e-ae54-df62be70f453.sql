@@ -1,0 +1,1 @@
+ALTER TABLE public.voice_calls ADD COLUMN IF NOT EXISTS vapi_call_id text;

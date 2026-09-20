@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { romeNow } from "../_shared/radar-actions.ts";
 
 // Cron ogni 5 minuti: per ogni promemoria scaduto e non chiuso:
-// 1) messaggio Telegram di Radar  2) email  3) se importante -> chiamata vocale ElevenLabs/Twilio
+// 1) messaggio Telegram di Radar  2) email  3) se importante -> chiamata vocale VAPI
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,11 +10,10 @@ const corsHeaders = {
 };
 
 const TG_URL = "https://connector-gateway.lovable.dev/telegram";
-const EL_URL = "https://api.elevenlabs.io";
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 const TELEGRAM_API_KEY = Deno.env.get("TELEGRAM_API_KEY");
-const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY");
+const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
 
 const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const toMin = (t?: string | null) => {
@@ -94,62 +93,58 @@ Deno.serve(async (req) => {
         }).catch((e) => console.error("email failed", e));
       }
 
-      // 3) Chiamata vocale se importante
+      // 3) Chiamata vocale se importante (VAPI)
       let callStatus = r.is_urgent ? "failed" : "not_required";
-      if (r.is_urgent && ELEVENLABS_API_KEY) {
+      if (r.is_urgent && VAPI_API_KEY) {
         try {
           const { data: profile } = await admin.from("profiles")
             .select("phone_number,display_name").eq("user_id", r.user_id).maybeSingle();
           const { data: vs } = await admin.from("ai_voice_settings")
-            .select("convai_agent_id,convai_phone_number_id").limit(1).maybeSingle();
+            .select("vapi_assistant_id,vapi_phone_number_id").limit(1).maybeSingle();
 
-          if (profile?.phone_number && vs?.convai_agent_id && vs?.convai_phone_number_id) {
-            const res = await fetch(`${EL_URL}/v1/convai/twilio/outbound-call`, {
+          if (profile?.phone_number && vs?.vapi_assistant_id && vs?.vapi_phone_number_id) {
+            const res = await fetch("https://api.vapi.ai/call/phone", {
               method: "POST",
-              headers: { "xi-api-key": ELEVENLABS_API_KEY, "Content-Type": "application/json" },
+              headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                agent_id: vs.convai_agent_id,
-                agent_phone_number_id: vs.convai_phone_number_id,
-                to_number: profile.phone_number,
-                conversation_initiation_client_data: {
-                  type: "conversation_initiation_client_data",
-                  dynamic_variables: {
+                phoneNumberId: vs.vapi_phone_number_id,
+                customer: { number: profile.phone_number },
+                assistantId: vs.vapi_assistant_id,
+                assistantOverrides: {
+                  variableValues: {
                     user_known: "yes",
                     user_name: profile.display_name ?? "",
                     user_id: r.user_id,
+                    reminder_id: r.id,
                     now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
                     day_summary: `Promemoria importante in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
                   },
-                  conversation_config_override: {
-                    agent: {
-                      first_message: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria importante: ${r.title}. Sei riuscito a gestirlo?`,
-                    },
-                  },
+                  firstMessage: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria importante: ${r.title}. Sei riuscito a gestirlo?`,
                 },
               }),
             });
             const json = await res.json().catch(() => ({}));
-            if (res.ok && json?.conversation_id) {
+            if (res.ok && json?.id) {
               callStatus = "completed";
               await admin.from("voice_calls").insert({
                 user_id: r.user_id,
                 direction: "outbound",
                 phone_number: profile.phone_number,
                 reminder_id: r.id,
-                elevenlabs_conversation_id: json.conversation_id,
+                vapi_call_id: json.id,
                 status: "started",
               });
             } else {
               console.error("outbound call failed", res.status, JSON.stringify(json));
             }
           } else {
-            console.error("outbound call skipped: missing phone/agent config", r.user_id);
+            console.error("outbound call skipped: missing phone/assistant config", r.user_id);
           }
         } catch (e) {
           console.error("outbound call error", e);
         }
-      } else if (r.is_urgent && !ELEVENLABS_API_KEY) {
-        console.error("ELEVENLABS_API_KEY mancante: chiamata importante saltata");
+      } else if (r.is_urgent && !VAPI_API_KEY) {
+        console.error("VAPI_API_KEY mancante: chiamata importante saltata");
       }
 
       await admin.from("reminders").update({ call_status: callStatus }).eq("id", r.id);

@@ -126,9 +126,19 @@ Deno.serve(async (req) => {
         backoffSeconds: t.stopSpeakingBackoffSeconds,
       },
       backgroundSpeechDenoisingPlan: { smartDenoisingPlan: { enabled: t.smartDenoisingEnabled } },
-      artifactPlan: { recordingEnabled: t.recordingEnabled },
+      artifactPlan: {
+        recordingEnabled: t.recordingEnabled,
+        transcriptPlan: { enabled: t.transcriptEnabled !== false },
+      },
       backchannelingEnabled: t.backchannelingEnabled,
       firstMessageInterruptionsEnabled: t.firstMessageInterruptionsEnabled,
+      firstMessageMode: t.firstMessageMode || DEFAULT_VAPI_TUNING.firstMessageMode,
+      modelOutputInMessagesEnabled: t.modelOutputInMessagesEnabled !== false,
+      ...(t.endCallMessage?.trim() ? { endCallMessage: t.endCallMessage.trim() } : {}),
+      ...(t.endCallPhrases?.trim()
+        ? { endCallPhrases: t.endCallPhrases.split(",").map((p) => p.trim()).filter(Boolean) }
+        : {}),
+      ...(t.voicemailMessage?.trim() ? { voicemailMessage: t.voicemailMessage.trim() } : {}),
       silenceTimeoutSeconds: t.silenceTimeoutSeconds,
       maxDurationSeconds: t.maxDurationSeconds,
       backgroundSound: t.backgroundSound,

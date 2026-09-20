@@ -87,10 +87,14 @@ export function mergeTuning(raw: unknown): VapiTuning {
 
 /** Costruisce il blocco voice per VAPI in base al provider scelto. */
 export function buildVoiceBlock(t: VapiTuning) {
+  // Alcuni provider (es. azure) non accettano il campo "speed"
+  const supportsSpeed = ["11labs", "cartesia", "playht", "openai", "deepgram", "rime-ai"].includes(
+    t.voiceProvider,
+  );
   const base: Record<string, unknown> = {
     provider: t.voiceProvider,
     voiceId: t.voiceId,
-    speed: t.voiceSpeed,
+    ...(supportsSpeed && t.voiceSpeed ? { speed: t.voiceSpeed } : {}),
   };
   if (t.voiceProvider === "11labs") {
     return {

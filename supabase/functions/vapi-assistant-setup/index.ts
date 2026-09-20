@@ -1,8 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
+import { mergeTuning, buildVoiceBlock, buildTranscriberBlock, DEFAULT_VAPI_TUNING } from "../_shared/vapi-tuning.ts";
 
 // Crea/aggiorna l'assistente VAPI "Radar FlyDeck" e salva gli id in ai_voice_settings.
-// Se viene passato phone_number_id, collega anche il numero (importato da Twilio) al webhook.
+// Tutti i parametri di fine-tuning arrivano da ai_voice_settings.vapi_tuning (pannello Admin).
+// I tool di Radar e il webhook sono sempre imposti dal codice e non sono sovrascrivibili.
 // Richiede JWT utente (verify_jwt = true): opera sulla configurazione singleton.
 
 const corsHeaders = {
@@ -59,58 +61,105 @@ Deno.serve(async (req) => {
     return json({ error: "VAPI non configurato: manca la chiave API" }, 400);
   }
 
+  const headers = { Authorization: `Bearer ${VAPI_KEY}`, "Content-Type": "application/json" };
+
   try {
     const admin = createClient(PROJECT_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
-    // Voce: Azure multilingue (Giuseppe), resa italiana molto più naturale di Diego.
-    // Con voice_provider: "11labs" si usa ElevenLabs, ma serve la credenziale nell'account VAPI.
-    const voiceProvider: string = body.voice_provider || "azure";
-    const voiceId: string = body.voice_id
-      || (body.voice_provider === "11labs" ? "onwK4e9ZLuTAKqWW03F9" : "it-IT-GiuseppeMultilingualNeural");
+
+    const { data: vs } = await admin.from("ai_voice_settings")
+      .select("id,vapi_assistant_id,vapi_phone_number_id,vapi_tuning").limit(1).maybeSingle();
+
+    // --- Importa la configurazione attuale da VAPI ---
+    if (body.action === "import") {
+      const assistantId = vs?.vapi_assistant_id;
+      if (!assistantId) return json({ error: "Nessun assistente VAPI da importare" }, 400);
+      const res = await fetch(`${VAPI_URL}/assistant/${assistantId}`, { headers });
+      const a = await res.json().catch(() => ({}));
+      if (!res.ok) return json({ error: `Importazione fallita [${res.status}]`, details: a }, res.status);
+
+      const imported = {
+        llmProvider: a?.model?.provider ?? DEFAULT_VAPI_TUNING.llmProvider,
+        llmModel: a?.model?.model ?? DEFAULT_VAPI_TUNING.llmModel,
+        temperature: a?.model?.temperature ?? DEFAULT_VAPI_TUNING.temperature,
+        maxTokens: a?.model?.maxTokens ?? DEFAULT_VAPI_TUNING.maxTokens,
+        voiceProvider: a?.voice?.provider ?? DEFAULT_VAPI_TUNING.voiceProvider,
+        voiceId: a?.voice?.voiceId ?? DEFAULT_VAPI_TUNING.voiceId,
+        voiceModel: a?.voice?.model ?? "",
+        voiceSpeed: a?.voice?.speed ?? DEFAULT_VAPI_TUNING.voiceSpeed,
+        voiceStability: a?.voice?.stability ?? DEFAULT_VAPI_TUNING.voiceStability,
+        voiceSimilarityBoost: a?.voice?.similarityBoost ?? DEFAULT_VAPI_TUNING.voiceSimilarityBoost,
+        voiceStyle: a?.voice?.style ?? DEFAULT_VAPI_TUNING.voiceStyle,
+        voiceUseSpeakerBoost: a?.voice?.useSpeakerBoost ?? DEFAULT_VAPI_TUNING.voiceUseSpeakerBoost,
+        transcriberProvider: a?.transcriber?.provider ?? DEFAULT_VAPI_TUNING.transcriberProvider,
+        transcriberModel: a?.transcriber?.model ?? DEFAULT_VAPI_TUNING.transcriberModel,
+        transcriberLanguage: a?.transcriber?.language ?? DEFAULT_VAPI_TUNING.transcriberLanguage,
+        firstMessage: a?.firstMessage ?? DEFAULT_VAPI_TUNING.firstMessage,
+        systemPrompt: a?.model?.messages?.[0]?.content ?? "",
+        silenceTimeoutSeconds: a?.silenceTimeoutSeconds ?? DEFAULT_VAPI_TUNING.silenceTimeoutSeconds,
+        maxDurationSeconds: a?.maxDurationSeconds ?? DEFAULT_VAPI_TUNING.maxDurationSeconds,
+        backgroundSound: typeof a?.backgroundSound === "string" ? a.backgroundSound : DEFAULT_VAPI_TUNING.backgroundSound,
+        backchannelingEnabled: a?.backchannelingEnabled ?? DEFAULT_VAPI_TUNING.backchannelingEnabled,
+        startSpeakingWaitSeconds: a?.startSpeakingPlan?.waitSeconds ?? DEFAULT_VAPI_TUNING.startSpeakingWaitSeconds,
+        smartEndpointingEnabled: Boolean(a?.startSpeakingPlan?.smartEndpointingPlan),
+        smartEndpointingProvider: a?.startSpeakingPlan?.smartEndpointingPlan?.provider ?? DEFAULT_VAPI_TUNING.smartEndpointingProvider,
+        stopSpeakingNumWords: a?.stopSpeakingPlan?.numWords ?? DEFAULT_VAPI_TUNING.stopSpeakingNumWords,
+        stopSpeakingVoiceSeconds: a?.stopSpeakingPlan?.voiceSeconds ?? DEFAULT_VAPI_TUNING.stopSpeakingVoiceSeconds,
+        stopSpeakingBackoffSeconds: a?.stopSpeakingPlan?.backoffSeconds ?? DEFAULT_VAPI_TUNING.stopSpeakingBackoffSeconds,
+        firstMessageInterruptionsEnabled: a?.firstMessageInterruptionsEnabled ?? DEFAULT_VAPI_TUNING.firstMessageInterruptionsEnabled,
+        smartDenoisingEnabled: a?.backgroundSpeechDenoisingPlan?.smartDenoisingPlan?.enabled ?? DEFAULT_VAPI_TUNING.smartDenoisingEnabled,
+        recordingEnabled: a?.artifactPlan?.recordingEnabled ?? DEFAULT_VAPI_TUNING.recordingEnabled,
+      };
+
+      if (vs?.id) {
+        await admin.from("ai_voice_settings")
+          .update({ vapi_tuning: imported, updated_at: new Date().toISOString() })
+          .eq("id", vs.id);
+      }
+      return json({ ok: true, tuning: imported });
+    }
+
+    // --- Crea / aggiorna l'assistente ---
+    const t = mergeTuning(body.tuning ?? vs?.vapi_tuning);
     const phoneNumberId: string | undefined = body.phone_number_id;
 
-    const tools = RADAR_TOOL_DEFS.map((t) => ({
+    const tools = RADAR_TOOL_DEFS.map((d) => ({
       type: "function",
-      function: {
-        name: t.name,
-        description: t.description,
-        parameters: t.parameters,
-      },
+      function: { name: d.name, description: d.description, parameters: d.parameters },
     }));
 
     const assistantPayload = {
       name: "Radar FlyDeck",
-      firstMessage: "Ciao, sono Radar. Come posso aiutarti?",
+      firstMessage: t.firstMessage || DEFAULT_VAPI_TUNING.firstMessage,
       model: {
-        provider: "openai",
-        model: body.llm_model || "gpt-4o",
-        temperature: 0.2,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }],
+        provider: t.llmProvider,
+        model: t.llmModel,
+        temperature: t.temperature,
+        maxTokens: t.maxTokens,
+        messages: [{ role: "system", content: (t.systemPrompt || "").trim() || SYSTEM_PROMPT }],
         tools,
       },
-      voice: voiceProvider === "11labs"
-        ? {
-            provider: "11labs",
-            voiceId,
-            model: "eleven_turbo_v2_5",
-            language: "it",
-            stability: 0.45,
-            similarityBoost: 0.8,
-            style: 0.15,
-            useSpeakerBoost: true,
-            optimizeStreamingLatency: 3,
-            speed: 1.05,
-          }
-        : { provider: voiceProvider, voiceId, speed: 1.05 },
-      transcriber: { provider: "deepgram", model: "nova-3", language: "it" },
-      // Bassa latenza conversazionale
+      voice: buildVoiceBlock(t),
+      transcriber: buildTranscriberBlock(t),
       startSpeakingPlan: {
-        waitSeconds: 0.3,
-        smartEndpointingPlan: { provider: "livekit", waitFunction: "200 + 4000 * x" },
+        waitSeconds: t.startSpeakingWaitSeconds,
+        ...(t.smartEndpointingEnabled
+          ? { smartEndpointingPlan: { provider: t.smartEndpointingProvider, waitFunction: "200 + 4000 * x" } }
+          : {}),
       },
-      stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.15, backoffSeconds: 0.8 },
-      firstMessageInterruptionsEnabled: true,
-      silenceTimeoutSeconds: 20,
+      stopSpeakingPlan: {
+        numWords: t.stopSpeakingNumWords,
+        voiceSeconds: t.stopSpeakingVoiceSeconds,
+        backoffSeconds: t.stopSpeakingBackoffSeconds,
+      },
+      backgroundSpeechDenoisingPlan: { smartDenoisingPlan: { enabled: t.smartDenoisingEnabled } },
+      artifactPlan: { recordingEnabled: t.recordingEnabled },
+      backchannelingEnabled: t.backchannelingEnabled,
+      firstMessageInterruptionsEnabled: t.firstMessageInterruptionsEnabled,
+      silenceTimeoutSeconds: t.silenceTimeoutSeconds,
+      maxDurationSeconds: t.maxDurationSeconds,
+      backgroundSound: t.backgroundSound,
+      // Sempre imposti dal codice: canale operativo di Radar
       server: {
         url: WEBHOOK_URL,
         ...(TOOLS_SECRET ? { secret: TOOLS_SECRET } : {}),
@@ -118,14 +167,7 @@ Deno.serve(async (req) => {
       },
       serverMessages: ["end-of-call-report", "tool-calls", "status-update"],
       endCallFunctionEnabled: true,
-      maxDurationSeconds: 900,
-      backgroundSound: "off",
     };
-
-    const headers = { Authorization: `Bearer ${VAPI_KEY}`, "Content-Type": "application/json" };
-
-    const { data: vs } = await admin.from("ai_voice_settings")
-      .select("id,vapi_assistant_id,vapi_phone_number_id").limit(1).maybeSingle();
 
     let assistantId = vs?.vapi_assistant_id as string | undefined;
 
@@ -134,8 +176,13 @@ Deno.serve(async (req) => {
         method: "PATCH", headers, body: JSON.stringify(assistantPayload),
       });
       if (!res.ok) {
-        console.error("assistant update failed", res.status, await res.text().catch(() => ""));
-        assistantId = undefined; // ricrea
+        const txt = await res.text().catch(() => "");
+        console.error("assistant update failed", res.status, txt);
+        // 404 = assistente rimosso su VAPI: lo ricreiamo. Altri errori (config non valida) vanno mostrati.
+        if (res.status !== 404) {
+          return json({ error: `Aggiornamento assistente fallito [${res.status}]`, details: safeJson(txt) }, res.status);
+        }
+        assistantId = undefined;
       }
     }
 
@@ -150,8 +197,8 @@ Deno.serve(async (req) => {
       assistantId = jsonRes.id;
     }
 
-    // Collega il numero (importato da Twilio in VAPI) al webhook
-    let linkedPhoneId = phoneNumberId ?? vs?.vapi_phone_number_id ?? null;
+    // Collega il numero (importato in VAPI) al webhook
+    const linkedPhoneId = phoneNumberId ?? vs?.vapi_phone_number_id ?? null;
     if (phoneNumberId) {
       const res = await fetch(`${VAPI_URL}/phone-number/${phoneNumberId}`, {
         method: "PATCH",
@@ -176,6 +223,7 @@ Deno.serve(async (req) => {
       ...(vs?.id ? { id: vs.id } : {}),
       vapi_assistant_id: assistantId,
       ...(linkedPhoneId ? { vapi_phone_number_id: linkedPhoneId } : {}),
+      ...(body.tuning ? { vapi_tuning: t } : {}),
       updated_at: new Date().toISOString(),
     };
     const { error: upErr } = await admin.from("ai_voice_settings").upsert(upsertRow);
@@ -193,3 +241,7 @@ Deno.serve(async (req) => {
     return json({ error: (e as Error).message }, 500);
   }
 });
+
+function safeJson(txt: string) {
+  try { return JSON.parse(txt); } catch { return txt; }
+}

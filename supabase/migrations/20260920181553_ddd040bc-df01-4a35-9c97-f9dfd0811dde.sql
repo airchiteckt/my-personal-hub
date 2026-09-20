@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_voice_settings ADD COLUMN IF NOT EXISTS vapi_tuning jsonb NOT NULL DEFAULT '{}'::jsonb;

@@ -158,6 +158,7 @@ export type Database = {
           updated_at: string
           vapi_assistant_id: string | null
           vapi_phone_number_id: string | null
+          vapi_tuning: Json
         }
         Insert: {
           convai_agent_id?: string | null
@@ -182,6 +183,7 @@ export type Database = {
           updated_at?: string
           vapi_assistant_id?: string | null
           vapi_phone_number_id?: string | null
+          vapi_tuning?: Json
         }
         Update: {
           convai_agent_id?: string | null
@@ -206,6 +208,7 @@ export type Database = {
           updated_at?: string
           vapi_assistant_id?: string | null
           vapi_phone_number_id?: string | null
+          vapi_tuning?: Json
         }
         Relationships: []
       }

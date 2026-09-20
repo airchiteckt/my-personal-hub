@@ -83,8 +83,6 @@ serve(async (req) => {
     // Esecuzione di un'azione confermata dall'utente nella chat Radar
     if (type === "execute_action") {
       const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-      const body = await Promise.resolve(null);
-      void body;
       const res: any = await executeAction(admin, userId, actionName, actionArgs ?? {});
       return new Response(JSON.stringify(res?.error ? { error: res.error } : { ok: true, id: res?.id ?? null }), {
         status: res?.error ? 400 : 200,

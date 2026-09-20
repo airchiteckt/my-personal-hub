@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { romeNow } from "../_shared/radar-actions.ts";
 
 // Cron ogni 5 minuti: per ogni promemoria scaduto e non chiuso:
-// 1) messaggio Telegram di Radar  2) email  3) se urgente -> chiamata vocale ElevenLabs/Twilio
+// 1) messaggio Telegram di Radar  2) email  3) se importante -> chiamata vocale ElevenLabs/Twilio
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         }).catch((e) => console.error("email failed", e));
       }
 
-      // 3) Chiamata vocale se urgente
+      // 3) Chiamata vocale se importante
       let callStatus = r.is_urgent ? "failed" : "not_required";
       if (r.is_urgent && ELEVENLABS_API_KEY) {
         try {
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
           console.error("outbound call error", e);
         }
       } else if (r.is_urgent && !ELEVENLABS_API_KEY) {
-        console.error("ELEVENLABS_API_KEY mancante: chiamata urgente saltata");
+        console.error("ELEVENLABS_API_KEY mancante: chiamata importante saltata");
       }
 
       await admin.from("reminders").update({ call_status: callStatus }).eq("id", r.id);

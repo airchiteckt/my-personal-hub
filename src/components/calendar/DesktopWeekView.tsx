@@ -316,11 +316,11 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
-          <Button variant="ghost" size="icon" className="h-8 w-7" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Riduci zoom" disabled={zoom <= 0.5}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Riduci zoom" disabled={zoom <= 0.5}>
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
           <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-center cursor-pointer" onClick={() => setZoom(1)} title="Reset zoom">{Math.round(zoom * 100)}%</span>
-          <Button variant="ghost" size="icon" className="h-8 w-7" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Aumenta zoom" disabled={zoom >= 2}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Aumenta zoom" disabled={zoom >= 2}>
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
           <Button
@@ -334,13 +334,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             Backlog
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
-          <Button variant="outline" size="icon" className="h-8 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
           <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setWeekStart(addDays(new Date(), -3))}>
             Oggi
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-7" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>

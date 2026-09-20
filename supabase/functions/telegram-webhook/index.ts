@@ -532,7 +532,23 @@ ${JSON.stringify(ctx)}`;
       if (INSTANT.has(name)) {
         const res: any = await executeAction(admin, userId, name, args);
         if (res.error) {
-          await send(chatId, `⚠️ ${ACTION_LABELS[name] ?? name}: non salvato (${res.error}).`);
+          let human = "";
+          try {
+            const r = await fetch(`${AI_URL}/chat/completions`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: "google/gemini-3-flash-preview",
+                messages: [
+                  { role: "system", content: `Sei Radar. L'azione richiesta non è andata a buon fine perché manca un dato o non hai trovato una corrispondenza. Scrivi UNA sola frase in italiano, naturale e amichevole, che chiede all'utente proprio quel dato (niente nomi di tool, niente id, niente termini tecnici). Se nel contesto ci sono opzioni plausibili, proponine al massimo tre.\nCONTESTO UTENTE (JSON):\n${JSON.stringify(ctx)}` },
+                  { role: "user", content: `Richiesta dell'utente: ${userText ?? ""}\nAzione tentata: ${name} con ${JSON.stringify(args)}\nMotivo: ${res.error}` },
+                ],
+              }),
+            });
+            const j = await r.json().catch(() => ({}));
+            human = cleanReply((j?.choices?.[0]?.message?.content ?? "").trim());
+          } catch { /* ignore */ }
+          await send(chatId, human || `Mi manca un dato per completare: ${res.error}`);
         } else {
           const undoAllowed = ["create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task"].includes(name);
           let extra = {};

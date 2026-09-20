@@ -411,6 +411,8 @@ REGOLE:
 - Non ripetere azioni già eseguite nella conversazione.
 - Quando l'utente chiede informazioni, rispondi con i dati del contesto.
 - DOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.) e non inventare URL.
+- NON mostrare MAI id, UUID, nomi di tool, codice o parentesi tecniche nella risposta. Parla come una persona: "Fatto, ho creato l'attività ... per domani alle 9".
+- Scrivi solo in italiano: niente caratteri cinesi/giapponesi o simboli strani all'inizio del messaggio.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

@@ -38,6 +38,7 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
       description: description.trim() || undefined,
       reminderDate,
       reminderTime: reminderTime || undefined,
+      isUrgent,
     });
     onOpenChange(false);
   };

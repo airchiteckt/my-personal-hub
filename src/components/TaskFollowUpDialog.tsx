@@ -32,6 +32,7 @@ export function TaskFollowUpDialog({ open, onOpenChange, task }: Props) {
       taskId: task.id,
       isFollowUp: true,
       isDismissed: false,
+      isUrgent: false,
       color: undefined,
     });
     onOpenChange(false);

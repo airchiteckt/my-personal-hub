@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Phone, Loader2, Settings2, Save, Brain, Volume2, Mic, Gauge, DownloadCloud, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_VAPI_TUNING, type VapiTuning } from '@/types/vapiTuning';
+import { RADAR_VOICE_SYSTEM_PROMPT } from '@/constants/radarVoicePrompt';
 import {
   VAPI_AI_MODELS,
   VAPI_VOICE_PROVIDERS,

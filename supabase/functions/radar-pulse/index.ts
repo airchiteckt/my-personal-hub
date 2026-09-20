@@ -125,9 +125,15 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
   const today = now.date;
 
   const { data: ps } = await admin.from("priority_settings")
-    .select("work_start_time,work_end_time").eq("user_id", userId).maybeSingle();
+    .select("work_start_time,work_end_time,work_days").eq("user_id", userId).maybeSingle();
   const workStart = toMin(ps?.work_start_time) ?? 9 * 60;
   const workEnd = toMin(ps?.work_end_time) ?? 19 * 60;
+
+  // Giorni lavorativi (default lun-ven). Fuori da questi giorni Radar sta in
+  // "modalità riposo": ricorda solo ciò che l'utente ha messo in agenda.
+  const workDays: number[] = Array.isArray(ps?.work_days) && ps!.work_days.length ? ps!.work_days : [1, 2, 3, 4, 5];
+  const dowNum = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(now.dow);
+  const isWorkDay = workDays.includes(dowNum);
 
   const [tasksRes, apptsRes, extRes] = await Promise.all([
     admin.from("tasks").select("id,title,scheduled_time,estimated_minutes,priority,deadline,status,scheduled_date,postpone_count")
@@ -145,10 +151,12 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
   const appts: any[] = apptsRes.data ?? [];
   const ext: any[] = extRes.data ?? [];
 
-  const inWork = now.minutes >= workStart && now.minutes <= workEnd;
+  // Nei giorni non lavorativi nessuna regola "proattiva": niente proposte di
+  // tempo libero, scadenze, rimandi o chiusura giornata.
+  const inWork = isWorkDay && now.minutes >= workStart && now.minutes <= workEnd;
 
-  // 1. check-in a fine attività
-  if (prefs.task_checkin && inWork) {
+  // 1. check-in a fine attività (nel weekend solo su ciò che l'utente ha pianificato)
+  if (prefs.task_checkin && (inWork || !isWorkDay)) {
     for (const t of todayTasks) {
       const end = (toMin(t.scheduled_time) ?? 0) + (t.estimated_minutes ?? 30);
       const delta = now.minutes - end;
@@ -295,8 +303,8 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
     }
   }
 
-  // 7. chiusura giornata
-  if (prefs.day_close) {
+  // 7. chiusura giornata (solo nei giorni lavorativi)
+  if (prefs.day_close && isWorkDay) {
     const close = toMin(prefs.day_close_time) ?? 18 * 60 + 30;
     if (now.minutes >= close && now.minutes < close + 10) {
       const { data: doneToday } = await admin.from("tasks").select("id,title")

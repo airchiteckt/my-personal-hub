@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
+import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS, startOutboundCall, getWorkDays, nextWorkDayAfter } from "../_shared/radar-actions.ts";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
 const AI_URL = "https://ai.gateway.lovable.dev/v1";
@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
         const [, act, target] = String(cq.data ?? "").split(":");
         const uid = link.user_id;
         const todayRome = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME }).format(new Date());
-        const tomorrow = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME })
-          .format(new Date(Date.now() + 86400_000));
+        // "a domani" = prossimo giorno lavorativo (di venerdì si salta al lunedì)
+        const tomorrow = nextWorkDayAfter(todayRome, await getWorkDays(admin, uid));
         const nowMin = (() => {
           const p = new Intl.DateTimeFormat("it-IT", { timeZone: ROME, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
           const [h, m] = p.split(":").map(Number);
@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
             scheduled_date: tomorrow,
             postpone_count: (t?.postpone_count ?? 0) + 1,
           }).eq("id", target).eq("user_id", uid);
-          reply = "📅 Spostata a domani.";
+          reply = `📅 Spostata al ${tomorrow}.`;
         } else if (act === "skip") {
           const t = await getTask();
           await admin.from("tasks").update({
@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
           for (const t of open ?? []) {
             await admin.from("tasks").update({ scheduled_date: tomorrow, postpone_count: (t.postpone_count ?? 0) + 1 }).eq("id", t.id);
           }
-          reply = `🌇 Giornata chiusa. ${open?.length ?? 0} attività spostate a domani.`;
+          reply = `🌇 Giornata chiusa. ${open?.length ?? 0} attività spostate al ${tomorrow}.`;
         } else if (act === "ack") {
           reply = "👍 Buon lavoro.";
         } else if (act === "no") {
@@ -315,7 +315,16 @@ Deno.serve(async (req) => {
     if (!text) return new Response(JSON.stringify({ ok: true }));
 
     if (/^\/start/i.test(text)) {
-      await send(chatId, "Sono Radar. Dimmi cosa inserire: appuntamenti, promemoria, task. Puoi anche mandarmi note vocali.\n\n/reset per svuotare la conversazione.");
+      await send(chatId, "Sono Radar. Dimmi cosa inserire: appuntamenti, promemoria, task. Puoi anche mandarmi note vocali.\n\n/chiamami per farti telefonare da me.\n/reset per svuotare la conversazione.");
+      return new Response(JSON.stringify({ ok: true }));
+    }
+    // Richiesta di chiamata: Radar telefona all'utente (chiamata in entrata = gratuita per lui)
+    if (/^\/chiamami/i.test(text) || /\b(chiamami|telefonami|mi\s+chiami|fammi\s+uno\s+squillo|puoi\s+chiamarmi)\b/i.test(text)) {
+      await tg("sendChatAction", { chat_id: chatId, action: "typing" });
+      const res = await startOutboundCall(admin, userId, {
+        daySummaryPrefix: "L'utente ti ha chiesto di chiamarlo da Telegram: chiedi subito cosa gli serve.",
+      });
+      await send(chatId, res.message);
       return new Response(JSON.stringify({ ok: true }));
     }
     if (/^\/reset/i.test(text)) {

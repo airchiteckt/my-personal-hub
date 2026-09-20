@@ -1013,20 +1013,14 @@ export function AiAssistant() {
                   rows={1}
                   disabled={r.isLoading}
                 />
-                {expanded && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="shrink-0 h-9 w-9 rounded-lg flex items-center justify-center hover:bg-muted text-muted-foreground transition-all">
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" side="top" className="min-w-[180px]">
-                      <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
-                        <Phone className="h-4 w-4 mr-2" /> Chiama Radar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
+                <button
+                  onClick={() => { setExpanded(true); r.startCall(); }}
+                  disabled={r.isLoading}
+                  title="Parla con Radar"
+                  className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/15 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  <Phone className="h-4 w-4" />
+                </button>
                 <Button size="icon" onClick={() => { setExpanded(true); r.handleSend(); }} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg">
                   <Send className="h-4 w-4" />
                 </Button>

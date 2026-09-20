@@ -110,7 +110,7 @@ export function VapiConfig() {
   const resetDefaults = () => {
     setTuning(DEFAULT_VAPI_TUNING);
     setModified(true);
-    toast.info('Valori consigliati ripristinati: premi Applia su VAPI per confermare');
+    toast.info('Valori consigliati ripristinati: premi "Salva e applica su VAPI" per confermare');
   };
 
   if (loading) {

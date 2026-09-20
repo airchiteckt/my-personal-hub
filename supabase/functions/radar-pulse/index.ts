@@ -303,8 +303,8 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
     }
   }
 
-  // 7. chiusura giornata
-  if (prefs.day_close) {
+  // 7. chiusura giornata (solo nei giorni lavorativi)
+  if (prefs.day_close && isWorkDay) {
     const close = toMin(prefs.day_close_time) ?? 18 * 60 + 30;
     if (now.minutes >= close && now.minutes < close + 10) {
       const { data: doneToday } = await admin.from("tasks").select("id,title")

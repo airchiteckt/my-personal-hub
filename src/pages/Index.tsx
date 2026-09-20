@@ -24,6 +24,7 @@ import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { EditTaskDialog } from '@/components/EditTaskDialog';
 import { EditAppointmentDialog } from '@/components/EditAppointmentDialog';
 import { EditReminderDialog } from '@/components/EditReminderDialog';
+import { CreateReminderDialog } from '@/components/CreateReminderDialog';
 import { RitualQuickDialog } from '@/components/calendar/RitualQuickDialog';
 import { JournalDialog } from '@/components/calendar/JournalDialog';
 import { MoonDetailDialog } from '@/components/calendar/MoonDetailDialog';
@@ -102,6 +103,7 @@ const Index = ({ date, onBack }: DayViewProps) => {
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [createDefaults, setCreateDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({});
+  const [showCreateReminder, setShowCreateReminder] = useState(false);
 
   // Drag-to-create
   const [dragCreate, setDragCreate] = useState<{ startSlot: number; endSlot: number } | null>(null);
@@ -862,7 +864,17 @@ const Index = ({ date, onBack }: DayViewProps) => {
         timeLabel={`Oggi · ${createDefaults.startTime ?? ''} – ${createDefaults.endTime ?? ''}`}
         onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
         onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}
+        onChooseReminder={() => { setShowChoice(false); setTimeout(() => setShowCreateReminder(true), 150); }}
       />
+
+      {showCreateReminder && (
+        <CreateReminderDialog
+          open={showCreateReminder}
+          onOpenChange={setShowCreateReminder}
+          defaultDate={createDefaults.date}
+          defaultTime={createDefaults.startTime}
+        />
+      )}
 
       <CreateAppointmentDialog
         open={showCreateAppt}

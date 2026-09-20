@@ -151,10 +151,12 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
   const appts: any[] = apptsRes.data ?? [];
   const ext: any[] = extRes.data ?? [];
 
-  const inWork = now.minutes >= workStart && now.minutes <= workEnd;
+  // Nei giorni non lavorativi nessuna regola "proattiva": niente proposte di
+  // tempo libero, scadenze, rimandi o chiusura giornata.
+  const inWork = isWorkDay && now.minutes >= workStart && now.minutes <= workEnd;
 
-  // 1. check-in a fine attività
-  if (prefs.task_checkin && inWork) {
+  // 1. check-in a fine attività (nel weekend solo su ciò che l'utente ha pianificato)
+  if (prefs.task_checkin && (inWork || !isWorkDay)) {
     for (const t of todayTasks) {
       const end = (toMin(t.scheduled_time) ?? 0) + (t.estimated_minutes ?? 30);
       const delta = now.minutes - end;

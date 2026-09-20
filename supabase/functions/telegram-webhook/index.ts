@@ -173,8 +173,57 @@ Scadenza: ${a.deadline}` : ""}`;
       return `📁 Progetto <b>${a.name}</b>`;
     case "create_enterprise":
       return `🏢 Impresa <b>${a.name}</b>`;
+    case "update_task":
+      return `✏️ Attività aggiornata`;
+    case "unschedule_task":
+      return `📥 Attività rimessa nel backlog`;
+    case "delete_task":
+      return `🗑 Attività eliminata`;
+    case "update_appointment":
+      return `✏️ Appuntamento aggiornato`;
+    case "move_appointment":
+      return `📅 Appuntamento spostato${a.date ? ` al ${a.date}` : ""}${a.start_time ? ` alle ${a.start_time}` : ""}`;
+    case "cancel_appointment":
+      return `❌ Appuntamento cancellato`;
+    case "update_reminder":
+      return `✏️ Promemoria aggiornato`;
+    case "delete_reminder":
+      return `🗑 Promemoria eliminato`;
+    case "convert_reminder_to_task":
+      return `🔄 Promemoria trasformato in attività`;
+    case "update_project":
+      return `✏️ Progetto aggiornato`;
+    case "delete_project":
+      return `🗑 Progetto eliminato`;
+    case "update_enterprise":
+      return `✏️ Impresa aggiornata`;
+    case "create_focus_period":
+      return `🎯 Focus <b>${a.name ?? ""}</b>`;
+    case "create_objective":
+      return `🎯 Obiettivo <b>${a.title ?? ""}</b>`;
+    case "create_key_result":
+      return `📈 Key result <b>${a.title ?? ""}</b>`;
+    case "update_key_result":
+      return `📈 Key result aggiornato${a.current_value != null ? ` a ${a.current_value}` : ""}`;
+    case "save_journal_entry":
+      return `📔 Nota di diario salvata`;
+    case "log_time": {
+      const h = a.hours ?? (a.minutes ? Math.round((Number(a.minutes) / 60) * 10) / 10 : null);
+      const dove = a.task_name ?? a.project_name ?? a.description ?? null;
+      return `⏱ Registrate ${h ? `${h} ore` : `${a.minutes} minuti`}${dove ? ` su <b>${dove}</b>` : ""}`;
+    }
+    case "complete_ritual":
+      return `✔️ Rituale completato`;
+    case "skip_ritual":
+      return `⏭ Rituale saltato`;
+    case "create_ritual":
+      return `🔁 Rituale <b>${a.name ?? ""}</b>`;
+    case "update_ritual":
+      return `✏️ Rituale aggiornato`;
+    case "delete_ritual":
+      return `🗑 Rituale eliminato`;
     default:
-      return name;
+      return ACTION_LABELS[name] ?? "Fatto";
   }
 }
 

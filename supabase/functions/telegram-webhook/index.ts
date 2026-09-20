@@ -67,7 +67,7 @@ async function transcribe(bytes: Uint8Array, mime: string): Promise<string | nul
   }
   const ext = mime.includes("mpeg") ? "mp3" : mime.includes("mp4") || mime.includes("m4a") ? "m4a" : "ogg";
   const form = new FormData();
-  form.append("file", new Blob([bytes], { type: mime }), `voice.${ext}`);
+  form.append("file", new Blob([bytes as BlobPart], { type: mime }), `voice.${ext}`);
   form.append("model", "whisper-1");
   form.append("language", "it");
   const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {

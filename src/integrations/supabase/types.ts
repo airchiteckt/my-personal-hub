@@ -156,6 +156,8 @@ export type Database = {
           tts_use_speaker_boost: boolean
           tts_voice_id: string
           updated_at: string
+          vapi_assistant_id: string | null
+          vapi_phone_number_id: string | null
         }
         Insert: {
           convai_agent_id?: string | null
@@ -178,6 +180,8 @@ export type Database = {
           tts_use_speaker_boost?: boolean
           tts_voice_id?: string
           updated_at?: string
+          vapi_assistant_id?: string | null
+          vapi_phone_number_id?: string | null
         }
         Update: {
           convai_agent_id?: string | null
@@ -200,6 +204,8 @@ export type Database = {
           tts_use_speaker_boost?: boolean
           tts_voice_id?: string
           updated_at?: string
+          vapi_assistant_id?: string | null
+          vapi_phone_number_id?: string | null
         }
         Relationships: []
       }

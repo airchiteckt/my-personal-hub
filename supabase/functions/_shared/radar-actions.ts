@@ -658,6 +658,25 @@ export async function queryRadar(
       return lines.length ? lines.join("\n") : `Nessun risultato per "${term}". Prova con una sola parola chiave.`;
     }
 
+    if (name === "list_reminders") {
+      const from = a.date || now.date;
+      const to = a.to_date || addDays(from, 14);
+      const { data } = await admin.from("reminders")
+        .select("id,title,reminder_date,reminder_time,is_urgent")
+        .eq("user_id", userId).eq("is_dismissed", false)
+        .gte("reminder_date", from).lte("reminder_date", to).order("reminder_date").limit(40);
+      if (!data?.length) return "Nessun promemoria attivo nel periodo.";
+      return data.map((r: any) => `${r.reminder_date} ${r.reminder_time ?? ""}: ${r.title}${r.is_urgent ? " (importante)" : ""} (id ${r.id})`).join("\n");
+    }
+
+    if (name === "get_journal") {
+      const day = a.entry_date || now.date;
+      const { data } = await admin.from("journal_entries")
+        .select("entry_date,content,mood,energy_level").eq("user_id", userId).eq("entry_date", day).maybeSingle();
+      if (!data) return `Nessuna nota di diario per il ${day}.`;
+      return `Diario ${data.entry_date}${data.mood ? ` (umore ${data.mood})` : ""}:\n${data.content}`;
+    }
+
     return `Interrogazione sconosciuta: ${name}`;
   } catch (e: any) {
     console.error("queryRadar error", name, e?.message ?? e);
@@ -667,7 +686,7 @@ export async function queryRadar(
 
 export const RADAR_QUERY_TOOLS = new Set([
   "get_day_overview", "get_agenda", "list_tasks", "list_projects",
-  "list_enterprises", "get_okr", "find_item",
+  "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal",
 ]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------
@@ -808,5 +827,100 @@ export const RADAR_TOOL_DEFS = [
     name: "cancel_appointment",
     description: "Elimina un appuntamento esistente",
     parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "list_reminders",
+    description: "Elenca i promemoria attivi in un periodo, con i relativi id",
+    parameters: { type: "object", properties: { date: { type: "string" }, to_date: { type: "string" } }, required: [] },
+  },
+  {
+    name: "get_journal",
+    description: "Legge la nota di diario di un giorno (default oggi)",
+    parameters: { type: "object", properties: { entry_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
+  },
+  {
+    name: "update_task",
+    description: "Modifica un'attività esistente (titolo, descrizione, priorità, durata, scadenza, progetto)",
+    parameters: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, description: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] }, estimated_minutes: { type: "number" }, deadline: { type: "string" }, project_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "unschedule_task",
+    description: "Rimette un'attività nel backlog togliendo data e ora",
+    parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "delete_task",
+    description: "Elimina definitivamente un'attività",
+    parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "update_appointment",
+    description: "Modifica titolo, descrizione, data o orari di un appuntamento",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, title: { type: "string" }, description: { type: "string" }, date: { type: "string" }, start_time: { type: "string" }, end_time: { type: "string" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "update_reminder",
+    description: "Modifica un promemoria (titolo, data, ora, importante)",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" }, title: { type: "string" }, reminder_date: { type: "string" }, reminder_time: { type: "string" }, is_urgent: { type: "boolean" } }, required: ["reminder_id"] },
+  },
+  {
+    name: "delete_reminder",
+    description: "Elimina definitivamente un promemoria",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" } }, required: ["reminder_id"] },
+  },
+  {
+    name: "convert_reminder_to_task",
+    description: "Trasforma un promemoria in attività pianificata e chiude il promemoria",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" }, scheduled_date: { type: "string" }, scheduled_time: { type: "string" }, estimated_minutes: { type: "number" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] } }, required: ["reminder_id"] },
+  },
+  {
+    name: "create_project",
+    description: "Crea un progetto dentro un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, type: { type: "string", enum: ["strategic", "operational", "maintenance"] } }, required: ["enterprise_id", "name"] },
+  },
+  {
+    name: "update_project",
+    description: "Rinomina o cambia tipo a un progetto",
+    parameters: { type: "object", properties: { project_id: { type: "string" }, name: { type: "string" }, type: { type: "string", enum: ["strategic", "operational", "maintenance"] } }, required: ["project_id"] },
+  },
+  {
+    name: "delete_project",
+    description: "Elimina un progetto (solo se vuoto o se l'utente conferma)",
+    parameters: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
+  },
+  {
+    name: "create_enterprise",
+    description: "Crea una nuova impresa",
+    parameters: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, status: { type: "string", enum: ["active", "development", "paused"] } }, required: ["name"] },
+  },
+  {
+    name: "update_enterprise",
+    description: "Modifica nome, descrizione o stato di un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, description: { type: "string" }, status: { type: "string", enum: ["active", "development", "paused"] } }, required: ["enterprise_id"] },
+  },
+  {
+    name: "create_focus_period",
+    description: "Crea un focus period (ciclo 90 giorni) per un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, description: { type: "string" } }, required: ["enterprise_id", "name", "start_date", "end_date"] },
+  },
+  {
+    name: "create_objective",
+    description: "Crea un obiettivo dentro un focus period",
+    parameters: { type: "object", properties: { focus_period_id: { type: "string" }, title: { type: "string" }, description: { type: "string" } }, required: ["focus_period_id", "title"] },
+  },
+  {
+    name: "create_key_result",
+    description: "Crea un key result misurabile per un obiettivo",
+    parameters: { type: "object", properties: { objective_id: { type: "string" }, title: { type: "string" }, target_value: { type: "number" }, current_value: { type: "number" }, metric_type: { type: "string" }, deadline: { type: "string" } }, required: ["objective_id", "title"] },
+  },
+  {
+    name: "update_key_result",
+    description: "Aggiorna l'avanzamento o il target di un key result",
+    parameters: { type: "object", properties: { key_result_id: { type: "string" }, current_value: { type: "number" }, target_value: { type: "number" }, title: { type: "string" } }, required: ["key_result_id"] },
+  },
+  {
+    name: "save_journal_entry",
+    description: "Scrive o aggiorna la nota di diario di un giorno",
+    parameters: { type: "object", properties: { entry_date: { type: "string" }, content: { type: "string" }, mood: { type: "string" } }, required: ["content"] },
   },
 ];

@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { executeAction, buildDaySummary, romeNow } from "../_shared/radar-actions.ts";
+import { executeAction, buildDaySummary, romeNow, queryRadar, RADAR_QUERY_TOOLS, RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
 
 // Server URL dell'assistente VAPI "Radar FlyDeck".
 // Gestisce: assistant-request (instradamento chiamate in entrata con riconoscimento
@@ -11,10 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-vapi-secret",
 };
 
-const ALLOWED = new Set([
-  "create_appointment", "create_reminder", "dismiss_reminder", "postpone_reminder",
-  "create_task", "schedule_task", "complete_task", "get_day_overview",
-]);
+const ALLOWED = new Set(RADAR_TOOL_DEFS.map((t) => t.name));
 
 const LABELS: Record<string, string> = {
   create_appointment: "Appuntamento creato",
@@ -24,6 +21,8 @@ const LABELS: Record<string, string> = {
   create_task: "Attività creata",
   schedule_task: "Attività pianificata",
   complete_task: "Attività completata",
+  move_appointment: "Appuntamento spostato",
+  cancel_appointment: "Appuntamento eliminato",
 };
 
 function normalizePhone(p?: string | null): string {

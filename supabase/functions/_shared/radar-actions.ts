@@ -480,7 +480,7 @@ export async function executeAction(
 
       // Se l'attività non esiste ancora, la creo già completata: il lavoro svolto
       // deve comparire in agenda come attività fatta, non solo come tempo registrato.
-      let createdTask = false;
+      // nota: l azione ritorna solo la time entry
       if (!taskId && taskQuery) {
         const { data: newTask, error: tErr } = await admin.from("tasks").insert({
           user_id: userId, enterprise_id: enterpriseId, project_id: projectId,
@@ -489,7 +489,7 @@ export async function executeAction(
           completed_at: ended.toISOString(),
         }).select("id").single();
         if (tErr) throw tErr;
-        taskId = newTask.id; createdTask = true;
+        taskId = newTask.id;
       } else if (taskId) {
         await admin.from("tasks")
           .update({ status: "done", completed_at: ended.toISOString(), scheduled_date: day, scheduled_time: startHHMM })
@@ -503,7 +503,7 @@ export async function executeAction(
         duration_minutes: minutes,
       }).select("id").single();
       if (error) throw error;
-      return { table: "time_entries", id: data.id, task_id: taskId, created_task: createdTask };
+      return { table: "time_entries", id: data.id };
     }
     if (name === "save_journal_entry") {
       const day = a.entry_date ?? romeNow().date;

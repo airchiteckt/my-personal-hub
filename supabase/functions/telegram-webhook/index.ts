@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
           for (const t of open ?? []) {
             await admin.from("tasks").update({ scheduled_date: tomorrow, postpone_count: (t.postpone_count ?? 0) + 1 }).eq("id", t.id);
           }
-          reply = `🌇 Giornata chiusa. ${open?.length ?? 0} attività spostate a domani.`;
+          reply = `🌇 Giornata chiusa. ${open?.length ?? 0} attività spostate al ${tomorrow}.`;
         } else if (act === "ack") {
           reply = "👍 Buon lavoro.";
         } else if (act === "no") {

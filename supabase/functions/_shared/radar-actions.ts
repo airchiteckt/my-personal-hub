@@ -454,17 +454,32 @@ export async function executeAction(
       if (!projectId && (projectQuery || entQuery)) {
         const { data: projects } = await admin.from("projects")
           .select("id,name,enterprise_id").eq("user_id", userId).limit(500);
+        const { data: ents } = await admin.from("enterprises").select("id,name").eq("user_id", userId);
         let pool = projects ?? [];
-        if (entQuery) {
-          const { data: ents } = await admin.from("enterprises").select("id,name").eq("user_id", userId);
-          const e = fuzzy(ents ?? [], entQuery);
-          if (e) { enterpriseId = e.id; pool = pool.filter((p: any) => p.enterprise_id === e.id); }
+        // l'impresa può essere indicata come "progetto" (es. "progetto FlyDeck" = impresa FlyDeck)
+        if (!enterpriseId) {
+          const e = fuzzy(ents ?? [], entQuery ?? projectQuery ?? "", "name", true);
+          if (e) enterpriseId = e.id;
         }
-        const hit = projectQuery ? fuzzy(pool, projectQuery) : (pool.length === 1 ? pool[0] : null);
+        if (enterpriseId) pool = pool.filter((p: any) => p.enterprise_id === enterpriseId);
+        const hit = projectQuery ? fuzzy(pool, projectQuery, "name", true) : (pool.length === 1 ? pool[0] : null);
         if (hit) { projectId = hit.id; enterpriseId = hit.enterprise_id; }
       }
+      // nessun progetto riconosciuto ma impresa chiara: uso il progetto "Altro" dell'impresa
+      if (!projectId && enterpriseId) {
+        const { data: other } = await admin.from("projects")
+          .select("id").eq("user_id", userId).eq("enterprise_id", enterpriseId).ilike("name", "Altro").maybeSingle();
+        if (other) projectId = other.id;
+        else {
+          const { data: created, error: cErr } = await admin.from("projects")
+            .insert({ user_id: userId, enterprise_id: enterpriseId, name: "Altro", type: "operational" })
+            .select("id").single();
+          if (cErr) throw cErr;
+          projectId = created.id;
+        }
+      }
       if (!projectId) {
-        return { error: "SERVE_CHIARIMENTO: chiedi all'utente, in linguaggio naturale, su quale progetto o attività imputare il tempo (elenca al massimo tre opzioni plausibili prese dal contesto)" };
+        return { error: "SERVE_CHIARIMENTO: chiedi all'utente, in linguaggio naturale, su quale impresa o progetto imputare il tempo (elenca al massimo tre opzioni plausibili prese dal contesto)" };
       }
       if (!enterpriseId) {
         const { data: p } = await admin.from("projects")

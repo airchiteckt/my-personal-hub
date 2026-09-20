@@ -31,7 +31,6 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/comp
 import { supabase } from '@/integrations/supabase/client';
 import type { Task, Appointment, Reminder, ExternalCalendarEvent } from '@/types/prp';
 import { TodayBacklog } from '@/components/today/TodayBacklog';
-import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
 import { ExternalEventDetailDialog } from '@/components/calendar/ExternalEventDetailDialog';
 
 const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
@@ -51,7 +50,6 @@ interface DayViewProps {
 }
 
 const Index = ({ date, onBack }: DayViewProps) => {
-  useAutoReschedule();
   const isMobile = useIsMobile();
   const SLOT_H = isMobile ? MOBILE_SLOT_HEIGHT : DESKTOP_SLOT_HEIGHT;
   const today = date ?? new Date();

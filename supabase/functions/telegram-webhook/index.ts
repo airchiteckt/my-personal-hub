@@ -110,7 +110,7 @@ const INSTANT = new Set([
   "create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task",
   "dismiss_reminder", "postpone_reminder", "update_task", "unschedule_task",
   "update_appointment", "move_appointment", "update_reminder", "convert_reminder_to_task",
-  "update_key_result", "save_journal_entry",
+  "update_key_result", "save_journal_entry", "log_time",
   "complete_ritual", "skip_ritual", "update_ritual",
 ]);
 
@@ -146,6 +146,7 @@ const ACTION_LABELS: Record<string, string> = {
   create_key_result: "Key result",
   update_key_result: "Key result aggiornato",
   save_journal_entry: "Nota di diario",
+  log_time: "Tempo registrato",
 };
 
 function describeAction(name: string, a: Record<string, any>): string {

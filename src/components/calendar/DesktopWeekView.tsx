@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { format, startOfWeek, addDays, addWeeks, subWeeks, isToday } from 'date-fns';
+import { format, addDays, addWeeks, subWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
@@ -129,7 +129,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 }
 
 export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => void } = {}) {
-  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [weekStart, setWeekStart] = useState(() => addDays(new Date(), -3));
   const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
@@ -335,7 +335,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="outline" size="sm" className="h-7 text-xs px-2" onClick={() => setWeekStart(addDays(new Date(), -3))}>
             Oggi
           </Button>
           <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setWeekStart(s => addWeeks(s, 1))}>

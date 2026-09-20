@@ -413,22 +413,62 @@ export async function executeAction(
     if (name === "log_time") {
       const minutes = Math.round(Number(a.minutes ?? (a.hours ? Number(a.hours) * 60 : 0)));
       if (!minutes || minutes <= 0) return { error: "Indica quanto tempo (in minuti o ore)" };
-      let taskId: string | null = a.task_id ?? null;
-      let projectId: string | null = a.project_id ?? null;
-      let enterpriseId: string | null = a.enterprise_id ?? null;
-      if (taskId) {
+      const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(v);
+      const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const fuzzy = (rows: any[], q: string, field = "name") => {
+        const words = norm(q).split(/\s+/).filter(w => w.length > 2);
+        let best: any = null, bestScore = 0;
+        for (const r of rows) {
+          const t = norm(r[field] ?? "");
+          let score = words.filter(w => t.includes(w)).length;
+          if (t === norm(q)) score += 5;
+          if (score > bestScore) { bestScore = score; best = r; }
+        }
+        return bestScore > 0 ? best : null;
+      };
+
+      let taskId: string | null = isUuid(a.task_id) ? a.task_id : null;
+      let projectId: string | null = isUuid(a.project_id) ? a.project_id : null;
+      let enterpriseId: string | null = isUuid(a.enterprise_id) ? a.enterprise_id : null;
+
+      // risoluzione per nome (l'utente parla di "progetto flydeck", "attività creazione agente vocale")
+      const taskQuery = a.task_name ?? (isUuid(a.task_id) ? null : a.task_id) ?? null;
+      const projectQuery = a.project_name ?? (isUuid(a.project_id) ? null : a.project_id) ?? null;
+      const entQuery = a.enterprise_name ?? (isUuid(a.enterprise_id) ? null : a.enterprise_id) ?? null;
+
+      if (!taskId && taskQuery) {
+        const { data: tasks } = await admin.from("tasks")
+          .select("id,title,project_id,enterprise_id").eq("user_id", userId).limit(500);
+        const hit = fuzzy(tasks ?? [], taskQuery, "title");
+        if (hit) { taskId = hit.id; projectId = projectId ?? hit.project_id; enterpriseId = enterpriseId ?? hit.enterprise_id; }
+      }
+      if (taskId && !projectId) {
         const { data: t } = await admin.from("tasks")
           .select("project_id,enterprise_id").eq("id", taskId).eq("user_id", userId).maybeSingle();
-        if (!t) return { error: "Attività non trovata" };
-        projectId = t.project_id; enterpriseId = t.enterprise_id;
+        if (t) { projectId = t.project_id; enterpriseId = t.enterprise_id; }
       }
-      if (!projectId) return { error: "Serve sapere su quale attività o progetto imputare il tempo" };
+      if (!projectId && (projectQuery || entQuery)) {
+        const { data: projects } = await admin.from("projects")
+          .select("id,name,enterprise_id").eq("user_id", userId).limit(500);
+        let pool = projects ?? [];
+        if (entQuery) {
+          const { data: ents } = await admin.from("enterprises").select("id,name").eq("user_id", userId);
+          const e = fuzzy(ents ?? [], entQuery);
+          if (e) { enterpriseId = e.id; pool = pool.filter((p: any) => p.enterprise_id === e.id); }
+        }
+        const hit = projectQuery ? fuzzy(pool, projectQuery) : (pool.length === 1 ? pool[0] : null);
+        if (hit) { projectId = hit.id; enterpriseId = hit.enterprise_id; }
+      }
+      if (!projectId) {
+        return { error: "SERVE_CHIARIMENTO: chiedi all'utente, in linguaggio naturale, su quale progetto o attività imputare il tempo (elenca al massimo tre opzioni plausibili prese dal contesto)" };
+      }
       if (!enterpriseId) {
         const { data: p } = await admin.from("projects")
           .select("enterprise_id").eq("id", projectId).maybeSingle();
         enterpriseId = p?.enterprise_id ?? null;
       }
-      if (!enterpriseId) return { error: "Progetto non valido" };
+      if (!enterpriseId) return { error: "SERVE_CHIARIMENTO: chiedi all'utente a quale impresa appartiene il lavoro" };
+      if (!a.description && taskQuery) a.description = taskQuery;
       const day = a.entry_date ?? romeNow().date;
       const ended = new Date(`${day}T${a.end_time ?? "18:00"}:00+02:00`);
       const started = new Date(ended.getTime() - minutes * 60000);
@@ -1085,7 +1125,7 @@ export const RADAR_TOOL_DEFS = [
   {
     name: "log_time",
     description: "Registra tempo lavorato (time tracking) su un'attività o un progetto. NON è il diario.",
-    parameters: { type: "object", properties: { task_id: { type: "string" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
+    parameters: { type: "object", properties: { task_id: { type: "string" }, task_name: { type: "string", description: "Nome dell'attività detto dall'utente, se non hai l'id" }, project_id: { type: "string" }, project_name: { type: "string", description: "Nome del progetto detto dall'utente, se non hai l'id" }, enterprise_id: { type: "string" }, enterprise_name: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
   },
   {
     name: "list_time_entries",

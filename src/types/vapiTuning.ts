@@ -43,7 +43,7 @@ export interface VapiTuning {
 export const DEFAULT_VAPI_TUNING: VapiTuning = {
   llmProvider: 'openai',
   llmModel: 'gpt-4o',
-  temperature: 0.2,
+  temperature: 0.4,
   maxTokens: 250,
 
   voiceProvider: 'azure',

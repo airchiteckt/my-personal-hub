@@ -17,7 +17,7 @@ const Calendar = () => {
   }
 
   return (
-    <div className={isMobile ? "fixed inset-0 top-14 flex flex-col" : "flex flex-col h-full md:p-6"}>
+    <div className={isMobile ? "fixed inset-0 top-14 flex flex-col" : "flex flex-col h-full min-h-0"}>
       {isMobile ? <MobileDayView /> : <DesktopWeekView onOpenDay={setDayDate} />}
     </div>
   );

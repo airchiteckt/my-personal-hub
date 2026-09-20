@@ -429,6 +429,8 @@ REGOLE:
 - DOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.) e non inventare URL.
 - NON mostrare MAI id, UUID, nomi di tool, codice o parentesi tecniche nella risposta. Parla come una persona: "Fatto, ho creato l'attività ... per domani alle 9".
 - Scrivi solo in italiano: niente caratteri cinesi/giapponesi o simboli strani all'inizio del messaggio.
+- Per eseguire un'azione usa SOLO la chiamata allo strumento. Non scrivere MAI nel testo blocchi tipo [azioni: create_task(...)] o parametri: il testo deve contenere solo la frase per l'utente.
+- Se l'utente chiede di trasformare un promemoria in attività, crea l'attività e chiudi il promemoria originale.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

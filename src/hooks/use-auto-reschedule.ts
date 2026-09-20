@@ -13,7 +13,7 @@ export function useAutoReschedule() {
   const ran = useRef(false);
   const {
     tasks, appointments, prioritySettings, loading,
-    updateTask,
+    updateTask, reminders, updateReminder,
   } = usePrp();
 
   useEffect(() => {

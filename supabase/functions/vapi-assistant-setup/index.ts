@@ -82,6 +82,12 @@ Deno.serve(async (req) => {
         firstMessageInterruptionsEnabled: a?.firstMessageInterruptionsEnabled ?? DEFAULT_VAPI_TUNING.firstMessageInterruptionsEnabled,
         smartDenoisingEnabled: a?.backgroundSpeechDenoisingPlan?.smartDenoisingPlan?.enabled ?? DEFAULT_VAPI_TUNING.smartDenoisingEnabled,
         recordingEnabled: a?.artifactPlan?.recordingEnabled ?? DEFAULT_VAPI_TUNING.recordingEnabled,
+        transcriptEnabled: a?.artifactPlan?.transcriptPlan?.enabled ?? DEFAULT_VAPI_TUNING.transcriptEnabled,
+        firstMessageMode: a?.firstMessageMode ?? DEFAULT_VAPI_TUNING.firstMessageMode,
+        modelOutputInMessagesEnabled: a?.modelOutputInMessagesEnabled ?? DEFAULT_VAPI_TUNING.modelOutputInMessagesEnabled,
+        endCallMessage: a?.endCallMessage ?? DEFAULT_VAPI_TUNING.endCallMessage,
+        endCallPhrases: Array.isArray(a?.endCallPhrases) ? a.endCallPhrases.join(", ") : DEFAULT_VAPI_TUNING.endCallPhrases,
+        voicemailMessage: a?.voicemailMessage ?? DEFAULT_VAPI_TUNING.voicemailMessage,
       };
 
       if (vs?.id) {

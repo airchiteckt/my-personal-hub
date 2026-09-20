@@ -996,6 +996,59 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     </div>
   ) : null;
 
+  // ─── FAB variant (desktop): floating button bottom-right, panel opens above it ───
+  if (variant === 'fab') {
+    return (
+      <div className="hidden md:block">
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => !r.callActive && setExpanded(false)}
+              className="fixed inset-0 z-40 bg-background/40 backdrop-blur-[2px]"
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="fixed z-50 right-4 bottom-24 w-[400px] max-w-[calc(100vw-2rem)] bg-card border border-border/60 shadow-2xl shadow-black/15 rounded-2xl overflow-hidden flex flex-col"
+              style={{ maxHeight: 'min(72vh, 680px)' }}
+            >
+              {headerBlock}
+              {bodyBlock}
+              {composerBlock}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          onClick={() => setExpanded(v => !v)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title={expanded ? 'Chiudi Radar' : 'Apri Radar'}
+          className="fixed z-50 right-4 bottom-4 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 flex items-center justify-center"
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            {expanded ? (
+              <motion.span key="x" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.15 }} className="flex">
+                <X className="h-6 w-6" />
+              </motion.span>
+            ) : (
+              <motion.span key="radar" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ duration: 0.15 }} className="flex">
+                <RadarIcon size={26} />
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </motion.button>
+      </div>
+    );
+  }
+
   // ─── Inline variant: bar sits in the app header, panel drops down below it ───
   if (inline) {
     return (

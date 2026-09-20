@@ -410,6 +410,37 @@ export async function executeAction(
       if (error) throw error;
       return { table: "rituals", id: a.ritual_id };
     }
+    if (name === "log_time") {
+      const minutes = Math.round(Number(a.minutes ?? (a.hours ? Number(a.hours) * 60 : 0)));
+      if (!minutes || minutes <= 0) return { error: "Indica quanto tempo (in minuti o ore)" };
+      let taskId: string | null = a.task_id ?? null;
+      let projectId: string | null = a.project_id ?? null;
+      let enterpriseId: string | null = a.enterprise_id ?? null;
+      if (taskId) {
+        const { data: t } = await admin.from("tasks")
+          .select("project_id,enterprise_id").eq("id", taskId).eq("user_id", userId).maybeSingle();
+        if (!t) return { error: "Attività non trovata" };
+        projectId = t.project_id; enterpriseId = t.enterprise_id;
+      }
+      if (!projectId) return { error: "Serve sapere su quale attività o progetto imputare il tempo" };
+      if (!enterpriseId) {
+        const { data: p } = await admin.from("projects")
+          .select("enterprise_id").eq("id", projectId).maybeSingle();
+        enterpriseId = p?.enterprise_id ?? null;
+      }
+      if (!enterpriseId) return { error: "Progetto non valido" };
+      const day = a.entry_date ?? romeNow().date;
+      const ended = new Date(`${day}T${a.end_time ?? "18:00"}:00+02:00`);
+      const started = new Date(ended.getTime() - minutes * 60000);
+      const { data, error } = await admin.from("time_entries").insert({
+        user_id: userId, task_id: taskId, project_id: projectId, enterprise_id: enterpriseId,
+        description: a.description ?? null,
+        started_at: started.toISOString(), ended_at: ended.toISOString(),
+        duration_minutes: minutes,
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "time_entries", id: data.id };
+    }
     if (name === "save_journal_entry") {
       const day = a.entry_date ?? romeNow().date;
       const { data: existing } = await admin.from("journal_entries")

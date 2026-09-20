@@ -267,7 +267,7 @@ export function VapiConfig() {
             </div>
 
             {ttsOptions.voices && (
-              <Row label="Voce">
+              <Row label="Voce" hint="Scegli una voce dall'elenco oppure 'Personalizzata' per inserire un ID.">
                 <Select
                   value={customVoice ? 'custom' : tuning.voiceId}
                   onValueChange={v => set('voiceId', v === 'custom' ? '' : v)}
@@ -277,14 +277,17 @@ export function VapiConfig() {
                     {ttsOptions.voices.map(v => (
                       <SelectItem key={v.value} value={v.value}>{v.label}{'description' in v ? ` — ${v.description}` : ''}</SelectItem>
                     ))}
+                    <SelectItem value="custom">Personalizzata (ID manuale)</SelectItem>
                   </SelectContent>
                 </Select>
               </Row>
             )}
 
-            <Row label="Voice ID" hint="Identificativo esatto della voce inviato a VAPI.">
-              <Input value={tuning.voiceId} onChange={e => set('voiceId', e.target.value)} className="font-mono text-xs" />
-            </Row>
+            {(customVoice || !ttsOptions.voices) && (
+              <Row label="ID voce personalizzata" hint="Identificativo esatto della voce inviato a VAPI.">
+                <Input value={tuning.voiceId} onChange={e => set('voiceId', e.target.value)} className="font-mono text-xs" />
+              </Row>
+            )}
 
             <div className="space-y-2">
               <div className="flex justify-between">

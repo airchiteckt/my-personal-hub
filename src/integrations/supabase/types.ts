@@ -1702,6 +1702,7 @@ export type Database = {
           summary: string | null
           twilio_call_sid: string | null
           user_id: string
+          vapi_call_id: string | null
         }
         Insert: {
           created_at?: string
@@ -1716,6 +1717,7 @@ export type Database = {
           summary?: string | null
           twilio_call_sid?: string | null
           user_id: string
+          vapi_call_id?: string | null
         }
         Update: {
           created_at?: string
@@ -1730,6 +1732,7 @@ export type Database = {
           summary?: string | null
           twilio_call_sid?: string | null
           user_id?: string
+          vapi_call_id?: string | null
         }
         Relationships: [
           {

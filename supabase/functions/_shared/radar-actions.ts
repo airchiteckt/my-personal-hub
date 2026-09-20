@@ -415,8 +415,9 @@ export async function executeAction(
       if (!minutes || minutes <= 0) return { error: "Indica quanto tempo (in minuti o ore)" };
       const isUuid = (v: any) => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(v);
       const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const fuzzy = (rows: any[], q: string, field = "name") => {
+      const fuzzy = (rows: any[], q: string, field = "name", strict = false) => {
         const words = norm(q).split(/\s+/).filter(w => w.length > 2);
+        if (!words.length) return null;
         let best: any = null, bestScore = 0;
         for (const r of rows) {
           const t = norm(r[field] ?? "");
@@ -424,7 +425,9 @@ export async function executeAction(
           if (t === norm(q)) score += 5;
           if (score > bestScore) { bestScore = score; best = r; }
         }
-        return bestScore > 0 ? best : null;
+        // per le attività servono quasi tutte le parole: evita agganci casuali
+        const needed = strict ? Math.max(2, Math.ceil(words.length * 0.7)) : 1;
+        return bestScore >= needed ? best : null;
       };
 
       let taskId: string | null = isUuid(a.task_id) ? a.task_id : null;
@@ -438,8 +441,9 @@ export async function executeAction(
 
       if (!taskId && taskQuery) {
         const { data: tasks } = await admin.from("tasks")
-          .select("id,title,project_id,enterprise_id").eq("user_id", userId).limit(500);
-        const hit = fuzzy(tasks ?? [], taskQuery, "title");
+          .select("id,title,project_id,enterprise_id,created_at").eq("user_id", userId)
+          .order("created_at", { ascending: false }).limit(500);
+        const hit = fuzzy(tasks ?? [], taskQuery, "title", true);
         if (hit) { taskId = hit.id; projectId = projectId ?? hit.project_id; enterpriseId = enterpriseId ?? hit.enterprise_id; }
       }
       if (taskId && !projectId) {
@@ -472,6 +476,26 @@ export async function executeAction(
       const day = a.entry_date ?? romeNow().date;
       const ended = new Date(`${day}T${a.end_time ?? "18:00"}:00+02:00`);
       const started = new Date(ended.getTime() - minutes * 60000);
+      const startHHMM = `${String(started.getUTCHours() + 2).padStart(2, "0")}:${String(started.getUTCMinutes()).padStart(2, "0")}`;
+
+      // Se l'attività non esiste ancora, la creo già completata: il lavoro svolto
+      // deve comparire in agenda come attività fatta, non solo come tempo registrato.
+      let createdTask = false;
+      if (!taskId && taskQuery) {
+        const { data: newTask, error: tErr } = await admin.from("tasks").insert({
+          user_id: userId, enterprise_id: enterpriseId, project_id: projectId,
+          title: taskQuery, estimated_minutes: minutes, priority: "medium",
+          status: "done", scheduled_date: day, scheduled_time: startHHMM,
+          completed_at: ended.toISOString(),
+        }).select("id").single();
+        if (tErr) throw tErr;
+        taskId = newTask.id; createdTask = true;
+      } else if (taskId) {
+        await admin.from("tasks")
+          .update({ status: "done", completed_at: ended.toISOString(), scheduled_date: day, scheduled_time: startHHMM })
+          .eq("id", taskId).eq("user_id", userId);
+      }
+
       const { data, error } = await admin.from("time_entries").insert({
         user_id: userId, task_id: taskId, project_id: projectId, enterprise_id: enterpriseId,
         description: a.description ?? null,
@@ -479,7 +503,7 @@ export async function executeAction(
         duration_minutes: minutes,
       }).select("id").single();
       if (error) throw error;
-      return { table: "time_entries", id: data.id };
+      return { table: "time_entries", id: data.id, task_id: taskId, created_task: createdTask };
     }
     if (name === "save_journal_entry") {
       const day = a.entry_date ?? romeNow().date;

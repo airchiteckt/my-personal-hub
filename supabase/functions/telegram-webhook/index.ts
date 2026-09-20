@@ -40,6 +40,49 @@ async function tg(method: string, body: Record<string, unknown>) {
 const send = (chatId: number, text: string, extra: Record<string, unknown> = {}) =>
   tg("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", ...extra });
 
+// scarica una nota vocale da Telegram
+async function downloadVoice(fileId: string): Promise<Uint8Array | null> {
+  const info = await tg("getFile", { file_id: fileId });
+  const path = info?.result?.file_path;
+  if (!path) return null;
+  const res = await fetch(`${GATEWAY_URL}/file/${path}`, {
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "X-Connection-Api-Key": TELEGRAM_API_KEY!,
+    },
+  });
+  if (!res.ok) {
+    console.error("Telegram file download failed", res.status, await res.text());
+    return null;
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+// trascrive la nota vocale (OpenAI Whisper)
+async function transcribe(bytes: Uint8Array, mime: string): Promise<string | null> {
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) {
+    console.error("OPENAI_API_KEY mancante: impossibile trascrivere");
+    return null;
+  }
+  const ext = mime.includes("mpeg") ? "mp3" : mime.includes("mp4") || mime.includes("m4a") ? "m4a" : "ogg";
+  const form = new FormData();
+  form.append("file", new Blob([bytes], { type: mime }), `voice.${ext}`);
+  form.append("model", "whisper-1");
+  form.append("language", "it");
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("Trascrizione fallita", res.status, JSON.stringify(json));
+    return null;
+  }
+  return (json?.text ?? "").trim() || null;
+}
+
 
 
 // ---------- tools ----------

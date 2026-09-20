@@ -39,6 +39,12 @@ export interface VapiTuning {
   firstMessageInterruptionsEnabled: boolean;
   smartDenoisingEnabled: boolean;
   recordingEnabled: boolean;
+  firstMessageMode: string;
+  endCallMessage: string;
+  endCallPhrases: string;
+  voicemailMessage: string;
+  transcriptEnabled: boolean;
+  modelOutputInMessagesEnabled: boolean;
 }
 
 export const DEFAULT_VAPI_TUNING: VapiTuning = {
@@ -78,6 +84,12 @@ export const DEFAULT_VAPI_TUNING: VapiTuning = {
   firstMessageInterruptionsEnabled: true,
   smartDenoisingEnabled: false,
   recordingEnabled: true,
+  firstMessageMode: "assistant-speaks-first",
+  endCallMessage: "Va bene, a dopo!",
+  endCallPhrases: "arrivederci, a dopo, ciao ciao, chiudiamo qui",
+  voicemailMessage: "",
+  transcriptEnabled: true,
+  modelOutputInMessagesEnabled: true,
 };
 
 export function mergeTuning(raw: unknown): VapiTuning {

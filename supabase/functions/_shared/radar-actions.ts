@@ -174,6 +174,23 @@ export async function executeAction(
       if (error) throw error;
       return { table: "projects", id: data.id };
     }
+    if (name === "move_appointment") {
+      const patch: Record<string, any> = {};
+      if (a.date) patch.date = a.date;
+      if (a.start_time) patch.start_time = a.start_time;
+      if (a.end_time) patch.end_time = a.end_time;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("appointments").update(patch)
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
+    if (name === "cancel_appointment") {
+      const { error } = await admin.from("appointments").delete()
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
     if (name === "create_enterprise") {
       const { data, error } = await admin.from("enterprises").insert({
         user_id: userId,

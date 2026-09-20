@@ -410,6 +410,37 @@ export async function executeAction(
       if (error) throw error;
       return { table: "rituals", id: a.ritual_id };
     }
+    if (name === "log_time") {
+      const minutes = Math.round(Number(a.minutes ?? (a.hours ? Number(a.hours) * 60 : 0)));
+      if (!minutes || minutes <= 0) return { error: "Indica quanto tempo (in minuti o ore)" };
+      let taskId: string | null = a.task_id ?? null;
+      let projectId: string | null = a.project_id ?? null;
+      let enterpriseId: string | null = a.enterprise_id ?? null;
+      if (taskId) {
+        const { data: t } = await admin.from("tasks")
+          .select("project_id,enterprise_id").eq("id", taskId).eq("user_id", userId).maybeSingle();
+        if (!t) return { error: "Attività non trovata" };
+        projectId = t.project_id; enterpriseId = t.enterprise_id;
+      }
+      if (!projectId) return { error: "Serve sapere su quale attività o progetto imputare il tempo" };
+      if (!enterpriseId) {
+        const { data: p } = await admin.from("projects")
+          .select("enterprise_id").eq("id", projectId).maybeSingle();
+        enterpriseId = p?.enterprise_id ?? null;
+      }
+      if (!enterpriseId) return { error: "Progetto non valido" };
+      const day = a.entry_date ?? romeNow().date;
+      const ended = new Date(`${day}T${a.end_time ?? "18:00"}:00+02:00`);
+      const started = new Date(ended.getTime() - minutes * 60000);
+      const { data, error } = await admin.from("time_entries").insert({
+        user_id: userId, task_id: taskId, project_id: projectId, enterprise_id: enterpriseId,
+        description: a.description ?? null,
+        started_at: started.toISOString(), ended_at: ended.toISOString(),
+        duration_minutes: minutes,
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "time_entries", id: data.id };
+    }
     if (name === "save_journal_entry") {
       const day = a.entry_date ?? romeNow().date;
       const { data: existing } = await admin.from("journal_entries")
@@ -771,6 +802,21 @@ export async function queryRadar(
       return lines.join("\n");
     }
 
+    if (name === "list_time_entries") {
+      const day = a.date || now.date;
+      const { data } = await admin.from("time_entries")
+        .select("id,description,duration_minutes,started_at,task_id,project_id")
+        .eq("user_id", userId)
+        .gte("started_at", `${day}T00:00:00+02:00`)
+        .lte("started_at", `${day}T23:59:59+02:00`)
+        .limit(100);
+      if (!data?.length) return `Nessun tempo registrato il ${day}.`;
+      const total = data.reduce((s: number, e: any) => s + (e.duration_minutes ?? 0), 0);
+      const lines = [`Tempo registrato il ${day}: ${Math.round(total / 60 * 10) / 10} ore in tutto.`];
+      for (const e of data) lines.push(`${e.duration_minutes} min${e.description ? ` — ${e.description}` : ""} (id ${e.id})`);
+      return lines.join("\n");
+    }
+
     if (name === "get_journal") {
       const day = a.entry_date || now.date;
       const { data } = await admin.from("journal_entries")
@@ -789,6 +835,7 @@ export async function queryRadar(
 export const RADAR_QUERY_TOOLS = new Set([
   "get_day_overview", "get_agenda", "list_tasks", "list_projects",
   "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal", "list_rituals",
+  "list_time_entries",
 ]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------
@@ -1034,6 +1081,16 @@ export const RADAR_TOOL_DEFS = [
     name: "skip_ritual",
     description: "Segna un rituale come saltato in un giorno",
     parameters: { type: "object", properties: { ritual_id: { type: "string" }, completed_date: { type: "string" }, notes: { type: "string" } }, required: ["ritual_id"] },
+  },
+  {
+    name: "log_time",
+    description: "Registra tempo lavorato (time tracking) su un'attività o un progetto. NON è il diario.",
+    parameters: { type: "object", properties: { task_id: { type: "string" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_time_entries",
+    description: "Legge il tempo registrato in un giorno (time tracking)",
+    parameters: { type: "object", properties: { date: { type: "string" } }, required: [] },
   },
   {
     name: "create_ritual",

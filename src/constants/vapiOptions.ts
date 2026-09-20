@@ -269,18 +269,15 @@ export const OPENAI_TTS_MODELS = [
 ] as const;
 
 // OpenAI TTS Voices
+// Nota: ash, ballad, coral, sage e verse sono utilizzabili solo con i modelli
+// realtime/GPT-Live, quindi non sono selezionabili per le chiamate di Radar.
 export const OPENAI_TTS_VOICES = [
   { value: "alloy", label: "Alloy", description: "Neutro, bilanciato" },
-  { value: "ash", label: "Ash", description: "Maschile, espressivo" },
-  { value: "ballad", label: "Ballad", description: "Maschile, melodico" },
-  { value: "coral", label: "Coral", description: "Femminile, calda" },
   { value: "echo", label: "Echo", description: "Maschile, profondo" },
   { value: "fable", label: "Fable", description: "Narratore britannico" },
   { value: "onyx", label: "Onyx", description: "Maschile, autorevole" },
   { value: "nova", label: "Nova", description: "Femminile, energica" },
-  { value: "sage", label: "Sage", description: "Femminile, calma" },
   { value: "shimmer", label: "Shimmer", description: "Femminile, brillante" },
-  { value: "verse", label: "Verse", description: "Maschile, poetico" },
 ] as const;
 
 // Azure TTS Voices (Italiano + multilingua principali)

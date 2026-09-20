@@ -51,7 +51,6 @@ async function getVerifyServiceSid(admin: ReturnType<typeof createClient>) {
     const created = await twilio("/verify/v2/Services", "POST", {
       FriendlyName: SENDER_NAME,
       CodeLength: "6",
-availableForMerge: "",
     });
     sid = created?.sid;
   }

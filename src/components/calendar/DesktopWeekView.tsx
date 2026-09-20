@@ -180,12 +180,14 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
     return 1;
   };
 
-  // Auto-scroll to ~8am on mount
+  // Auto-scroll: keep the current time vertically centered (on mount and when zoom changes)
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = timeToSlot('08:00') * slotH;
-    }
-  }, []);
+    const el = scrollRef.current;
+    if (!el) return;
+    const now = new Date();
+    const nowY = timeToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) * slotH;
+    el.scrollTop = Math.max(0, nowY - el.clientHeight / 2);
+  }, [slotH]);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('text/plain', `task:${taskId}`);

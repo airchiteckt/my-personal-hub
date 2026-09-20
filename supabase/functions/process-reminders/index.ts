@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { romeNow } from "../_shared/radar-actions.ts";
+import { romeNow, queryRadar } from "../_shared/radar-actions.ts";
 
 // Cron ogni 5 minuti: per ogni promemoria scaduto e non chiuso:
 // 1) messaggio Telegram di Radar  2) email  3) se importante -> chiamata vocale VAPI
@@ -130,6 +130,10 @@ Deno.serve(async (req) => {
             .select("vapi_assistant_id,vapi_phone_number_id").limit(1).maybeSingle();
 
           if (profile?.phone_number && vs?.vapi_assistant_id && vs?.vapi_phone_number_id) {
+            const contextBrief = [
+              `IMPRESE:\n${await queryRadar(admin, r.user_id, "list_enterprises")}`,
+              `PROGETTI:\n${await queryRadar(admin, r.user_id, "list_projects")}`,
+            ].join("\n\n").slice(0, 3000);
             const res = await fetch("https://api.vapi.ai/call/phone", {
               method: "POST",
               headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
@@ -144,6 +148,7 @@ Deno.serve(async (req) => {
                     user_id: r.user_id,
                     reminder_id: r.id,
                     now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
+                    context_brief: contextBrief,
                     day_summary: `Promemoria importante in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
                   },
                   firstMessage: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria importante: ${r.title}. Sei riuscito a gestirlo?`,

@@ -545,7 +545,7 @@ export async function buildVoiceDaySummary(admin: any, userId: string): Promise<
     `\nAGENDA PROSSIMI 7 GIORNI (con id):\n${agenda}`,
     `\nATTIVITÀ IN RITARDO:\n${overdue}`,
     `\nBACKLOG:\n${backlog}`,
-  ].join("\n").slice(0, 6000);
+  ].join("\n").slice(0, 12000);
 }
 
 export async function queryRadar(

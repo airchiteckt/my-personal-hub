@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
 
       const now = romeNow();
       const [daySummary, ents, projs, okr] = await Promise.all([
-        buildDaySummary(admin, profile.user_id),
+        buildVoiceDaySummary(admin, profile.user_id),
         queryRadar(admin, profile.user_id, "list_enterprises"),
         queryRadar(admin, profile.user_id, "list_projects"),
         queryRadar(admin, profile.user_id, "get_okr"),

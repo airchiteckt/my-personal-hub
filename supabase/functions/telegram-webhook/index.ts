@@ -433,6 +433,7 @@ ${JSON.stringify(ctx)}`;
         });
       }
     }
+    }
 
     const newHistory = [
       ...history,

@@ -117,15 +117,16 @@ export async function executeAction(
         }
         if (!enterpriseId) return { error: "Nessuna impresa disponibile: creane una prima di aggiungere attività." };
 
+        // progetto non riconosciuto: si usa "Altro" dell'impresa, mai un progetto a caso
         const { data: existing } = await admin.from("projects")
           .select("id").eq("user_id", userId).eq("enterprise_id", enterpriseId)
-          .eq("type", "operational").order("created_at", { ascending: true }).limit(1).maybeSingle();
+          .ilike("name", "Altro").maybeSingle();
         if (existing) projectId = existing.id;
         else {
           const { data: created, error: pErr } = await admin.from("projects").insert({
             user_id: userId,
             enterprise_id: enterpriseId,
-            name: "Attività varie",
+            name: "Altro",
             type: "operational",
           }).select("id").single();
           if (pErr) throw pErr;

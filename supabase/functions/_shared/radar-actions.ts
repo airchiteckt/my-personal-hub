@@ -174,6 +174,23 @@ export async function executeAction(
       if (error) throw error;
       return { table: "projects", id: data.id };
     }
+    if (name === "move_appointment") {
+      const patch: Record<string, any> = {};
+      if (a.date) patch.date = a.date;
+      if (a.start_time) patch.start_time = a.start_time;
+      if (a.end_time) patch.end_time = a.end_time;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("appointments").update(patch)
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
+    if (name === "cancel_appointment") {
+      const { error } = await admin.from("appointments").delete()
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
     if (name === "create_enterprise") {
       const { data, error } = await admin.from("enterprises").insert({
         user_id: userId,
@@ -240,6 +257,130 @@ export async function buildDaySummary(admin: any, userId: string): Promise<strin
   parts.push(`In backlog ci sono ${backlog} attività.`);
   return parts.join("\n");
 }
+
+// ---------- interrogazione dati (risposte brevi, adatte alla voce) ----------
+
+function addDays(dateStr: string, n: number) {
+  const d = new Date(`${dateStr}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function queryRadar(
+  admin: any, userId: string, name: string, a: Record<string, any> = {},
+): Promise<string> {
+  const now = romeNow();
+  try {
+    if (name === "get_day_overview") return await buildDaySummary(admin, userId);
+
+    if (name === "get_agenda") {
+      const from = a.date || now.date;
+      const to = a.to_date || from;
+      const [{ data: appts }, { data: tasks }, { data: rem }] = await Promise.all([
+        admin.from("appointments").select("id,title,date,start_time,end_time")
+          .eq("user_id", userId).gte("date", from).lte("date", to).order("date"),
+        admin.from("tasks").select("id,title,scheduled_date,scheduled_time,estimated_minutes")
+          .eq("user_id", userId).neq("status", "done")
+          .gte("scheduled_date", from).lte("scheduled_date", to).order("scheduled_date"),
+        admin.from("reminders").select("id,title,reminder_date,reminder_time,is_urgent")
+          .eq("user_id", userId).eq("is_dismissed", false)
+          .gte("reminder_date", from).lte("reminder_date", to),
+      ]);
+      const lines: string[] = [`Agenda dal ${from} al ${to}:`];
+      for (const x of appts ?? []) lines.push(`Appuntamento ${x.date} ${x.start_time}-${x.end_time}: ${x.title} (id ${x.id})`);
+      for (const x of tasks ?? []) lines.push(`Attività ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (${x.estimated_minutes} min, id ${x.id})`);
+      for (const x of rem ?? []) lines.push(`Promemoria ${x.reminder_date} ${x.reminder_time ?? ""}: ${x.title}${x.is_urgent ? " (importante)" : ""} (id ${x.id})`);
+      return lines.length > 1 ? lines.join("\n") : "Niente in agenda in questo periodo.";
+    }
+
+    if (name === "list_tasks") {
+      const scope: string = a.scope || "today";
+      let q = admin.from("tasks")
+        .select("id,title,status,priority,scheduled_date,scheduled_time,estimated_minutes,deadline,enterprise_id,project_id")
+        .eq("user_id", userId).neq("status", "done").limit(30);
+      if (scope === "today") q = q.eq("scheduled_date", now.date);
+      else if (scope === "week") q = q.gte("scheduled_date", now.date).lte("scheduled_date", addDays(now.date, 7));
+      else if (scope === "backlog") q = q.eq("status", "backlog");
+      else if (scope === "overdue") q = q.lt("scheduled_date", now.date);
+      if (a.search) q = q.ilike("title", `%${a.search}%`);
+      const { data } = await q;
+      if (!data?.length) return "Nessuna attività trovata con questi criteri.";
+      return data.map((t: any) =>
+        `${t.title} — ${t.status}${t.scheduled_date ? `, ${t.scheduled_date}${t.scheduled_time ? " " + t.scheduled_time : ""}` : ""}, priorità ${t.priority}, ${t.estimated_minutes} min (id ${t.id})`
+      ).join("\n");
+    }
+
+    if (name === "list_projects") {
+      const [{ data: projects }, { data: ent }] = await Promise.all([
+        admin.from("projects").select("id,name,type,enterprise_id").eq("user_id", userId).limit(60),
+        admin.from("enterprises").select("id,name").eq("user_id", userId),
+      ]);
+      const byId = new Map((ent ?? []).map((e: any) => [e.id, e.name]));
+      let rows = projects ?? [];
+      if (a.enterprise_name) {
+        const needle = String(a.enterprise_name).toLowerCase();
+        rows = rows.filter((p: any) => String(byId.get(p.enterprise_id) ?? "").toLowerCase().includes(needle));
+      }
+      if (!rows.length) return "Nessun progetto trovato.";
+      return rows.map((p: any) => `${p.name} (${p.type}) — impresa ${byId.get(p.enterprise_id) ?? "?"} (id ${p.id})`).join("\n");
+    }
+
+    if (name === "list_enterprises") {
+      const { data } = await admin.from("enterprises")
+        .select("id,name,status,is_personal").eq("user_id", userId);
+      if (!data?.length) return "Nessuna impresa.";
+      return data.map((e: any) => `${e.name} (${e.status}${e.is_personal ? ", personale" : ""}, id ${e.id})`).join("\n");
+    }
+
+    if (name === "get_okr") {
+      const [{ data: focus }, { data: objs }, { data: krs }, { data: ent }] = await Promise.all([
+        admin.from("focus_periods").select("id,name,enterprise_id,start_date,end_date").eq("user_id", userId).eq("status", "active"),
+        admin.from("objectives").select("id,title,focus_period_id").eq("user_id", userId).eq("status", "active"),
+        admin.from("key_results").select("id,title,objective_id,current_value,target_value").eq("user_id", userId),
+        admin.from("enterprises").select("id,name").eq("user_id", userId),
+      ]);
+      if (!focus?.length) return "Nessun focus period attivo.";
+      const entName = new Map((ent ?? []).map((e: any) => [e.id, e.name]));
+      const lines: string[] = [];
+      for (const f of focus) {
+        lines.push(`Focus "${f.name}" — ${entName.get(f.enterprise_id) ?? "?"} (fino al ${f.end_date})`);
+        for (const o of (objs ?? []).filter((o: any) => o.focus_period_id === f.id)) {
+          lines.push(`  Obiettivo: ${o.title}`);
+          for (const k of (krs ?? []).filter((k: any) => k.objective_id === o.id)) {
+            const pct = k.target_value ? Math.round((Number(k.current_value) / Number(k.target_value)) * 100) : 0;
+            lines.push(`    Key result: ${k.title} — ${k.current_value} su ${k.target_value} (${pct}%)`);
+          }
+        }
+      }
+      return lines.join("\n");
+    }
+
+    if (name === "find_item") {
+      const term = String(a.query ?? "").trim();
+      if (!term) return "Indica cosa cercare.";
+      const [{ data: tasks }, { data: appts }, { data: rem }] = await Promise.all([
+        admin.from("tasks").select("id,title,scheduled_date,status").eq("user_id", userId).ilike("title", `%${term}%`).limit(10),
+        admin.from("appointments").select("id,title,date,start_time").eq("user_id", userId).ilike("title", `%${term}%`).limit(10),
+        admin.from("reminders").select("id,title,reminder_date").eq("user_id", userId).eq("is_dismissed", false).ilike("title", `%${term}%`).limit(10),
+      ]);
+      const lines: string[] = [];
+      for (const t of tasks ?? []) lines.push(`Attività: ${t.title} (${t.status}${t.scheduled_date ? ", " + t.scheduled_date : ""}, id ${t.id})`);
+      for (const x of appts ?? []) lines.push(`Appuntamento: ${x.title} (${x.date} ${x.start_time}, id ${x.id})`);
+      for (const x of rem ?? []) lines.push(`Promemoria: ${x.title} (${x.reminder_date}, id ${x.id})`);
+      return lines.length ? lines.join("\n") : `Nessun risultato per "${term}".`;
+    }
+
+    return `Interrogazione sconosciuta: ${name}`;
+  } catch (e: any) {
+    console.error("queryRadar error", name, e?.message ?? e);
+    return "Non riesco a leggere i dati in questo momento.";
+  }
+}
+
+export const RADAR_QUERY_TOOLS = new Set([
+  "get_day_overview", "get_agenda", "list_tasks", "list_projects",
+  "list_enterprises", "get_okr", "find_item",
+]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------
 
@@ -339,5 +480,45 @@ export const RADAR_TOOL_DEFS = [
     name: "get_day_overview",
     description: "Restituisce il riepilogo aggiornato della giornata dell'utente (appuntamenti, attività, promemoria, backlog)",
     parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_agenda",
+    description: "Agenda (appuntamenti, attività pianificate, promemoria) per una data o un intervallo di date",
+    parameters: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD" }, to_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
+  },
+  {
+    name: "list_tasks",
+    description: "Elenca le attività: scope today|week|backlog|overdue, opzionale search per titolo. Restituisce anche gli id.",
+    parameters: { type: "object", properties: { scope: { type: "string", enum: ["today", "week", "backlog", "overdue"] }, search: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_projects",
+    description: "Elenca i progetti con impresa e id, opzionalmente filtrati per nome impresa",
+    parameters: { type: "object", properties: { enterprise_name: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_enterprises",
+    description: "Elenca le imprese dell'utente con i relativi id",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_okr",
+    description: "Focus period attivi con obiettivi e key result e relativo avanzamento",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "find_item",
+    description: "Cerca per titolo tra attività, appuntamenti e promemoria e restituisce gli id, da usare prima di modificare qualcosa",
+    parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+  },
+  {
+    name: "move_appointment",
+    description: "Sposta un appuntamento esistente a nuova data e/o orario",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD" }, start_time: { type: "string", description: "HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "cancel_appointment",
+    description: "Elimina un appuntamento esistente",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
   },
 ];

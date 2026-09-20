@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { executeAction, buildDaySummary, romeNow } from "../_shared/radar-actions.ts";
+import { executeAction, buildDaySummary, romeNow, queryRadar, RADAR_QUERY_TOOLS, RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
 
 // Server URL dell'assistente VAPI "Radar FlyDeck".
 // Gestisce: assistant-request (instradamento chiamate in entrata con riconoscimento
@@ -11,10 +11,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-vapi-secret",
 };
 
-const ALLOWED = new Set([
-  "create_appointment", "create_reminder", "dismiss_reminder", "postpone_reminder",
-  "create_task", "schedule_task", "complete_task", "get_day_overview",
-]);
+const ALLOWED = new Set(RADAR_TOOL_DEFS.map((t) => t.name));
 
 const LABELS: Record<string, string> = {
   create_appointment: "Appuntamento creato",
@@ -24,6 +21,8 @@ const LABELS: Record<string, string> = {
   create_task: "Attività creata",
   schedule_task: "Attività pianificata",
   complete_task: "Attività completata",
+  move_appointment: "Appuntamento spostato",
+  cancel_appointment: "Appuntamento eliminato",
 };
 
 function normalizePhone(p?: string | null): string {
@@ -98,8 +97,8 @@ Deno.serve(async (req) => {
           continue;
         }
         try {
-          if (name === "get_day_overview") {
-            results.push({ toolCallId, result: await buildDaySummary(admin, userId) });
+          if (RADAR_QUERY_TOOLS.has(name)) {
+            results.push({ toolCallId, result: await queryRadar(admin, userId, name, args) });
             continue;
           }
           const res = await executeAction(admin, userId, name, args);
@@ -140,7 +139,13 @@ Deno.serve(async (req) => {
       }
 
       const now = romeNow();
-      const daySummary = await buildDaySummary(admin, profile.user_id);
+      const [daySummary, ents, projs, okr] = await Promise.all([
+        buildDaySummary(admin, profile.user_id),
+        queryRadar(admin, profile.user_id, "list_enterprises"),
+        queryRadar(admin, profile.user_id, "list_projects"),
+        queryRadar(admin, profile.user_id, "get_okr"),
+      ]);
+      const contextBrief = [`IMPRESE:\n${ents}`, `PROGETTI:\n${projs}`, `FOCUS ATTIVI:\n${okr}`].join("\n\n").slice(0, 4000);
       const firstName = (profile.display_name ?? "").split(" ")[0] || "";
 
       if (call.id) {
@@ -162,8 +167,9 @@ Deno.serve(async (req) => {
             user_id: profile.user_id,
             now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
             day_summary: daySummary,
+            context_brief: contextBrief,
           },
-          firstMessage: `Ciao${firstName ? " " + firstName : ""}, sono Radar. Dimmi pure: posso aggiornarti sulla giornata, aggiungere attività, appuntamenti o promemoria.`,
+          firstMessage: `Ciao${firstName ? " " + firstName : ""}, sono Radar. Dimmi pure.`,
         },
       });
     }

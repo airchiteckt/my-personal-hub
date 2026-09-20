@@ -154,7 +154,23 @@ Deno.serve(async (req) => {
     const results: any[] = [];
     for (const link of links ?? []) {
       try {
-        const ctx = await buildDayContext(admin, link.user_id, now.date);
+        const ctx: any = await buildDayContext(admin, link.user_id, now.date);
+
+        // Giorni non lavorativi: solo ciò che l'utente ha messo in agenda.
+        const { data: ps } = await admin.from("priority_settings")
+          .select("work_days").eq("user_id", link.user_id).maybeSingle();
+        const workDays: number[] = Array.isArray(ps?.work_days) && ps.work_days.length ? ps.work_days : [1, 2, 3, 4, 5];
+        const dowNum = new Date(`${now.date}T12:00:00Z`).getUTCDay();
+        const isWorkDay = workDays.includes(dowNum);
+
+        if (!isWorkDay) {
+          const hasPlans = (ctx.appuntamenti?.length ?? 0) + (ctx.task_pianificate?.length ?? 0)
+            + (ctx.promemoria?.length ?? 0) + (ctx.eventi_google?.length ?? 0) > 0;
+          if (!hasPlans) { results.push({ chat_id: link.chat_id, skipped: "giorno non lavorativo, nulla in agenda" }); continue; }
+          ctx.backlog_prioritario = [];
+          ctx.nota = "Giorno non lavorativo: elenca SOLO appuntamenti, eventi, promemoria e attività già pianificati. Niente considerazioni sul carico, sul tempo libero, sul backlog o sulle scadenze.";
+        }
+
         const text = await buildBriefing(ctx, now);
         if (!text) { results.push({ chat_id: link.chat_id, skipped: "empty briefing" }); continue; }
         await tg("sendMessage", { chat_id: link.chat_id, text, parse_mode: "HTML" });

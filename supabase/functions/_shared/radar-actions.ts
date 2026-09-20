@@ -1125,7 +1125,7 @@ export const RADAR_TOOL_DEFS = [
   {
     name: "log_time",
     description: "Registra tempo lavorato (time tracking) su un'attività o un progetto. NON è il diario.",
-    parameters: { type: "object", properties: { task_id: { type: "string" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
+    parameters: { type: "object", properties: { task_id: { type: "string" }, task_name: { type: "string", description: "Nome dell'attività detto dall'utente, se non hai l'id" }, project_id: { type: "string" }, project_name: { type: "string", description: "Nome del progetto detto dall'utente, se non hai l'id" }, enterprise_id: { type: "string" }, enterprise_name: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
   },
   {
     name: "list_time_entries",

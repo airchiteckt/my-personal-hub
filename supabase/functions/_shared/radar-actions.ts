@@ -545,7 +545,7 @@ export async function buildVoiceDaySummary(admin: any, userId: string): Promise<
     `\nAGENDA PROSSIMI 7 GIORNI (con id):\n${agenda}`,
     `\nATTIVITÀ IN RITARDO:\n${overdue}`,
     `\nBACKLOG:\n${backlog}`,
-  ].join("\n").slice(0, 6000);
+  ].join("\n").slice(0, 12000);
 }
 
 export async function queryRadar(
@@ -560,19 +560,36 @@ export async function queryRadar(
       const to = a.to_date || from;
       const [{ data: appts }, { data: tasks }, { data: rem }] = await Promise.all([
         admin.from("appointments").select("id,title,date,start_time,end_time")
-          .eq("user_id", userId).gte("date", from).lte("date", to).order("date"),
-        admin.from("tasks").select("id,title,scheduled_date,scheduled_time,estimated_minutes")
-          .eq("user_id", userId).neq("status", "done")
-          .gte("scheduled_date", from).lte("scheduled_date", to).order("scheduled_date"),
-        admin.from("reminders").select("id,title,reminder_date,reminder_time,is_urgent")
-          .eq("user_id", userId).eq("is_dismissed", false)
-          .gte("reminder_date", from).lte("reminder_date", to),
+          .eq("user_id", userId).gte("date", from).lte("date", to)
+          .order("date").order("start_time").limit(200),
+        admin.from("tasks").select("id,title,status,scheduled_date,scheduled_time,estimated_minutes")
+          .eq("user_id", userId)
+          .gte("scheduled_date", from).lte("scheduled_date", to)
+          .order("scheduled_date").order("scheduled_time").limit(200),
+        admin.from("reminders").select("id,title,reminder_date,reminder_time,is_urgent,is_dismissed")
+          .eq("user_id", userId)
+          .gte("reminder_date", from).lte("reminder_date", to)
+          .order("reminder_date").order("reminder_time").limit(200),
       ]);
-      const lines: string[] = [`Agenda dal ${from} al ${to}:`];
-      for (const x of appts ?? []) lines.push(`Appuntamento ${x.date} ${x.start_time}-${x.end_time}: ${x.title} (id ${x.id})`);
-      for (const x of tasks ?? []) lines.push(`Attività ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (${x.estimated_minutes} min, id ${x.id})`);
-      for (const x of rem ?? []) lines.push(`Promemoria ${x.reminder_date} ${x.reminder_time ?? ""}: ${x.title}${x.is_urgent ? " (importante)" : ""} (id ${x.id})`);
-      return lines.length > 1 ? lines.join("\n") : "Niente in agenda in questo periodo.";
+      const apptRows = appts ?? [];
+      const taskRows = (tasks ?? []).filter((t: any) => t.status !== "done");
+      const doneRows = (tasks ?? []).filter((t: any) => t.status === "done");
+      const remRows = (rem ?? []).filter((r: any) => !r.is_dismissed);
+      const remClosed = (rem ?? []).filter((r: any) => r.is_dismissed);
+      const lines: string[] = [
+        `Agenda dal ${from} al ${to}. TOTALI: ${apptRows.length} appuntamenti, ${taskRows.length} attività da fare, ${remRows.length} promemoria attivi` +
+        `${doneRows.length ? `, ${doneRows.length} attività già completate` : ""}` +
+        `${remClosed.length ? `, ${remClosed.length} promemoria già chiusi` : ""}.`,
+        "Elenca tutto senza omettere nulla.",
+      ];
+      for (const x of apptRows) lines.push(`Appuntamento ${x.date} ${x.start_time}-${x.end_time}: ${x.title} (id ${x.id})`);
+      for (const x of taskRows) lines.push(`Attività ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (${x.estimated_minutes} min, id ${x.id})`);
+      for (const x of doneRows) lines.push(`Attività già completata ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (id ${x.id})`);
+      for (const x of remRows) lines.push(`Promemoria ${x.reminder_date} ${x.reminder_time ?? ""}: ${x.title}${x.is_urgent ? " (importante)" : ""} (id ${x.id})`);
+      for (const x of remClosed) lines.push(`Promemoria già chiuso o trasformato in attività ${x.reminder_date} ${x.reminder_time ?? ""}: ${x.title} (id ${x.id})`);
+      return apptRows.length || taskRows.length || remRows.length || doneRows.length || remClosed.length
+        ? lines.join("\n")
+        : "Niente in agenda in questo periodo.";
     }
 
     if (name === "list_tasks") {

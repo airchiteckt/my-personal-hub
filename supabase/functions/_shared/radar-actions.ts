@@ -360,12 +360,19 @@ export async function executeAction(
       return { table: "key_results", id: a.key_result_id };
     }
     if (name === "save_journal_entry") {
-      const { data, error } = await admin.from("journal_entries").upsert({
-        user_id: userId,
-        entry_date: a.entry_date ?? romeNow().date,
-        content: a.content,
-        mood: a.mood ?? null,
-      }, { onConflict: "user_id,entry_date" }).select("id").single();
+      const day = a.entry_date ?? romeNow().date;
+      const { data: existing } = await admin.from("journal_entries")
+        .select("id").eq("user_id", userId).eq("entry_date", day).maybeSingle();
+      if (existing) {
+        const patch: Record<string, any> = { content: a.content };
+        if (a.mood) patch.mood = a.mood;
+        const { error } = await admin.from("journal_entries").update(patch).eq("id", existing.id);
+        if (error) throw error;
+        return { table: "journal_entries", id: existing.id };
+      }
+      const { data, error } = await admin.from("journal_entries").insert({
+        user_id: userId, entry_date: day, content: a.content, mood: a.mood ?? null,
+      }).select("id").single();
       if (error) throw error;
       return { table: "journal_entries", id: data.id };
     }

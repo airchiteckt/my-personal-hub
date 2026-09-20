@@ -76,6 +76,10 @@ export function VapiConfig() {
   };
 
   const apply = async () => {
+    if (!tuning.voiceId.trim()) {
+      toast.error('Scegli una voce (o inserisci un ID voce) prima di applicare la configurazione.');
+      return;
+    }
     setApplying(true);
     const { data, error } = await supabase.functions.invoke('vapi-assistant-setup', {
       body: { tuning, phone_number_id: phoneNumberId.trim() || undefined },

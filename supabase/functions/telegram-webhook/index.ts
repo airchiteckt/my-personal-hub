@@ -37,8 +37,20 @@ async function tg(method: string, body: Record<string, unknown>) {
   return json;
 }
 
+// rimuove id tecnici, caratteri non latini e residui di codice dalle risposte
+function cleanReply(text: string): string {
+  return text
+    .replace(/\s*\(?\s*(UUID|id)\s*:?\s*`?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`?\s*\)?/gi, "")
+    .replace(/`?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`?/gi, "")
+    .replace(/[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/\(\s*\)/g, "")
+    .trim();
+}
+
 const send = (chatId: number, text: string, extra: Record<string, unknown> = {}) =>
-  tg("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", ...extra });
+  tg("sendMessage", { chat_id: chatId, text: cleanReply(text), parse_mode: "HTML", ...extra });
 
 // scarica una nota vocale da Telegram
 async function downloadVoice(fileId: string): Promise<Uint8Array | null> {
@@ -411,6 +423,8 @@ REGOLE:
 - Non ripetere azioni già eseguite nella conversazione.
 - Quando l'utente chiede informazioni, rispondi con i dati del contesto.
 - DOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.) e non inventare URL.
+- NON mostrare MAI id, UUID, nomi di tool, codice o parentesi tecniche nella risposta. Parla come una persona: "Fatto, ho creato l'attività ... per domani alle 9".
+- Scrivi solo in italiano: niente caratteri cinesi/giapponesi o simboli strani all'inizio del messaggio.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

@@ -460,6 +460,8 @@ REGOLE:
 - Scrivi solo in italiano: niente caratteri cinesi/giapponesi o simboli strani all'inizio del messaggio.
 - Per eseguire un'azione usa SOLO la chiamata allo strumento. Non scrivere MAI nel testo blocchi tipo [azioni: create_task(...)] o parametri: il testo deve contenere solo la frase per l'utente.
 - Se l'utente chiede di trasformare un promemoria in attività, crea l'attività e chiudi il promemoria originale.
+- SEZIONI DISTINTE: "ho lavorato X ore", "ci ho messo due ore" = log_time (tempo sul lavoro, serve l'attività o il progetto), MAI il diario. "Oggi è andata così", umore, energia = save_journal_entry. "Fatto/completata" su una voce in agenda = complete_task o complete_ritual.
+- AMBIGUITÀ: se una frase può appartenere a due sezioni (tempo lavorato, diario, attività, rituale, promemoria, appuntamento) NON decidere da solo: chiedi in una riga quale intende e agisci solo dopo la risposta.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

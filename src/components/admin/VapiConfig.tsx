@@ -241,8 +241,18 @@ export function VapiConfig() {
         <TabsContent value="voice" className="mt-4">
           <Card className="p-5 space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Row label="Provider voce">
-                <Select value={tuning.voiceProvider} onValueChange={v => { setTuning(p => ({ ...p, voiceProvider: v })); setModified(true); }}>
+              <Row label="Provider voce" hint="Cambiando provider vengono impostate automaticamente una voce e un modello validi per quel provider.">
+                <Select
+                  value={tuning.voiceProvider}
+                  onValueChange={v => {
+                    const d = VOICE_PROVIDER_DEFAULTS[v] ?? { voiceId: '', voiceModel: '' };
+                    setTuning(p => ({ ...p, voiceProvider: v, voiceId: d.voiceId, voiceModel: d.voiceModel }));
+                    setModified(true);
+                    if (d.needsOwnKey) {
+                      toast.info('Questo fornitore richiede le tue credenziali collegate nell\'account VAPI, altrimenti la chiamata si interrompe.');
+                    }
+                  }}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     {VAPI_VOICE_PROVIDERS.map(p => (

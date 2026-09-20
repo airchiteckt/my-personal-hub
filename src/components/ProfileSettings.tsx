@@ -237,6 +237,19 @@ export function ProfileSettings() {
             <Label htmlFor="display-name">Nome visualizzato</Label>
             <Input id="display-name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Il tuo nome" />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone-number">Cellulare</Label>
+            <Input
+              id="phone-number"
+              type="tel"
+              value={phoneNumber}
+              onChange={e => setPhoneNumber(e.target.value)}
+              placeholder="+39 333 1234567"
+            />
+            <p className="text-xs text-muted-foreground">
+              Serve per chiamare Radar e per ricevere le chiamate dei promemoria urgenti. Radar ti riconosce da questo numero.
+            </p>
+          </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">
             {loading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
             Salva Profilo

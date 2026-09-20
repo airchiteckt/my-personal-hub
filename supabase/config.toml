@@ -28,6 +28,18 @@ verify_jwt = false
 [functions.send-daily-events-digest]
 verify_jwt = false
 
+[functions.process-reminders]
+verify_jwt = false
+
+[functions.elevenlabs-voice-webhook]
+verify_jwt = false
+
+[functions.elevenlabs-agent-tools]
+verify_jwt = false
+
+[functions.voice-agent-setup]
+verify_jwt = true
+
 [functions.google-appointments-push]
 verify_jwt = true
 

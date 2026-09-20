@@ -911,6 +911,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          phone_number: string | null
           public_slug: string | null
           showcase_enabled: boolean
           showcase_password: string | null
@@ -922,6 +923,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone_number?: string | null
           public_slug?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null
@@ -933,6 +935,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          phone_number?: string | null
           public_slug?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null
@@ -1090,6 +1093,7 @@ export type Database = {
       }
       reminders: {
         Row: {
+          call_status: string | null
           color: string | null
           created_at: string
           description: string | null
@@ -1097,6 +1101,7 @@ export type Database = {
           id: string
           is_dismissed: boolean
           is_follow_up: boolean
+          is_urgent: boolean
           reminder_date: string
           reminder_time: string | null
           task_id: string | null
@@ -1104,6 +1109,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          call_status?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -1111,6 +1117,7 @@ export type Database = {
           id?: string
           is_dismissed?: boolean
           is_follow_up?: boolean
+          is_urgent?: boolean
           reminder_date: string
           reminder_time?: string | null
           task_id?: string | null
@@ -1118,6 +1125,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          call_status?: string | null
           color?: string | null
           created_at?: string
           description?: string | null
@@ -1125,6 +1133,7 @@ export type Database = {
           id?: string
           is_dismissed?: boolean
           is_follow_up?: boolean
+          is_urgent?: boolean
           reminder_date?: string
           reminder_time?: string | null
           task_id?: string | null
@@ -1663,6 +1672,59 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      voice_calls: {
+        Row: {
+          created_at: string
+          direction: string
+          elevenlabs_conversation_id: string | null
+          ended_at: string | null
+          id: string
+          phone_number: string | null
+          reminder_id: string | null
+          started_at: string
+          status: string
+          summary: string | null
+          twilio_call_sid: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction: string
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          id?: string
+          phone_number?: string | null
+          reminder_id?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          twilio_call_sid?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string
+          elevenlabs_conversation_id?: string | null
+          ended_at?: string | null
+          id?: string
+          phone_number?: string | null
+          reminder_id?: string | null
+          started_at?: string
+          status?: string
+          summary?: string | null
+          twilio_call_sid?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voice_calls_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "reminders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       wizard_conversations: {
         Row: {

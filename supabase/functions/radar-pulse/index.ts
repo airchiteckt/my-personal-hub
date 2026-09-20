@@ -125,9 +125,15 @@ async function evaluate(admin: any, userId: string, prefs: any, now: ReturnType<
   const today = now.date;
 
   const { data: ps } = await admin.from("priority_settings")
-    .select("work_start_time,work_end_time").eq("user_id", userId).maybeSingle();
+    .select("work_start_time,work_end_time,work_days").eq("user_id", userId).maybeSingle();
   const workStart = toMin(ps?.work_start_time) ?? 9 * 60;
   const workEnd = toMin(ps?.work_end_time) ?? 19 * 60;
+
+  // Giorni lavorativi (default lun-ven). Fuori da questi giorni Radar sta in
+  // "modalità riposo": ricorda solo ciò che l'utente ha messo in agenda.
+  const workDays: number[] = Array.isArray(ps?.work_days) && ps!.work_days.length ? ps!.work_days : [1, 2, 3, 4, 5];
+  const dowNum = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(now.dow);
+  const isWorkDay = workDays.includes(dowNum);
 
   const [tasksRes, apptsRes, extRes] = await Promise.all([
     admin.from("tasks").select("id,title,scheduled_time,estimated_minutes,priority,deadline,status,scheduled_date,postpone_count")

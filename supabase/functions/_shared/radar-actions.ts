@@ -481,4 +481,44 @@ export const RADAR_TOOL_DEFS = [
     description: "Restituisce il riepilogo aggiornato della giornata dell'utente (appuntamenti, attività, promemoria, backlog)",
     parameters: { type: "object", properties: {}, required: [] },
   },
+  {
+    name: "get_agenda",
+    description: "Agenda (appuntamenti, attività pianificate, promemoria) per una data o un intervallo di date",
+    parameters: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD" }, to_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
+  },
+  {
+    name: "list_tasks",
+    description: "Elenca le attività: scope today|week|backlog|overdue, opzionale search per titolo. Restituisce anche gli id.",
+    parameters: { type: "object", properties: { scope: { type: "string", enum: ["today", "week", "backlog", "overdue"] }, search: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_projects",
+    description: "Elenca i progetti con impresa e id, opzionalmente filtrati per nome impresa",
+    parameters: { type: "object", properties: { enterprise_name: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_enterprises",
+    description: "Elenca le imprese dell'utente con i relativi id",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "get_okr",
+    description: "Focus period attivi con obiettivi e key result e relativo avanzamento",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "find_item",
+    description: "Cerca per titolo tra attività, appuntamenti e promemoria e restituisce gli id, da usare prima di modificare qualcosa",
+    parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] },
+  },
+  {
+    name: "move_appointment",
+    description: "Sposta un appuntamento esistente a nuova data e/o orario",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD" }, start_time: { type: "string", description: "HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "cancel_appointment",
+    description: "Elimina un appuntamento esistente",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
+  },
 ];

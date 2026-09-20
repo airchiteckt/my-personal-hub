@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         .select("chat_id").eq("user_id", r.user_id).maybeSingle();
       if (link?.chat_id) {
         await tgSend(link.chat_id,
-          `🔔 <b>Promemoria${r.is_urgent ? " URGENTE" : ""}</b>\n<b>${esc(r.title)}</b>` +
+          `🔔 <b>Promemoria${r.is_urgent ? " IMPORTANTE" : ""}</b>\n<b>${esc(r.title)}</b>` +
           (r.description ? `\n${esc(String(r.description).slice(0, 300))}` : ""));
       }
 
@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             to: email,
-            subject: `🔔 Promemoria${r.is_urgent ? " urgente" : ""}: ${r.title}`,
+            subject: `🔔 Promemoria${r.is_urgent ? " importante" : ""}: ${r.title}`,
             html: `<p><strong>${esc(r.title)}</strong></p>${r.description ? `<p>${esc(String(r.description))}</p>` : ""}<p style="color:#888;font-size:12px">FlyDeck · Radar</p>`,
           }),
         }).catch((e) => console.error("email failed", e));
@@ -118,11 +118,11 @@ Deno.serve(async (req) => {
                     user_name: profile.display_name ?? "",
                     user_id: r.user_id,
                     now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
-                    day_summary: `Promemoria urgente in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
+                    day_summary: `Promemoria importante in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
                   },
                   conversation_config_override: {
                     agent: {
-                      first_message: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria urgente: ${r.title}. Sei riuscito a gestirlo?`,
+                      first_message: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria importante: ${r.title}. Sei riuscito a gestirlo?`,
                     },
                   },
                 },

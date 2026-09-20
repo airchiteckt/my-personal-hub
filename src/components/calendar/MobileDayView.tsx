@@ -383,7 +383,7 @@ export function MobileDayView() {
                       <div className="p-2 h-full flex flex-col justify-center">
                         <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
                           <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                          {rem.isUrgent ? '🚨 ' : rem.isFollowUp ? '🔔 ' : ''}{rem.title}
+                          {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}{rem.title}
                         </p>
                       </div>
                     </div>

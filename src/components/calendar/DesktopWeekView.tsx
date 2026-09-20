@@ -852,7 +852,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 <div className="p-1.5 h-full flex flex-col justify-center">
                                   <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
                                     <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                    {rem.isUrgent ? '🚨 ' : rem.isFollowUp ? '🔔 ' : ''}
+                                    {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}
                                     {rem.title}
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">

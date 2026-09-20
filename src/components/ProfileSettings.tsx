@@ -247,7 +247,7 @@ export function ProfileSettings() {
               placeholder="+39 333 1234567"
             />
             <p className="text-xs text-muted-foreground">
-              Serve per chiamare Radar e per ricevere le chiamate dei promemoria urgenti. Radar ti riconosce da questo numero.
+              Serve per chiamare Radar e per ricevere le chiamate dei promemoria importanti. Radar ti riconosce da questo numero.
             </p>
           </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">

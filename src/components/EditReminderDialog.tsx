@@ -105,7 +105,7 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
               className="mt-0.5 h-4 w-4 accent-destructive"
             />
             <span>
-              <span className="text-sm font-medium">🚨 Urgente — chiamata vocale</span>
+              <span className="text-sm font-medium">⭐ Importante — chiamata vocale</span>
               <span className="text-xs text-muted-foreground block mt-0.5">
                 Oltre a Telegram ed email, Radar ti telefona all'orario del promemoria.
               </span>

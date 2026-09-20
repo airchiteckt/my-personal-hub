@@ -281,7 +281,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   return (
     <div className="flex flex-col h-full">
       {/* Week nav */}
-      <div className="flex items-center justify-between mb-2 shrink-0">
+      <div className="flex items-center justify-between mb-3 px-1 shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-bold">Calendario</h1>
           <span className="text-xs text-muted-foreground">{weekLabel}</span>
@@ -347,7 +347,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
       </div>
       {/* Rituals drag widget */}
       {activeRituals.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-2 px-1 shrink-0 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 mb-3 px-1 shrink-0 overflow-x-auto scrollbar-none">
           <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
             <Repeat className="h-2.5 w-2.5 inline mr-0.5" />Rituali
           </span>
@@ -390,7 +390,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
 
       <div className="flex flex-1 min-h-0 gap-3">
         {/* Main grid */}
-        <div className="flex-1 border rounded-xl bg-card overflow-hidden flex flex-col relative">
+        <div className="flex-1 border rounded-xl bg-card shadow-sm overflow-hidden flex flex-col relative">
           {/* Drag edge zones for week navigation */}
           {isDraggingItem && (
             <>
@@ -425,7 +425,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
               return (
                 <div
                   key={day.toISOString()}
-                  className={`px-1 py-1.5 text-center border-l ${onOpenDay ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+                  className={`px-1 py-2.5 text-center border-l ${onOpenDay ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
                   onClick={() => onOpenDay?.(day)}
                   title={onOpenDay ? 'Apri la vista giorno' : undefined}
                 >

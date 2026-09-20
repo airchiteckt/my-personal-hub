@@ -136,12 +136,15 @@ export type Database = {
       }
       ai_voice_settings: {
         Row: {
+          convai_agent_id: string | null
+          convai_phone_number_id: string | null
           created_at: string
           id: string
           llm_max_tokens: number
           llm_model: string
           llm_system_prompt: string
           llm_temperature: number
+          radar_phone_display: string | null
           stt_diarize: boolean
           stt_language_code: string
           stt_model: string
@@ -155,12 +158,15 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          convai_agent_id?: string | null
+          convai_phone_number_id?: string | null
           created_at?: string
           id?: string
           llm_max_tokens?: number
           llm_model?: string
           llm_system_prompt?: string
           llm_temperature?: number
+          radar_phone_display?: string | null
           stt_diarize?: boolean
           stt_language_code?: string
           stt_model?: string
@@ -174,12 +180,15 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          convai_agent_id?: string | null
+          convai_phone_number_id?: string | null
           created_at?: string
           id?: string
           llm_max_tokens?: number
           llm_model?: string
           llm_system_prompt?: string
           llm_temperature?: number
+          radar_phone_display?: string | null
           stt_diarize?: boolean
           stt_language_code?: string
           stt_model?: string

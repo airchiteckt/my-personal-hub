@@ -155,8 +155,8 @@ Deno.serve(async (req) => {
         const [, act, target] = String(cq.data ?? "").split(":");
         const uid = link.user_id;
         const todayRome = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME }).format(new Date());
-        const tomorrow = new Intl.DateTimeFormat("sv-SE", { timeZone: ROME })
-          .format(new Date(Date.now() + 86400_000));
+        // "a domani" = prossimo giorno lavorativo (di venerdì si salta al lunedì)
+        const tomorrow = nextWorkDayAfter(todayRome, await getWorkDays(admin, uid));
         const nowMin = (() => {
           const p = new Intl.DateTimeFormat("it-IT", { timeZone: ROME, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
           const [h, m] = p.split(":").map(Number);

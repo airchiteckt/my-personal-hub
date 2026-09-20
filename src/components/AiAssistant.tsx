@@ -825,7 +825,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
 }
 
 // ─── Main Sheet Component ───
-export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' } = {}) {
+export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' | 'fab' } = {}) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const r = useRadar();

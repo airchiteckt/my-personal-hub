@@ -400,13 +400,40 @@ ${JSON.stringify(ctx)}`;
     const reply: string = (choice.content ?? "").trim();
     const toolCalls: any[] = choice.tool_calls ?? [];
 
-    if (reply) await send(chatId, reply);
+    // --- Strumenti di sola lettura: eseguiti subito, poi risposta in linguaggio naturale ---
+    const queryCalls = toolCalls.filter((tc) => RADAR_QUERY_TOOLS.has(tc.function?.name));
+    let finalReply = reply;
+    if (queryCalls.length) {
+      const results: string[] = [];
+      for (const tc of queryCalls) {
+        let qArgs: Record<string, any> = {};
+        try { qArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
+        const out = await queryRadar(admin, userId, tc.function.name, qArgs);
+        results.push(`${tc.function.name}: ${out}`);
+      }
+      const followRes = await fetch(`${AI_URL}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            ...aiMessages,
+            { role: "system", content: `DATI LETTI DAL DATABASE (usa solo questi, non inventare nulla, rispondi in italiano in modo sintetico):\n${results.join("\n\n")}` },
+          ],
+        }),
+      });
+      const followJson = await followRes.json().catch(() => ({}));
+      const answer = (followJson?.choices?.[0]?.message?.content ?? "").trim();
+      finalReply = answer || results.join("\n\n");
+    }
+
+    if (finalReply) await send(chatId, finalReply);
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
       let args: Record<string, any> = {};
       try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
-      if (!name) continue;
+      if (!name || RADAR_QUERY_TOOLS.has(name)) continue;
 
       if (INSTANT.has(name)) {
         const res: any = await executeAction(admin, userId, name, args);

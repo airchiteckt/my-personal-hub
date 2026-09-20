@@ -1,8 +1,10 @@
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
+import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
 
 export function Layout() {
+  useAutoReschedule();
   return (
     <SidebarProvider>
       <div className="min-h-[100dvh] flex w-full overflow-hidden">

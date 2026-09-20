@@ -62,7 +62,9 @@ Deno.serve(async (req) => {
   try {
     const admin = createClient(PROJECT_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
-    const voiceId: string = body.voice_id || "it-IT-DiegoNeural";
+    // Voce naturale ElevenLabs (multilingue, ottima resa italiana). Default: Daniel.
+    const voiceProvider: string = body.voice_provider || "11labs";
+    const voiceId: string = body.voice_id || "onwK4e9ZLuTAKqWW03F9";
     const phoneNumberId: string | undefined = body.phone_number_id;
 
     const tools = RADAR_TOOL_DEFS.map((t) => ({

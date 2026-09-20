@@ -81,12 +81,25 @@ Deno.serve(async (req) => {
       firstMessage: "Ciao, sono Radar. Come posso aiutarti?",
       model: {
         provider: "openai",
-        model: "gpt-4o-mini",
-        temperature: 0.3,
+        model: body.llm_model || "gpt-4o",
+        temperature: 0.2,
         messages: [{ role: "system", content: SYSTEM_PROMPT }],
         tools,
       },
-      voice: { provider: "azure", voiceId, speed: 1.12 },
+      voice: voiceProvider === "11labs"
+        ? {
+            provider: "11labs",
+            voiceId,
+            model: "eleven_turbo_v2_5",
+            language: "it",
+            stability: 0.45,
+            similarityBoost: 0.8,
+            style: 0.15,
+            useSpeakerBoost: true,
+            optimizeStreamingLatency: 3,
+            speed: 1.05,
+          }
+        : { provider: voiceProvider, voiceId, speed: 1.1 },
       transcriber: { provider: "deepgram", model: "nova-3", language: "it" },
       // Bassa latenza conversazionale
       startSpeakingPlan: {

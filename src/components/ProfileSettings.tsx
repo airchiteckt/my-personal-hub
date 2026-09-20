@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Save, Loader2, Upload, X, Compass } from 'lucide-react';
+import { User, Mail, Lock, Save, Loader2, Upload, X, Compass, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { resetOnboarding } from '@/components/OnboardingTour';
 
@@ -21,6 +21,10 @@ export function ProfileSettings() {
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

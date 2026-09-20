@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { executeAction, buildDaySummary, romeNow, queryRadar, RADAR_QUERY_TOOLS, RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
+import { executeAction, buildVoiceDaySummary, romeNow, queryRadar, RADAR_QUERY_TOOLS, RADAR_TOOL_DEFS } from "../_shared/radar-actions.ts";
 
 // Server URL dell'assistente VAPI "Radar FlyDeck".
 // Gestisce: assistant-request (instradamento chiamate in entrata con riconoscimento
@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
 
       const now = romeNow();
       const [daySummary, ents, projs, okr] = await Promise.all([
-        buildDaySummary(admin, profile.user_id),
+        buildVoiceDaySummary(admin, profile.user_id),
         queryRadar(admin, profile.user_id, "list_enterprises"),
         queryRadar(admin, profile.user_id, "list_projects"),
         queryRadar(admin, profile.user_id, "get_okr"),

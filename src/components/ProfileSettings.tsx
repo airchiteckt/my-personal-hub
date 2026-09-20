@@ -239,15 +239,39 @@ export function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone-number">Cellulare</Label>
-            <Input
-              id="phone-number"
-              type="tel"
-              value={phoneNumber}
-              onChange={e => setPhoneNumber(e.target.value)}
-              placeholder="+39 333 1234567"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="phone-number"
+                type="tel"
+                value={phoneNumber}
+                onChange={e => { setPhoneNumber(e.target.value); setPhoneVerified(false); setOtpSent(false); }}
+                placeholder="+39 333 1234567"
+              />
+              {phoneVerified ? (
+                <span className="flex items-center gap-1 text-xs text-primary whitespace-nowrap px-2">
+                  <ShieldCheck className="h-4 w-4" /> Verificato
+                </span>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={sendOtp} disabled={otpLoading || !phoneNumber.trim()}>
+                  {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : otpSent ? 'Rinvia codice' : 'Verifica'}
+                </Button>
+              )}
+            </div>
+            {otpSent && !phoneVerified && (
+              <div className="flex gap-2 pt-1">
+                <Input
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Codice a 6 cifre"
+                  inputMode="numeric"
+                />
+                <Button type="button" size="sm" onClick={checkOtp} disabled={otpLoading || otpCode.length < 4}>
+                  {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Conferma'}
+                </Button>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Serve per chiamare Radar e per ricevere le chiamate dei promemoria importanti. Radar ti riconosce da questo numero.
+              Serve per chiamare Radar e per ricevere le chiamate dei promemoria importanti. Ti inviamo un codice via SMS da "FlyDeck" per confermare che il numero sia tuo.
             </p>
           </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">

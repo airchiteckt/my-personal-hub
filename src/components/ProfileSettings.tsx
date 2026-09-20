@@ -34,7 +34,7 @@ export function ProfileSettings() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone_number')
+      .select('display_name, avatar_url, phone_number, phone_verified')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -42,9 +42,44 @@ export function ProfileSettings() {
           setDisplayName(data.display_name || '');
           setAvatarUrl(data.avatar_url || '');
           setPhoneNumber((data as any).phone_number || '');
+          setPhoneVerified(!!(data as any).phone_verified);
         }
       });
   }, [user]);
+
+  const sendOtp = async () => {
+    setOtpLoading(true);
+    const { data, error } = await supabase.functions.invoke('phone-verify', {
+      body: { action: 'send', phone: phoneNumber },
+    });
+    setOtpLoading(false);
+    const err = error ? (data as any)?.error || error.message : (data as any)?.error;
+    if (err) {
+      toast({ title: 'Invio non riuscito', description: String(err), variant: 'destructive' });
+      return;
+    }
+    if ((data as any)?.phone) setPhoneNumber((data as any).phone);
+    setOtpSent(true);
+    setOtpCode('');
+    toast({ title: 'Codice inviato', description: 'Controlla gli SMS: arriva da FlyDeck.' });
+  };
+
+  const checkOtp = async () => {
+    setOtpLoading(true);
+    const { data, error } = await supabase.functions.invoke('phone-verify', {
+      body: { action: 'check', phone: phoneNumber, code: otpCode },
+    });
+    setOtpLoading(false);
+    const err = error ? (data as any)?.error || error.message : (data as any)?.error;
+    if (err) {
+      toast({ title: 'Verifica non riuscita', description: String(err), variant: 'destructive' });
+      return;
+    }
+    setPhoneVerified(true);
+    setOtpSent(false);
+    setOtpCode('');
+    toast({ title: 'Numero verificato' });
+  };
 
   const normalizePhone = (raw: string) => {
     const cleaned = raw.trim().replace(/[\s.\-()]/g, '');

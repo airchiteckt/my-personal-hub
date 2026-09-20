@@ -167,8 +167,9 @@ Deno.serve(async (req) => {
             user_id: profile.user_id,
             now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
             day_summary: daySummary,
+            context_brief: contextBrief,
           },
-          firstMessage: `Ciao${firstName ? " " + firstName : ""}, sono Radar. Dimmi pure: posso aggiornarti sulla giornata, aggiungere attività, appuntamenti o promemoria.`,
+          firstMessage: `Ciao${firstName ? " " + firstName : ""}, sono Radar. Dimmi pure.`,
         },
       });
     }

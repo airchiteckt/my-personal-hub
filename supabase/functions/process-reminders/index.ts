@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { romeNow } from "../_shared/radar-actions.ts";
 
 // Cron ogni 5 minuti: per ogni promemoria scaduto e non chiuso:
-// 1) messaggio Telegram di Radar  2) email  3) se urgente -> chiamata vocale ElevenLabs/Twilio
+// 1) messaggio Telegram di Radar  2) email  3) se importante -> chiamata vocale ElevenLabs/Twilio
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         .select("chat_id").eq("user_id", r.user_id).maybeSingle();
       if (link?.chat_id) {
         await tgSend(link.chat_id,
-          `🔔 <b>Promemoria${r.is_urgent ? " URGENTE" : ""}</b>\n<b>${esc(r.title)}</b>` +
+          `🔔 <b>Promemoria${r.is_urgent ? " IMPORTANTE" : ""}</b>\n<b>${esc(r.title)}</b>` +
           (r.description ? `\n${esc(String(r.description).slice(0, 300))}` : ""));
       }
 
@@ -88,13 +88,13 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             to: email,
-            subject: `🔔 Promemoria${r.is_urgent ? " urgente" : ""}: ${r.title}`,
+            subject: `🔔 Promemoria${r.is_urgent ? " importante" : ""}: ${r.title}`,
             html: `<p><strong>${esc(r.title)}</strong></p>${r.description ? `<p>${esc(String(r.description))}</p>` : ""}<p style="color:#888;font-size:12px">FlyDeck · Radar</p>`,
           }),
         }).catch((e) => console.error("email failed", e));
       }
 
-      // 3) Chiamata vocale se urgente
+      // 3) Chiamata vocale se importante
       let callStatus = r.is_urgent ? "failed" : "not_required";
       if (r.is_urgent && ELEVENLABS_API_KEY) {
         try {
@@ -118,11 +118,11 @@ Deno.serve(async (req) => {
                     user_name: profile.display_name ?? "",
                     user_id: r.user_id,
                     now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
-                    day_summary: `Promemoria urgente in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
+                    day_summary: `Promemoria importante in corso: "${r.title}"${r.description ? ` — ${String(r.description).slice(0, 200)}` : ""}. Chiedi se è stato gestito: se sì usa lo strumento per chiuderlo, altrimenti proponi di rimandarlo.`,
                   },
                   conversation_config_override: {
                     agent: {
-                      first_message: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria urgente: ${r.title}. Sei riuscito a gestirlo?`,
+                      first_message: `Ciao, sono Radar di FlyDeck. Ti chiamo per un promemoria importante: ${r.title}. Sei riuscito a gestirlo?`,
                     },
                   },
                 },
@@ -149,7 +149,7 @@ Deno.serve(async (req) => {
           console.error("outbound call error", e);
         }
       } else if (r.is_urgent && !ELEVENLABS_API_KEY) {
-        console.error("ELEVENLABS_API_KEY mancante: chiamata urgente saltata");
+        console.error("ELEVENLABS_API_KEY mancante: chiamata importante saltata");
       }
 
       await admin.from("reminders").update({ call_status: callStatus }).eq("id", r.id);

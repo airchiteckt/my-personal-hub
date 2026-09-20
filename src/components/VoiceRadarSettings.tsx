@@ -86,7 +86,7 @@ export function VoiceRadarSettings() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Chiama Radar al telefono per dettare attività, appuntamenti e promemoria a voce — e lascia che ti telefoni lui per i promemoria urgenti.
+        Chiama Radar al telefono per dettare attività, appuntamenti e promemoria a voce — e lascia che ti telefoni lui per i promemoria importanti.
         Ti riconosce dal numero di cellulare salvato nel profilo.
       </p>
 

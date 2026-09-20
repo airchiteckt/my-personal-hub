@@ -231,7 +231,7 @@ export async function buildDaySummary(admin: any, userId: string): Promise<strin
   const todayTasks = ctx.tasks.filter((t: any) => t.scheduled_date === now.date)
     .map((t: any) => `${t.scheduled_time ? t.scheduled_time + " " : ""}${t.title}`);
   const todayRem = ctx.reminders.filter((r: any) => r.reminder_date === now.date)
-    .map((r: any) => `${r.reminder_time ? r.reminder_time + " " : ""}${r.title}${r.is_urgent ? " (URGENTE)" : ""}`);
+    .map((r: any) => `${r.reminder_time ? r.reminder_time + " " : ""}${r.title}${r.is_urgent ? " (IMPORTANTE)" : ""}`);
   const backlog = ctx.tasks.filter((t: any) => t.status === "backlog").length;
   const parts = [`Oggi è ${now.weekday} ${now.date}, sono le ${now.time}.`];
   parts.push(todayAppts.length ? `Appuntamenti: ${todayAppts.join("; ")}.` : "Nessun appuntamento oggi.");
@@ -262,7 +262,7 @@ export const RADAR_TOOL_DEFS = [
   },
   {
     name: "create_reminder",
-    description: "Crea un promemoria. Marca is_urgent=true solo se l'utente chiede esplicitamente una chiamata o dice che è urgente.",
+    description: "Crea un promemoria. Marca is_urgent=true solo se l'utente chiede esplicitamente una chiamata o dice che è importante o urgente.",
     parameters: {
       type: "object",
       properties: {

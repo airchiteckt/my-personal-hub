@@ -315,7 +315,16 @@ Deno.serve(async (req) => {
     if (!text) return new Response(JSON.stringify({ ok: true }));
 
     if (/^\/start/i.test(text)) {
-      await send(chatId, "Sono Radar. Dimmi cosa inserire: appuntamenti, promemoria, task. Puoi anche mandarmi note vocali.\n\n/reset per svuotare la conversazione.");
+      await send(chatId, "Sono Radar. Dimmi cosa inserire: appuntamenti, promemoria, task. Puoi anche mandarmi note vocali.\n\n/chiamami per farti telefonare da me.\n/reset per svuotare la conversazione.");
+      return new Response(JSON.stringify({ ok: true }));
+    }
+    // Richiesta di chiamata: Radar telefona all'utente (chiamata in entrata = gratuita per lui)
+    if (/^\/chiamami/i.test(text) || /\b(chiamami|telefonami|mi\s+chiami|fammi\s+uno\s+squillo|puoi\s+chiamarmi)\b/i.test(text)) {
+      await tg("sendChatAction", { chat_id: chatId, action: "typing" });
+      const res = await startOutboundCall(admin, userId, {
+        daySummaryPrefix: "L'utente ti ha chiesto di chiamarlo da Telegram: chiedi subito cosa gli serve.",
+      });
+      await send(chatId, res.message);
       return new Response(JSON.stringify({ ok: true }));
     }
     if (/^\/reset/i.test(text)) {

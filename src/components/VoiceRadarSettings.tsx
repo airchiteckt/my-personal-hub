@@ -129,8 +129,8 @@ export function VoiceRadarSettings() {
           <p className="font-medium text-foreground flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5" /> Ultimo passo: il numero di telefono
           </p>
-          <p>1. Su <strong>dashboard.vapi.ai → Phone Numbers → Import from Twilio</strong>: importa il numero Twilio (es. 081...).</p>
-          <p>2. Copia l'<strong>ID del numero</strong> appena importato e incollalo qui sotto.</p>
+          <p>1. Su <strong>dashboard.vapi.ai → Phone Numbers</strong>: aggiungi il numero tramite <strong>SIP trunk</strong> (provider SIP / BYO carrier), senza assegnargli un assistente.</p>
+          <p>2. Copia l'<strong>ID del numero</strong> appena creato e incollalo qui sotto.</p>
           <div className="flex gap-2 pt-1">
             <div className="flex-1 space-y-1">
               <Label htmlFor="vapi-phone-id" className="text-[11px]">ID numero VAPI</Label>

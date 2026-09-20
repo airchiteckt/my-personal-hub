@@ -266,6 +266,93 @@ function addDays(dateStr: string, n: number) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Giorni lavorativi dell'utente (default lunedì-venerdì). */
+export async function getWorkDays(admin: any, userId: string): Promise<number[]> {
+  const { data } = await admin.from("priority_settings")
+    .select("work_days").eq("user_id", userId).maybeSingle();
+  const wd = data?.work_days;
+  return Array.isArray(wd) && wd.length ? wd : [1, 2, 3, 4, 5];
+}
+
+/** Prossimo giorno lavorativo (YYYY-MM-DD) successivo a fromDate. */
+export function nextWorkDayAfter(fromDate: string, workDays: number[]): string {
+  for (let i = 1; i <= 14; i++) {
+    const d = addDays(fromDate, i);
+    if (workDays.includes(new Date(`${d}T12:00:00Z`).getUTCDay())) return d;
+  }
+  return addDays(fromDate, 1);
+}
+
+/**
+ * Avvia una chiamata in uscita di Radar verso l'utente (VAPI).
+ * Ritorna un messaggio pronto da mostrare all'utente.
+ */
+export async function startOutboundCall(
+  admin: any,
+  userId: string,
+  opts: { firstMessage?: string; daySummaryPrefix?: string; reminderId?: string } = {},
+): Promise<{ ok: boolean; message: string }> {
+  const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+  if (!VAPI_API_KEY) return { ok: false, message: "⚠️ Le chiamate non sono configurate." };
+
+  const { data: profile } = await admin.from("profiles")
+    .select("phone_number,display_name").eq("user_id", userId).maybeSingle();
+  if (!profile?.phone_number) {
+    return { ok: false, message: "📵 Non ho il tuo numero: salvalo in Impostazioni → Profilo e ti richiamo." };
+  }
+
+  const { data: vs } = await admin.from("ai_voice_settings")
+    .select("vapi_assistant_id,vapi_phone_number_id").limit(1).maybeSingle();
+  if (!vs?.vapi_assistant_id || !vs?.vapi_phone_number_id) {
+    return { ok: false, message: "⚠️ Il servizio di chiamata non è ancora attivo." };
+  }
+
+  const now = romeNow();
+  const daySummary = await buildDaySummary(admin, userId).catch(() => "");
+  const contextBrief = [
+    `IMPRESE:\n${await queryRadar(admin, userId, "list_enterprises")}`,
+    `PROGETTI:\n${await queryRadar(admin, userId, "list_projects")}`,
+  ].join("\n\n").slice(0, 3000);
+
+  const res = await fetch("https://api.vapi.ai/call/phone", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      phoneNumberId: vs.vapi_phone_number_id,
+      customer: { number: profile.phone_number },
+      assistantId: vs.vapi_assistant_id,
+      assistantOverrides: {
+        variableValues: {
+          user_known: "yes",
+          user_name: profile.display_name ?? "",
+          user_id: userId,
+          ...(opts.reminderId ? { reminder_id: opts.reminderId } : {}),
+          now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
+          context_brief: contextBrief,
+          day_summary: `${opts.daySummaryPrefix ? opts.daySummaryPrefix + "\n" : ""}${daySummary}`,
+        },
+        firstMessage: opts.firstMessage
+          ?? `Ciao${profile.display_name ? " " + profile.display_name : ""}, sono Radar. Dimmi pure.`,
+      },
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.id) {
+    console.error("outbound call failed", res.status, JSON.stringify(json));
+    return { ok: false, message: "⚠️ Non sono riuscito ad avviare la chiamata, riprova tra poco." };
+  }
+
+  await admin.from("voice_calls").insert({
+    user_id: userId,
+    direction: "outbound",
+    phone_number: profile.phone_number,
+    reminder_id: opts.reminderId ?? null,
+    vapi_call_id: json.id,
+    status: "started",
+  });
+  return { ok: true, message: "📞 Ti sto chiamando, rispondi pure." };
+}
+
 export async function queryRadar(
   admin: any, userId: string, name: string, a: Record<string, any> = {},
 ): Promise<string> {

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Phone, Loader2, Settings2, Save, Brain, Volume2, Mic, Gauge, DownloadCloud, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_VAPI_TUNING, type VapiTuning } from '@/types/vapiTuning';
+import { RADAR_VOICE_SYSTEM_PROMPT } from '@/constants/radarVoicePrompt';
 import {
   VAPI_AI_MODELS,
   VAPI_VOICE_PROVIDERS,
@@ -208,14 +209,30 @@ export function VapiConfig() {
               <Input value={tuning.firstMessage} onChange={e => set('firstMessage', e.target.value)} />
             </Row>
 
-            <Row label="System prompt (vuoto = prompt Radar predefinito)" hint="Le variabili {{user_name}}, {{now_info}}, {{day_summary}}, {{context_brief}} vengono riempite a ogni chiamata.">
-              <Textarea
-                rows={8}
-                value={tuning.systemPrompt}
-                onChange={e => set('systemPrompt', e.target.value)}
-                placeholder="Lascia vuoto per usare il prompt operativo di Radar"
-                className="font-mono text-xs resize-y"
-              />
+            <Row
+              label="System prompt di Radar"
+              hint="È lo stesso prompt usato nelle chiamate. Le variabili {{user_name}}, {{now_info}}, {{day_summary}}, {{context_brief}} vengono riempite a ogni chiamata: non rimuoverle."
+            >
+              <div className="space-y-2">
+                <Textarea
+                  rows={22}
+                  value={tuning.systemPrompt || RADAR_VOICE_SYSTEM_PROMPT}
+                  onChange={e => set('systemPrompt', e.target.value)}
+                  className="font-mono text-xs resize-y leading-relaxed"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-muted-foreground">
+                    {(tuning.systemPrompt || RADAR_VOICE_SYSTEM_PROMPT).length} caratteri
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => set('systemPrompt', RADAR_VOICE_SYSTEM_PROMPT)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />Ripristina prompt Radar
+                  </Button>
+                </div>
+              </div>
             </Row>
           </Card>
         </TabsContent>

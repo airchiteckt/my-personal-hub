@@ -1083,6 +1083,16 @@ export const RADAR_TOOL_DEFS = [
     parameters: { type: "object", properties: { ritual_id: { type: "string" }, completed_date: { type: "string" }, notes: { type: "string" } }, required: ["ritual_id"] },
   },
   {
+    name: "log_time",
+    description: "Registra tempo lavorato (time tracking) su un'attività o un progetto. NON è il diario.",
+    parameters: { type: "object", properties: { task_id: { type: "string" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, minutes: { type: "number" }, hours: { type: "number" }, entry_date: { type: "string" }, end_time: { type: "string" }, description: { type: "string" } }, required: [] },
+  },
+  {
+    name: "list_time_entries",
+    description: "Legge il tempo registrato in un giorno (time tracking)",
+    parameters: { type: "object", properties: { date: { type: "string" } }, required: [] },
+  },
+  {
     name: "create_ritual",
     description: "Crea un nuovo rituale ricorrente",
     parameters: { type: "object", properties: { name: { type: "string" }, category: { type: "string" }, frequency: { type: "string", description: "daily, weekly, monthly" }, estimated_minutes: { type: "number" }, suggested_time: { type: "string" }, enterprise_id: { type: "string" }, description: { type: "string" } }, required: ["name"] },

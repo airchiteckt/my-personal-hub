@@ -476,7 +476,7 @@ export async function executeAction(
       const day = a.entry_date ?? romeNow().date;
       const ended = new Date(`${day}T${a.end_time ?? "18:00"}:00+02:00`);
       const started = new Date(ended.getTime() - minutes * 60000);
-      const startHHMM = `${String(started.getUTCHours() + 2).padStart(2, "0")}:${String(started.getUTCMinutes()).padStart(2, "0")}`;
+      const startHHMM = started.toLocaleTimeString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit" });
 
       // Se l'attività non esiste ancora, la creo già completata: il lavoro svolto
       // deve comparire in agenda come attività fatta, non solo come tempo registrato.

@@ -349,6 +349,7 @@ export interface Reminder {
   taskId?: string;
   isFollowUp: boolean;
   isDismissed: boolean;
+  isUrgent: boolean;
   color?: string;
   createdAt: string;
 }

@@ -308,7 +308,7 @@ export async function startOutboundCall(
   }
 
   const now = romeNow();
-  const daySummary = await buildDaySummary(admin, userId).catch(() => "");
+  const daySummary = await buildVoiceDaySummary(admin, userId).catch(() => "");
   const contextBrief = [
     `IMPRESE:\n${await queryRadar(admin, userId, "list_enterprises")}`,
     `PROGETTI:\n${await queryRadar(admin, userId, "list_projects")}`,

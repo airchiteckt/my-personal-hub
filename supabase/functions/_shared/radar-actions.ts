@@ -802,6 +802,21 @@ export async function queryRadar(
       return lines.join("\n");
     }
 
+    if (name === "list_time_entries") {
+      const day = a.date || now.date;
+      const { data } = await admin.from("time_entries")
+        .select("id,description,duration_minutes,started_at,task_id,project_id")
+        .eq("user_id", userId)
+        .gte("started_at", `${day}T00:00:00+02:00`)
+        .lte("started_at", `${day}T23:59:59+02:00`)
+        .limit(100);
+      if (!data?.length) return `Nessun tempo registrato il ${day}.`;
+      const total = data.reduce((s: number, e: any) => s + (e.duration_minutes ?? 0), 0);
+      const lines = [`Tempo registrato il ${day}: ${Math.round(total / 60 * 10) / 10} ore in tutto.`];
+      for (const e of data) lines.push(`${e.duration_minutes} min${e.description ? ` — ${e.description}` : ""} (id ${e.id})`);
+      return lines.join("\n");
+    }
+
     if (name === "get_journal") {
       const day = a.entry_date || now.date;
       const { data } = await admin.from("journal_entries")
@@ -820,6 +835,7 @@ export async function queryRadar(
 export const RADAR_QUERY_TOOLS = new Set([
   "get_day_overview", "get_agenda", "list_tasks", "list_projects",
   "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal", "list_rituals",
+  "list_time_entries",
 ]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------

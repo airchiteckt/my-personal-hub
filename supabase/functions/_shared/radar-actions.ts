@@ -466,16 +466,22 @@ export async function queryRadar(
     if (name === "find_item") {
       const term = String(a.query ?? "").trim();
       if (!term) return "Indica cosa cercare.";
+      // Ricerca tollerante: ogni parola significativa vale come corrispondenza parziale.
+      const STOP = new Set(["il","lo","la","i","gli","le","un","una","di","del","della","dei","delle","con","per","su","da","in","a","al","alla","e","che","mio","mia","quello","quella","attivita","attività","task","appuntamento","promemoria"]);
+      const words = term.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !STOP.has(w));
+      const needles = words.length ? words : [term];
+      const orExpr = (col: string) => needles.map((w) => `${col}.ilike.%${w}%`).join(",");
       const [{ data: tasks }, { data: appts }, { data: rem }] = await Promise.all([
-        admin.from("tasks").select("id,title,scheduled_date,status").eq("user_id", userId).ilike("title", `%${term}%`).limit(10),
-        admin.from("appointments").select("id,title,date,start_time").eq("user_id", userId).ilike("title", `%${term}%`).limit(10),
-        admin.from("reminders").select("id,title,reminder_date").eq("user_id", userId).eq("is_dismissed", false).ilike("title", `%${term}%`).limit(10),
+        admin.from("tasks").select("id,title,scheduled_date,status").eq("user_id", userId).or(orExpr("title")).limit(10),
+        admin.from("appointments").select("id,title,date,start_time").eq("user_id", userId).or(orExpr("title")).limit(10),
+        admin.from("reminders").select("id,title,reminder_date").eq("user_id", userId).eq("is_dismissed", false).or(orExpr("title")).limit(10),
       ]);
       const lines: string[] = [];
       for (const t of tasks ?? []) lines.push(`Attività: ${t.title} (${t.status}${t.scheduled_date ? ", " + t.scheduled_date : ""}, id ${t.id})`);
       for (const x of appts ?? []) lines.push(`Appuntamento: ${x.title} (${x.date} ${x.start_time}, id ${x.id})`);
       for (const x of rem ?? []) lines.push(`Promemoria: ${x.title} (${x.reminder_date}, id ${x.id})`);
-      return lines.length ? lines.join("\n") : `Nessun risultato per "${term}".`;
+      return lines.length ? lines.join("\n") : `Nessun risultato per "${term}". Prova con una sola parola chiave.`;
     }
 
     return `Interrogazione sconosciuta: ${name}`;

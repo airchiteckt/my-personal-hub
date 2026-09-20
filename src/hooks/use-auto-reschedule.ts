@@ -13,7 +13,7 @@ export function useAutoReschedule() {
   const ran = useRef(false);
   const {
     tasks, appointments, prioritySettings, loading,
-    updateTask,
+    updateTask, reminders, updateReminder,
   } = usePrp();
 
   useEffect(() => {
@@ -43,6 +43,20 @@ export function useAutoReschedule() {
       t.scheduledDate &&
       t.scheduledDate < targetDay
     );
+
+    // Move past, still-open reminders to the next work day (keep their time)
+    const pastReminders = (reminders ?? []).filter(r =>
+      !r.isDismissed && r.reminderDate && r.reminderDate < targetDay
+    );
+    for (const r of pastReminders) {
+      updateReminder(r.id, { reminderDate: targetDay });
+    }
+    if (pastReminders.length > 0) {
+      toast.info(
+        `🔔 ${pastReminders.length} promemoria spostat${pastReminders.length === 1 ? 'o' : 'i'} a ${targetDay === todayStr ? 'oggi' : targetDay}`,
+        { duration: 5000 }
+      );
+    }
 
     if (pastIncompleteTasks.length === 0) return;
 
@@ -113,5 +127,5 @@ export function useAutoReschedule() {
         { duration: 5000 }
       );
     }
-  }, [loading, tasks, appointments, prioritySettings, updateTask]);
+  }, [loading, tasks, appointments, reminders, prioritySettings, updateTask, updateReminder]);
 }

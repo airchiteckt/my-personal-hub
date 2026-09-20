@@ -196,6 +196,7 @@ export interface Task {
   isRecurring: boolean;
   recurringFrequency?: string;
   completedAt?: string;
+  postponeCount?: number;
   createdAt: string;
 }
 

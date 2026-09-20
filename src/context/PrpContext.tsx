@@ -146,6 +146,7 @@ function dbToTask(row: any): Task {
     impact: row.impact ?? undefined, effort: row.effort ?? undefined,
     isRecurring: row.is_recurring, recurringFrequency: row.recurring_frequency ?? undefined,
     completedAt: row.completed_at ?? undefined, createdAt: row.created_at,
+    postponeCount: row.postpone_count ?? 0,
   };
 }
 function dbToAppointment(row: any): Appointment {

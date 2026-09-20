@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Shield, Bot, Volume2, Target, ArrowLeft, LogOut, ToggleRight, Gauge } from 'lucide-react';
 import { AiPromptsSettings } from '@/components/AiPromptsSettings';
 import { AiVoiceSettings } from '@/components/admin/AiVoiceSettings';
+import { VapiConfig } from '@/components/admin/VapiConfig';
 import { PlanningThresholds } from '@/components/admin/PlanningThresholds';
 import { FeatureFlagsSettings } from '@/components/admin/FeatureFlagsSettings';
 import { AiUsageLimits } from '@/components/admin/AiUsageLimits';
@@ -78,7 +79,8 @@ const Admin = () => {
             <AiUsageLimits />
           </TabsContent>
 
-          <TabsContent value="voice">
+          <TabsContent value="voice" className="space-y-6">
+            <VapiConfig />
             <AiVoiceSettings />
           </TabsContent>
 

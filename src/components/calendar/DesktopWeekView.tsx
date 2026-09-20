@@ -929,6 +929,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         timeLabel={`${apptDefaults.date ?? ''} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}`}
         onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
         onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}
+        onChooseReminder={() => { setShowChoice(false); setTimeout(() => setShowCreateReminder(true), 150); }}
       />
 
       <CreateAppointmentDialog
@@ -1002,10 +1003,14 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         />
       )}
 
-      <CreateReminderDialog
-        open={showCreateReminder}
-        onOpenChange={setShowCreateReminder}
-      />
+      {showCreateReminder && (
+        <CreateReminderDialog
+          open={showCreateReminder}
+          onOpenChange={setShowCreateReminder}
+          defaultDate={apptDefaults.date}
+          defaultTime={apptDefaults.startTime}
+        />
+      )}
 
       {editingReminder && (
         <EditReminderDialog

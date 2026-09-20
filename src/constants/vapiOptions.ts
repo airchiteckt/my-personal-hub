@@ -313,6 +313,22 @@ export const PLAYHT_MODELS = [
   { value: "PlayHT2.0", label: "PlayHT 2.0", description: "Qualità alta, più lento", recommended: false },
 ] as const;
 
+// Impostazioni di partenza valide per ogni provider voce:
+// cambiando provider la voce (e il modello) devono sempre essere coerenti,
+// altrimenti VAPI rifiuta la chiamata.
+export const VOICE_PROVIDER_DEFAULTS: Record<string, { voiceId: string; voiceModel: string; needsOwnKey?: boolean }> = {
+  azure: { voiceId: "it-IT-GiuseppeMultilingualNeural", voiceModel: "" },
+  openai: { voiceId: "onyx", voiceModel: "gpt-4o-mini-tts" },
+  "11labs": { voiceId: "onwK4e9ZLuTAKqWW03F9", voiceModel: "eleven_turbo_v2_5", needsOwnKey: true },
+  cartesia: { voiceId: "", voiceModel: "sonic-3", needsOwnKey: true },
+  playht: { voiceId: "", voiceModel: "PlayDialog", needsOwnKey: true },
+  deepgram: { voiceId: "aura-2-thalia-en", voiceModel: "", needsOwnKey: true },
+  "rime-ai": { voiceId: "marsh", voiceModel: "", needsOwnKey: true },
+  lmnt: { voiceId: "lily", voiceModel: "", needsOwnKey: true },
+  neets: { voiceId: "vits-eng-1", voiceModel: "", needsOwnKey: true },
+  tavus: { voiceId: "", voiceModel: "", needsOwnKey: true },
+};
+
 // Helper to get TTS options by provider (per Admin Voices UI)
 export const getTtsOptions = (provider: string) => {
   switch (provider) {

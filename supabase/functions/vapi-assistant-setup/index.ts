@@ -101,7 +101,7 @@ Deno.serve(async (req) => {
             optimizeStreamingLatency: 3,
             speed: 1.05,
           }
-        : { provider: voiceProvider, voiceId, speed: 1.1 },
+        : { provider: voiceProvider, voiceId, speed: 1.05 },
       transcriber: { provider: "deepgram", model: "nova-3", language: "it" },
       // Bassa latenza conversazionale
       startSpeakingPlan: {

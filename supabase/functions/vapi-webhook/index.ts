@@ -139,7 +139,13 @@ Deno.serve(async (req) => {
       }
 
       const now = romeNow();
-      const daySummary = await buildDaySummary(admin, profile.user_id);
+      const [daySummary, ents, projs, okr] = await Promise.all([
+        buildDaySummary(admin, profile.user_id),
+        queryRadar(admin, profile.user_id, "list_enterprises"),
+        queryRadar(admin, profile.user_id, "list_projects"),
+        queryRadar(admin, profile.user_id, "get_okr"),
+      ]);
+      const contextBrief = [`IMPRESE:\n${ents}`, `PROGETTI:\n${projs}`, `FOCUS ATTIVI:\n${okr}`].join("\n\n").slice(0, 4000);
       const firstName = (profile.display_name ?? "").split(" ")[0] || "";
 
       if (call.id) {

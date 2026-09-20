@@ -74,8 +74,16 @@ Deno.serve(async (req) => {
         messages: [{ role: "system", content: SYSTEM_PROMPT }],
         tools,
       },
-      voice: { provider: "azure", voiceId },
+      voice: { provider: "azure", voiceId, speed: 1.12 },
       transcriber: { provider: "deepgram", model: "nova-3", language: "it" },
+      // Bassa latenza conversazionale
+      startSpeakingPlan: {
+        waitSeconds: 0.3,
+        smartEndpointingPlan: { provider: "livekit", waitFunction: "200 + 4000 * x" },
+      },
+      stopSpeakingPlan: { numWords: 2, voiceSeconds: 0.15, backoffSeconds: 0.8 },
+      firstMessageInterruptionsEnabled: true,
+      silenceTimeoutSeconds: 20,
       server: {
         url: WEBHOOK_URL,
         ...(TOOLS_SECRET ? { secret: TOOLS_SECRET } : {}),

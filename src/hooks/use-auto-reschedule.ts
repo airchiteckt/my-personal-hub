@@ -124,9 +124,9 @@ export function useAutoReschedule() {
     }
     try {
       for (const r of getRitualsForDate(parseISO(targetDay))) {
-        if (!r.suggestedTime) continue;
-        const s = timeToSlot(r.suggestedTime);
-        block(s, s + Math.ceil((r.estimatedMinutes || 30) / SLOT_MINUTES));
+        if (!r.suggested_time) continue;
+        const s = timeToSlot(r.suggested_time);
+        block(s, s + Math.ceil((r.estimated_minutes || 30) / SLOT_MINUTES));
       }
     } catch { /* rituals are optional for capacity */ }
 

@@ -127,5 +127,5 @@ export function useAutoReschedule() {
         { duration: 5000 }
       );
     }
-  }, [loading, tasks, appointments, prioritySettings, updateTask]);
+  }, [loading, tasks, appointments, reminders, prioritySettings, updateTask, updateReminder]);
 }

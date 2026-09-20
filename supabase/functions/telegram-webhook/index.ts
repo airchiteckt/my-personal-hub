@@ -40,6 +40,10 @@ async function tg(method: string, body: Record<string, unknown>) {
 // rimuove id tecnici, caratteri non latini e residui di codice dalle risposte
 function cleanReply(text: string): string {
   return text
+    // blocchi di "azioni" o chiamate a strumenti scritte come testo
+    .replace(/\[\s*(azioni|actions|tool_calls?|function_call)\s*:[\s\S]*?\]/gi, "")
+    .replace(/^\s*(create|update|delete|move|cancel|schedule|complete|dismiss|postpone|get|list|find)_[a-z_]+\s*\([\s\S]*?\)\s*$/gim, "")
+    .replace(/```[\s\S]*?```/g, "")
     .replace(/\s*\(?\s*(UUID|id)\s*:?\s*`?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`?\s*\)?/gi, "")
     .replace(/`?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`?/gi, "")
     .replace(/[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/g, "")

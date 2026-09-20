@@ -399,28 +399,30 @@ ${JSON.stringify(ctx)}`;
       try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
       if (!name) continue;
 
-      const { data: actionRow } = await admin.from("telegram_pending_actions").insert({
-        user_id: userId, chat_id: chatId, action_name: name, args,
-        status: INSTANT.has(name) ? "executing" : "pending",
-      }).select("id").single();
-
       if (INSTANT.has(name)) {
         const res: any = await executeAction(admin, userId, name, args);
         if (res.error) {
-          await admin.from("telegram_pending_actions").update({ status: "failed" }).eq("id", actionRow.id);
           await send(chatId, `⚠️ ${ACTION_LABELS[name] ?? name}: non salvato (${res.error}).`);
         } else {
-          await admin.from("telegram_pending_actions")
-            .update({ status: "executed", entity_table: res.table, entity_id: res.id }).eq("id", actionRow.id);
-          
           const undoAllowed = ["create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task"].includes(name);
-          const extra = undoAllowed ? {
-            reply_markup: { inline_keyboard: [[{ text: "↩️ Annulla", callback_data: `undo:${actionRow.id}` }]] },
-          } : {};
-          
+          let extra = {};
+          if (undoAllowed) {
+            const { data: actionRow } = await admin.from("telegram_pending_actions").insert({
+              user_id: userId, chat_id: chatId, action_name: name, args,
+              status: "executed", entity_table: res.table, entity_id: res.id
+            }).select("id").single();
+            if (actionRow) {
+              extra = { reply_markup: { inline_keyboard: [[{ text: "↩️ Annulla", callback_data: `undo:${actionRow.id}` }]] } };
+            }
+          }
           await send(chatId, `✅ ${describeAction(name, args)}`, extra);
         }
       } else {
+        const { data: actionRow } = await admin.from("telegram_pending_actions").insert({
+          user_id: userId, chat_id: chatId, action_name: name, args,
+          status: "pending",
+        }).select("id").single();
+        if (actionRow) {
         await send(chatId, `Confermi?\n${describeAction(name, args)}`, {
           reply_markup: {
             inline_keyboard: [[

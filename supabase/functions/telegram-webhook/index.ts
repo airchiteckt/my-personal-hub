@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS, startOutboundCall, getWorkDays, nextWorkDayAfter } from "../_shared/radar-actions.ts";
+import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS, RADAR_QUERY_TOOLS, queryRadar, startOutboundCall, getWorkDays, nextWorkDayAfter } from "../_shared/radar-actions.ts";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
 const AI_URL = "https://ai.gateway.lovable.dev/v1";

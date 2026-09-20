@@ -11,7 +11,7 @@
 - [x] Typecheck OK, webhook testato (auth OK)
 
 ## In attesa (passi manuali utente)
-- Twilio: regulatory bundle Italia + acquisto numero 081
-- VAPI dashboard → Phone Numbers → Import from Twilio (numero 081), senza assegnare assistente
+- VAPI dashboard → Phone Numbers: numero italiano collegato via SIP trunk (BYO carrier), senza assegnare assistente
+- Incollare l'ID del numero in FlyDeck → Impostazioni → Integrazioni → Radar al telefono
 - FlyDeck → Impostazioni → Integrazioni → "Radar al telefono": cliccare "Attiva Radar vocale", poi incollare l'ID numero VAPI e premere "Collega"
 - Test end-to-end: chiamata in entrata (riconoscimento dal numero) e promemoria importante (chiamata in uscita)

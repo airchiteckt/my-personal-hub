@@ -431,6 +431,39 @@ export function VapiConfig() {
                 </Select>
               </Row>
             </div>
+
+            <div className="space-y-4 border-t border-border/60 pt-5">
+              <p className="text-xs font-medium">Apertura e chiusura della chiamata</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Row label="Chi parla per primo" hint="Radar può aprire lui la conversazione o aspettare che parli tu.">
+                  <Select value={tuning.firstMessageMode} onValueChange={v => set('firstMessageMode', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="assistant-speaks-first">Radar saluta per primo</SelectItem>
+                      <SelectItem value="assistant-waits-for-user">Radar aspetta te</SelectItem>
+                      <SelectItem value="assistant-speaks-first-with-model-generated-message">Radar apre con frase generata al momento</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Row>
+                <Row label="Frase di chiusura" hint="Detta da Radar prima di riagganciare.">
+                  <Input value={tuning.endCallMessage} onChange={e => set('endCallMessage', e.target.value)} />
+                </Row>
+              </div>
+              <Row label="Frasi che chiudono la chiamata" hint="Separate da virgola: se le pronunci, Radar riaggancia.">
+                <Input value={tuning.endCallPhrases} onChange={e => set('endCallPhrases', e.target.value)} />
+              </Row>
+              <Row label="Messaggio per la segreteria" hint="Lascialo vuoto per non lasciare messaggi in segreteria.">
+                <Input value={tuning.voicemailMessage} onChange={e => set('voicemailMessage', e.target.value)} placeholder="—" />
+              </Row>
+              <div className="flex items-center gap-2">
+                <Switch checked={tuning.transcriptEnabled} onCheckedChange={v => set('transcriptEnabled', v)} />
+                <Label className="text-xs">Salva la trascrizione della chiamata</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={tuning.modelOutputInMessagesEnabled} onCheckedChange={v => set('modelOutputInMessagesEnabled', v)} />
+                <Label className="text-xs">Usa il testo generato (non quello letto) nello storico: più coerente</Label>
+              </div>
+            </div>
           </Card>
         </TabsContent>
       </Tabs>

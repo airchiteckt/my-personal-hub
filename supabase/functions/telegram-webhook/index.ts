@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
             scheduled_date: tomorrow,
             postpone_count: (t?.postpone_count ?? 0) + 1,
           }).eq("id", target).eq("user_id", uid);
-          reply = "📅 Spostata a domani.";
+          reply = `📅 Spostata al ${tomorrow}.`;
         } else if (act === "skip") {
           const t = await getTask();
           await admin.from("tasks").update({

@@ -202,6 +202,173 @@ export async function executeAction(
       if (error) throw error;
       return { table: "enterprises", id: data.id };
     }
+    if (name === "update_task") {
+      const patch: Record<string, any> = {};
+      for (const k of ["title", "description", "priority", "estimated_minutes", "deadline", "project_id", "impact", "effort"]) {
+        if (a[k] !== undefined && a[k] !== null) patch[k] = a[k];
+      }
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("tasks").update(patch).eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "unschedule_task") {
+      const { error } = await admin.from("tasks")
+        .update({ status: "backlog", scheduled_date: null, scheduled_time: null })
+        .eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "delete_task") {
+      const { error } = await admin.from("tasks").delete().eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "update_appointment") {
+      const patch: Record<string, any> = {};
+      for (const k of ["title", "description", "date", "start_time", "end_time", "enterprise_id"]) {
+        if (a[k] !== undefined && a[k] !== null) patch[k] = a[k];
+      }
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("appointments").update(patch)
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
+    if (name === "update_reminder") {
+      const patch: Record<string, any> = {};
+      if (a.title) patch.title = a.title;
+      if (a.description !== undefined) patch.description = a.description;
+      if (a.reminder_date) patch.reminder_date = a.reminder_date;
+      if (a.reminder_time !== undefined) patch.reminder_time = a.reminder_time;
+      if (a.is_urgent !== undefined) patch.is_urgent = a.is_urgent === true;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("reminders").update(patch)
+        .eq("id", a.reminder_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "reminders", id: a.reminder_id };
+    }
+    if (name === "delete_reminder") {
+      const { error } = await admin.from("reminders").delete()
+        .eq("id", a.reminder_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "reminders", id: a.reminder_id };
+    }
+    if (name === "convert_reminder_to_task") {
+      const { data: r, error: rErr } = await admin.from("reminders")
+        .select("id,title,description,enterprise_id,reminder_date,reminder_time")
+        .eq("id", a.reminder_id).eq("user_id", userId).maybeSingle();
+      if (rErr) throw rErr;
+      if (!r) return { error: "Promemoria non trovato" };
+      const created = await executeAction(admin, userId, "create_task", {
+        title: a.title ?? r.title,
+        description: r.description,
+        enterprise_id: a.enterprise_id ?? r.enterprise_id,
+        project_id: a.project_id,
+        scheduled_date: a.scheduled_date ?? r.reminder_date,
+        scheduled_time: a.scheduled_time ?? r.reminder_time,
+        estimated_minutes: a.estimated_minutes ?? 30,
+        priority: a.priority ?? "medium",
+      });
+      if ("error" in created) return created;
+      await admin.from("reminders").update({ is_dismissed: true }).eq("id", r.id).eq("user_id", userId);
+      return created;
+    }
+    if (name === "update_project") {
+      const patch: Record<string, any> = {};
+      if (a.name) patch.name = a.name;
+      if (a.type) patch.type = a.type;
+      if (a.key_result_id !== undefined) patch.key_result_id = a.key_result_id;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("projects").update(patch)
+        .eq("id", a.project_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "projects", id: a.project_id };
+    }
+    if (name === "delete_project") {
+      const { error } = await admin.from("projects").delete()
+        .eq("id", a.project_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "projects", id: a.project_id };
+    }
+    if (name === "update_enterprise") {
+      const patch: Record<string, any> = {};
+      if (a.name) patch.name = a.name;
+      if (a.description !== undefined) patch.description = a.description;
+      if (a.status) patch.status = a.status;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("enterprises").update(patch)
+        .eq("id", a.enterprise_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "enterprises", id: a.enterprise_id };
+    }
+    if (name === "create_focus_period") {
+      const { data, error } = await admin.from("focus_periods").insert({
+        user_id: userId,
+        enterprise_id: a.enterprise_id,
+        name: a.name,
+        description: a.description ?? null,
+        start_date: a.start_date,
+        end_date: a.end_date,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "focus_periods", id: data.id };
+    }
+    if (name === "create_objective") {
+      const { data: fp } = await admin.from("focus_periods")
+        .select("id,enterprise_id").eq("id", a.focus_period_id).eq("user_id", userId).maybeSingle();
+      if (!fp) return { error: "Focus period non trovato" };
+      const { data, error } = await admin.from("objectives").insert({
+        user_id: userId,
+        focus_period_id: fp.id,
+        enterprise_id: fp.enterprise_id,
+        title: a.title,
+        description: a.description ?? null,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "objectives", id: data.id };
+    }
+    if (name === "create_key_result") {
+      const { data: o } = await admin.from("objectives")
+        .select("id,enterprise_id").eq("id", a.objective_id).eq("user_id", userId).maybeSingle();
+      if (!o) return { error: "Obiettivo non trovato" };
+      const { data, error } = await admin.from("key_results").insert({
+        user_id: userId,
+        objective_id: o.id,
+        enterprise_id: o.enterprise_id,
+        title: a.title,
+        target_value: a.target_value ?? 100,
+        current_value: a.current_value ?? 0,
+        metric_type: a.metric_type ?? "number",
+        deadline: a.deadline ?? null,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "key_results", id: data.id };
+    }
+    if (name === "update_key_result") {
+      const patch: Record<string, any> = {};
+      if (a.current_value !== undefined) patch.current_value = a.current_value;
+      if (a.target_value !== undefined) patch.target_value = a.target_value;
+      if (a.title) patch.title = a.title;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("key_results").update(patch)
+        .eq("id", a.key_result_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "key_results", id: a.key_result_id };
+    }
+    if (name === "save_journal_entry") {
+      const { data, error } = await admin.from("journal_entries").upsert({
+        user_id: userId,
+        entry_date: a.entry_date ?? romeNow().date,
+        content: a.content,
+        mood: a.mood ?? null,
+      }, { onConflict: "user_id,entry_date" }).select("id").single();
+      if (error) throw error;
+      return { table: "journal_entries", id: data.id };
+    }
     return { error: `Azione sconosciuta: ${name}` };
   } catch (e: any) {
     console.error("executeAction error", name, e?.message ?? e);

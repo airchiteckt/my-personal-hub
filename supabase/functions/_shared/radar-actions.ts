@@ -359,19 +359,78 @@ export async function executeAction(
       if (error) throw error;
       return { table: "key_results", id: a.key_result_id };
     }
+    if (name === "complete_ritual" || name === "skip_ritual") {
+      const day = a.completed_date ?? romeNow().date;
+      const status = name === "skip_ritual" ? "skipped" : "completed";
+      const { data: existing } = await admin.from("ritual_completions")
+        .select("id").eq("user_id", userId).eq("ritual_id", a.ritual_id)
+        .eq("completed_date", day).maybeSingle();
+      if (existing) {
+        const { error } = await admin.from("ritual_completions")
+          .update({ status, notes: a.notes ?? null }).eq("id", existing.id);
+        if (error) throw error;
+        return { table: "ritual_completions", id: existing.id };
+      }
+      const { data, error } = await admin.from("ritual_completions").insert({
+        user_id: userId, ritual_id: a.ritual_id, completed_date: day, status,
+        completed_time: a.completed_time ?? romeNow().time, notes: a.notes ?? null,
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "ritual_completions", id: data.id };
+    }
+    if (name === "create_ritual") {
+      const { data, error } = await admin.from("rituals").insert({
+        user_id: userId,
+        name: a.name,
+        category: a.category ?? "operativo",
+        frequency: a.frequency ?? "daily",
+        estimated_minutes: a.estimated_minutes ?? 15,
+        enterprise_id: a.enterprise_id ?? null,
+        suggested_time: a.suggested_time ?? null,
+        suggested_day: a.suggested_day ?? null,
+        description: a.description ?? null,
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "rituals", id: data.id };
+    }
+    if (name === "update_ritual") {
+      const patch: Record<string, any> = {};
+      for (const k of ["name", "category", "frequency", "estimated_minutes", "suggested_time", "suggested_day", "description", "is_active"]) {
+        if (a[k] !== undefined) patch[k] = a[k];
+      }
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("rituals").update(patch)
+        .eq("id", a.ritual_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "rituals", id: a.ritual_id };
+    }
+    if (name === "delete_ritual") {
+      const { error } = await admin.from("rituals").delete()
+        .eq("id", a.ritual_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "rituals", id: a.ritual_id };
+    }
     if (name === "save_journal_entry") {
       const day = a.entry_date ?? romeNow().date;
       const { data: existing } = await admin.from("journal_entries")
         .select("id").eq("user_id", userId).eq("entry_date", day).maybeSingle();
       if (existing) {
-        const patch: Record<string, any> = { content: a.content };
+        const patch: Record<string, any> = {};
+        if (a.content !== undefined) patch.content = a.content;
         if (a.mood) patch.mood = a.mood;
+        for (const k of ["energy_level", "energy_morning", "energy_afternoon", "energy_evening"]) {
+          if (a[k] !== undefined) patch[k] = a[k];
+        }
         const { error } = await admin.from("journal_entries").update(patch).eq("id", existing.id);
         if (error) throw error;
         return { table: "journal_entries", id: existing.id };
       }
       const { data, error } = await admin.from("journal_entries").insert({
-        user_id: userId, entry_date: day, content: a.content, mood: a.mood ?? null,
+        user_id: userId, entry_date: day, content: a.content ?? "", mood: a.mood ?? null,
+        energy_level: a.energy_level ?? null,
+        energy_morning: a.energy_morning ?? null,
+        energy_afternoon: a.energy_afternoon ?? null,
+        energy_evening: a.energy_evening ?? null,
       }).select("id").single();
       if (error) throw error;
       return { table: "journal_entries", id: data.id };
@@ -686,12 +745,33 @@ export async function queryRadar(
       return data.map((r: any) => `${r.reminder_date} ${r.reminder_time ?? ""}: ${r.title}${r.is_urgent ? " (importante)" : ""} (id ${r.id})`).join("\n");
     }
 
+    if (name === "list_rituals") {
+      const day = a.date || now.date;
+      const [{ data: rituals }, { data: comps }, { data: ent }] = await Promise.all([
+        admin.from("rituals").select("id,name,category,frequency,estimated_minutes,suggested_time,enterprise_id,is_active")
+          .eq("user_id", userId).eq("is_active", true).limit(100),
+        admin.from("ritual_completions").select("ritual_id,status,completed_time")
+          .eq("user_id", userId).eq("completed_date", day),
+        admin.from("enterprises").select("id,name").eq("user_id", userId),
+      ]);
+      if (!rituals?.length) return "Nessun rituale attivo.";
+      const entName = new Map((ent ?? []).map((e: any) => [e.id, e.name]));
+      const byRitual = new Map((comps ?? []).map((c: any) => [c.ritual_id, c]));
+      const lines = [`Rituali attivi al ${day} (${rituals.length} in tutto):`];
+      for (const r of rituals) {
+        const c: any = byRitual.get(r.id);
+        const stato = c ? (c.status === "skipped" ? "saltato" : `fatto${c.completed_time ? " alle " + c.completed_time : ""}`) : "da fare";
+        lines.push(`${r.name} — ${r.category}, ${r.frequency}, ${r.estimated_minutes} min${r.suggested_time ? `, orario ${r.suggested_time}` : ""}${r.enterprise_id ? `, impresa ${entName.get(r.enterprise_id) ?? "?"}` : ""} — ${stato} (id ${r.id})`);
+      }
+      return lines.join("\n");
+    }
+
     if (name === "get_journal") {
       const day = a.entry_date || now.date;
       const { data } = await admin.from("journal_entries")
-        .select("entry_date,content,mood,energy_level").eq("user_id", userId).eq("entry_date", day).maybeSingle();
+        .select("entry_date,content,mood,energy_level,energy_morning,energy_afternoon,energy_evening").eq("user_id", userId).eq("entry_date", day).maybeSingle();
       if (!data) return `Nessuna nota di diario per il ${day}.`;
-      return `Diario ${data.entry_date}${data.mood ? ` (umore ${data.mood})` : ""}:\n${data.content}`;
+      return `Diario ${data.entry_date}${data.mood ? ` (umore ${data.mood})` : ""}${data.energy_level ? `, energia ${data.energy_level}` : ""}:\n${data.content}`;
     }
 
     return `Interrogazione sconosciuta: ${name}`;
@@ -703,7 +783,7 @@ export async function queryRadar(
 
 export const RADAR_QUERY_TOOLS = new Set([
   "get_day_overview", "get_agenda", "list_tasks", "list_projects",
-  "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal",
+  "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal", "list_rituals",
 ]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------
@@ -936,8 +1016,38 @@ export const RADAR_TOOL_DEFS = [
     parameters: { type: "object", properties: { key_result_id: { type: "string" }, current_value: { type: "number" }, target_value: { type: "number" }, title: { type: "string" } }, required: ["key_result_id"] },
   },
   {
+    name: "list_rituals",
+    description: "Elenca i rituali attivi con lo stato di oggi (fatto, saltato, da fare) e i relativi id",
+    parameters: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD, default oggi" } }, required: [] },
+  },
+  {
+    name: "complete_ritual",
+    description: "Segna un rituale come completato in un giorno",
+    parameters: { type: "object", properties: { ritual_id: { type: "string" }, completed_date: { type: "string" }, completed_time: { type: "string" }, notes: { type: "string" } }, required: ["ritual_id"] },
+  },
+  {
+    name: "skip_ritual",
+    description: "Segna un rituale come saltato in un giorno",
+    parameters: { type: "object", properties: { ritual_id: { type: "string" }, completed_date: { type: "string" }, notes: { type: "string" } }, required: ["ritual_id"] },
+  },
+  {
+    name: "create_ritual",
+    description: "Crea un nuovo rituale ricorrente",
+    parameters: { type: "object", properties: { name: { type: "string" }, category: { type: "string" }, frequency: { type: "string", description: "daily, weekly, monthly" }, estimated_minutes: { type: "number" }, suggested_time: { type: "string" }, enterprise_id: { type: "string" }, description: { type: "string" } }, required: ["name"] },
+  },
+  {
+    name: "update_ritual",
+    description: "Modifica un rituale esistente (nome, frequenza, durata, orario, attivo)",
+    parameters: { type: "object", properties: { ritual_id: { type: "string" }, name: { type: "string" }, category: { type: "string" }, frequency: { type: "string" }, estimated_minutes: { type: "number" }, suggested_time: { type: "string" }, description: { type: "string" }, is_active: { type: "boolean" } }, required: ["ritual_id"] },
+  },
+  {
+    name: "delete_ritual",
+    description: "Elimina definitivamente un rituale",
+    parameters: { type: "object", properties: { ritual_id: { type: "string" } }, required: ["ritual_id"] },
+  },
+  {
     name: "save_journal_entry",
-    description: "Scrive o aggiorna la nota di diario di un giorno",
-    parameters: { type: "object", properties: { entry_date: { type: "string" }, content: { type: "string" }, mood: { type: "string" } }, required: ["content"] },
+    description: "Scrive o aggiorna la nota di diario di un giorno, con umore ed energia (1-5)",
+    parameters: { type: "object", properties: { entry_date: { type: "string" }, content: { type: "string" }, mood: { type: "string" }, energy_level: { type: "number" }, energy_morning: { type: "number" }, energy_afternoon: { type: "number" }, energy_evening: { type: "number" } }, required: ["content"] },
   },
 ];

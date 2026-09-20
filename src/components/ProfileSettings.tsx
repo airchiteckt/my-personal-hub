@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { User, Mail, Lock, Save, Loader2, Upload, X, Compass } from 'lucide-react';
+import { User, Mail, Lock, Save, Loader2, Upload, X, Compass, ShieldCheck } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { resetOnboarding } from '@/components/OnboardingTour';
 
@@ -21,6 +21,10 @@ export function ProfileSettings() {
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -30,7 +34,7 @@ export function ProfileSettings() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('display_name, avatar_url, phone_number')
+      .select('display_name, avatar_url, phone_number, phone_verified')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
@@ -38,9 +42,44 @@ export function ProfileSettings() {
           setDisplayName(data.display_name || '');
           setAvatarUrl(data.avatar_url || '');
           setPhoneNumber((data as any).phone_number || '');
+          setPhoneVerified(!!(data as any).phone_verified);
         }
       });
   }, [user]);
+
+  const sendOtp = async () => {
+    setOtpLoading(true);
+    const { data, error } = await supabase.functions.invoke('phone-verify', {
+      body: { action: 'send', phone: phoneNumber },
+    });
+    setOtpLoading(false);
+    const err = error ? (data as any)?.error || error.message : (data as any)?.error;
+    if (err) {
+      toast({ title: 'Invio non riuscito', description: String(err), variant: 'destructive' });
+      return;
+    }
+    if ((data as any)?.phone) setPhoneNumber((data as any).phone);
+    setOtpSent(true);
+    setOtpCode('');
+    toast({ title: 'Codice inviato', description: 'Controlla gli SMS: arriva da FlyDeck.' });
+  };
+
+  const checkOtp = async () => {
+    setOtpLoading(true);
+    const { data, error } = await supabase.functions.invoke('phone-verify', {
+      body: { action: 'check', phone: phoneNumber, code: otpCode },
+    });
+    setOtpLoading(false);
+    const err = error ? (data as any)?.error || error.message : (data as any)?.error;
+    if (err) {
+      toast({ title: 'Verifica non riuscita', description: String(err), variant: 'destructive' });
+      return;
+    }
+    setPhoneVerified(true);
+    setOtpSent(false);
+    setOtpCode('');
+    toast({ title: 'Numero verificato' });
+  };
 
   const normalizePhone = (raw: string) => {
     const cleaned = raw.trim().replace(/[\s.\-()]/g, '');
@@ -107,7 +146,7 @@ export function ProfileSettings() {
     }
     const { error } = await supabase
       .from('profiles')
-      .update({ display_name: displayName.trim(), phone_number: phone || null })
+      .update({ display_name: displayName.trim(), phone_number: phone || null, phone_verified: phoneVerified })
       .eq('user_id', user.id);
     setPhoneNumber(phone);
     setLoading(false);
@@ -239,15 +278,39 @@ export function ProfileSettings() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone-number">Cellulare</Label>
-            <Input
-              id="phone-number"
-              type="tel"
-              value={phoneNumber}
-              onChange={e => setPhoneNumber(e.target.value)}
-              placeholder="+39 333 1234567"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="phone-number"
+                type="tel"
+                value={phoneNumber}
+                onChange={e => { setPhoneNumber(e.target.value); setPhoneVerified(false); setOtpSent(false); }}
+                placeholder="+39 333 1234567"
+              />
+              {phoneVerified ? (
+                <span className="flex items-center gap-1 text-xs text-primary whitespace-nowrap px-2">
+                  <ShieldCheck className="h-4 w-4" /> Verificato
+                </span>
+              ) : (
+                <Button type="button" variant="outline" size="sm" onClick={sendOtp} disabled={otpLoading || !phoneNumber.trim()}>
+                  {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : otpSent ? 'Rinvia codice' : 'Verifica'}
+                </Button>
+              )}
+            </div>
+            {otpSent && !phoneVerified && (
+              <div className="flex gap-2 pt-1">
+                <Input
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Codice a 6 cifre"
+                  inputMode="numeric"
+                />
+                <Button type="button" size="sm" onClick={checkOtp} disabled={otpLoading || otpCode.length < 4}>
+                  {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Conferma'}
+                </Button>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Serve per chiamare Radar e per ricevere le chiamate dei promemoria importanti. Radar ti riconosce da questo numero.
+              Serve per chiamare Radar e per ricevere le chiamate dei promemoria importanti. Ti inviamo un codice via SMS da "FlyDeck" per confermare che il numero sia tuo.
             </p>
           </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">

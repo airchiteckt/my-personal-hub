@@ -212,6 +212,27 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: string | null
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value?: string | null
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string | null
+        }
+        Relationships: []
+      }
       appointment_reminders: {
         Row: {
           appointment_id: string
@@ -930,6 +951,8 @@ export type Database = {
           display_name: string | null
           id: string
           phone_number: string | null
+          phone_verified: boolean
+          phone_verified_at: string | null
           public_slug: string | null
           showcase_enabled: boolean
           showcase_password: string | null
@@ -942,6 +965,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           phone_number?: string | null
+          phone_verified?: boolean
+          phone_verified_at?: string | null
           public_slug?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null
@@ -954,6 +979,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           phone_number?: string | null
+          phone_verified?: boolean
+          phone_verified_at?: string | null
           public_slug?: string | null
           showcase_enabled?: boolean
           showcase_password?: string | null

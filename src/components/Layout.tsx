@@ -3,10 +3,11 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { AiAssistant } from '@/components/AiAssistant';
 import { useAutoReschedule } from '@/hooks/use-auto-reschedule';
-import { isFeatureEnabled } from '@/lib/features';
+import { useFeatureFlags } from '@/hooks/use-feature-flags';
 
 export function Layout() {
   useAutoReschedule();
+  const { isFeatureEnabled } = useFeatureFlags();
   const { pathname } = useLocation();
   const isCalendar = pathname === '/calendar';
 

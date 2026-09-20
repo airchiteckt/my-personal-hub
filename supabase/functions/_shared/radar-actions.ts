@@ -353,6 +353,27 @@ export async function startOutboundCall(
   return { ok: true, message: "📞 Ti sto chiamando, rispondi pure." };
 }
 
+/**
+ * Contesto vocale ricco: riassunto della giornata + agenda dei prossimi 7 giorni,
+ * attività in ritardo e backlog, tutti con i loro id, così l'agente può
+ * riconoscere ciò di cui parla l'utente senza chiamare strumenti.
+ */
+export async function buildVoiceDaySummary(admin: any, userId: string): Promise<string> {
+  const now = romeNow();
+  const [summary, agenda, overdue, backlog] = await Promise.all([
+    buildDaySummary(admin, userId),
+    queryRadar(admin, userId, "get_agenda", { date: now.date, to_date: addDays(now.date, 7) }),
+    queryRadar(admin, userId, "list_tasks", { scope: "overdue" }),
+    queryRadar(admin, userId, "list_tasks", { scope: "backlog" }),
+  ]);
+  return [
+    summary,
+    `\nAGENDA PROSSIMI 7 GIORNI (con id):\n${agenda}`,
+    `\nATTIVITÀ IN RITARDO:\n${overdue}`,
+    `\nBACKLOG:\n${backlog}`,
+  ].join("\n").slice(0, 6000);
+}
+
 export async function queryRadar(
   admin: any, userId: string, name: string, a: Record<string, any> = {},
 ): Promise<string> {

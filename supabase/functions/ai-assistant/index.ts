@@ -1,5 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildRadarChatPrompt } from "../_shared/radar-chat-prompt.ts";
+import {
+  romeNow, buildContext, executeAction, queryRadar,
+  RADAR_TOOL_DEFS, RADAR_QUERY_TOOLS,
+} from "../_shared/radar-actions.ts";
+
+// azioni eseguite subito (le stesse di Telegram); le altre chiedono conferma
+const RADAR_INSTANT_ACTIONS = new Set([
+  "create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task",
+  "dismiss_reminder", "postpone_reminder", "update_task", "unschedule_task",
+  "update_appointment", "move_appointment", "update_reminder", "convert_reminder_to_task",
+  "update_key_result", "save_journal_entry", "log_time",
+  "complete_ritual", "skip_ritual", "update_ritual",
+]);
+
+// rimuove id tecnici e residui di codice dalle risposte
+function cleanRadarReply(text: string): string {
+  return text
+    .replace(/\[\s*(azioni|actions|tool_calls?|function_call)\s*:[\s\S]*?\]/gi, "")
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`?/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -54,7 +78,19 @@ serve(async (req) => {
       });
 
     const userId = claimsData.claims.sub;
-    const { type, messages: clientMessages, context } = await req.json();
+    const { type, messages: clientMessages, context, action_name: actionName, action_args: actionArgs } = await req.json();
+
+    // Esecuzione di un'azione confermata dall'utente nella chat Radar
+    if (type === "execute_action") {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const body = await Promise.resolve(null);
+      void body;
+      const res: any = await executeAction(admin, userId, actionName, actionArgs ?? {});
+      return new Response(JSON.stringify(res?.error ? { error: res.error } : { ok: true, id: res?.id ?? null }), {
+        status: res?.error ? 400 : 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // ===== AI Usage Limit Check (global circuit breaker) =====
     // Use service role to bypass RLS for accurate global counts
@@ -686,287 +722,96 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
 
     const toolDef = structuredTypes[type];
 
-    // Global Assistant: streaming with full CRUD tool calls
+    // Global Assistant: stesso cervello di Radar su Telegram (prompt + tool condivisi)
     if (type === "global_assistant") {
-      const globalTools = [
-        {
-          type: "function",
-          function: {
-            name: "create_enterprise",
-            description: "Crea una nuova impresa",
-            parameters: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                status: { type: "string", enum: ["active", "development", "paused"] },
-                business_category: { type: "string" },
-                phase: { type: "string" },
-              },
-              required: ["name"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_project",
-            description: "Crea un nuovo progetto in un'impresa",
-            parameters: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                enterprise_id: { type: "string" },
-                type: { type: "string", enum: ["strategic", "operational", "maintenance"] },
-              },
-              required: ["name", "enterprise_id"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_task",
-            description: "Crea una nuova task in un progetto",
-            parameters: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                project_id: { type: "string" },
-                enterprise_id: { type: "string" },
-                priority: { type: "string", enum: ["high", "medium", "low"] },
-                estimated_minutes: { type: "number" },
-                deadline: { type: "string", description: "YYYY-MM-DD" },
-              },
-              required: ["title", "project_id", "enterprise_id"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_focus_period",
-            description: "Crea un Focus Period per un'impresa",
-            parameters: {
-              type: "object",
-              properties: {
-                name: { type: "string" },
-                enterprise_id: { type: "string" },
-                start_date: { type: "string" },
-                end_date: { type: "string" },
-                status: { type: "string", enum: ["active", "future", "archived"] },
-              },
-              required: ["name", "enterprise_id", "start_date", "end_date", "status"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_objective",
-            description: "Crea un Objective in un Focus Period",
-            parameters: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                description: { type: "string" },
-                focus_period_id: { type: "string" },
-                enterprise_id: { type: "string" },
-              },
-              required: ["title", "focus_period_id", "enterprise_id"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_key_result",
-            description: "Crea un Key Result in un Objective",
-            parameters: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                objective_id: { type: "string" },
-                enterprise_id: { type: "string" },
-                target_value: { type: "number" },
-                metric_type: { type: "string", enum: ["number", "percentage", "boolean"] },
-                deadline: { type: "string" },
-              },
-              required: ["title", "objective_id", "enterprise_id", "target_value", "metric_type"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "schedule_task",
-            description: "Pianifica una task in una data specifica",
-            parameters: {
-              type: "object",
-              properties: {
-                task_id: { type: "string" },
-                date: { type: "string", description: "YYYY-MM-DD" },
-                time: { type: "string", description: "HH:MM (opzionale)" },
-              },
-              required: ["task_id", "date"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "complete_task",
-            description: "Segna una task come completata",
-            parameters: {
-              type: "object",
-              properties: {
-                task_id: { type: "string" },
-              },
-              required: ["task_id"],
-              additionalProperties: false,
-            },
-          },
-        },
-        {
-          type: "function",
-          function: {
-            name: "create_appointment",
-            description: "Crea un appuntamento nel calendario",
-            parameters: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                date: { type: "string", description: "YYYY-MM-DD" },
-                start_time: { type: "string", description: "HH:MM" },
-                end_time: { type: "string", description: "HH:MM" },
-                description: { type: "string" },
-                enterprise_id: { type: "string" },
-              },
-              required: ["title", "date", "start_time", "end_time"],
-              additionalProperties: false,
-            },
-          },
-        },
-      ];
+      const radarCtx = await buildContext(adminClient, userId);
+      const now = romeNow();
+      const systemPrompt = promptRow?.system_prompt
+        ?? buildRadarChatPrompt({ ctx: { ...radarCtx, vistaCorrente: context ?? null }, now, channel: "app" });
 
-      const globalSystemPrompt = promptRow?.system_prompt ?? `Sei Radar, l'assistente AI dell'utente per la gestione strategica e operativa.
+      const tools = RADAR_TOOL_DEFS.map((t: any) => ({
+        type: "function",
+        function: { name: t.name, description: t.description, parameters: t.parameters },
+      }));
 
-CAPACITÀ:
-- Leggere: imprese, progetti, task, OKR, focus period, appuntamenti
-- Scrivere: creare imprese, progetti, task, focus period, objective, key result, appuntamenti
-- Pianificare: schedulare e completare task
+      const aiMsgs: any[] = [{ role: "system", content: systemPrompt }, ...(clientMessages ?? [])];
 
-REGOLE:
-- Rispondi SEMPRE in italiano
-- Sii diretto, professionale, essenziale. Max 2-3 frasi per risposta.
-- IMPORTANTE: quando l'utente chiede di creare o modificare qualcosa, usa i tool ma descrivi brevemente cosa stai per fare nella risposta testuale (es. "Creo la task X nel progetto Y."). L'utente vedrà una card di conferma prima che l'azione venga eseguita.
-- Quando chiede informazioni, rispondi con dati precisi dal contesto
-- Se mancano dati critici, chiedi solo l'essenziale
-- Niente fronzoli, niente metafore, niente emoji superflue
-- In modalità vocale: risposte ancora più brevi e azionabili
-
-CONTESTO: Hai tutti i dati dell'utente. Usa enterprise_id e project_id dal contesto per le azioni.`;
-
-      const DOMAIN_RULE = `\n\nDOMINIO: il sito è SOLO https://www.flydeck.app. Non usare MAI altri domini (flydeck.io, flydeck.com, ecc.). Se non conosci l'URL esatto di una pagina, non inventarlo: indica il percorso nell'app (es. Impostazioni → Integrazioni).`;
-
-      // Override system prompt
-      aiMessages[0] = { role: "system", content: globalSystemPrompt + DOMAIN_RULE };
-
-
-      const response = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: aiMessages,
-          tools: globalTools,
-          stream: true,
-        }),
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "google/gemini-3-flash-preview", messages: aiMsgs, tools }),
       });
 
-      if (!response.ok) {
-        if (response.status === 429)
-          return new Response(JSON.stringify({ error: "Troppi richieste, riprova tra poco." }), {
-            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        const t = await response.text();
-        console.error("AI gateway error:", response.status, t);
-        throw new Error("AI gateway error");
+      if (!aiRes.ok) {
+        const t = await aiRes.text();
+        console.error("AI gateway error:", aiRes.status, t);
+        return new Response(JSON.stringify({
+          error: aiRes.status === 429
+            ? "Troppe richieste, riprova tra poco."
+            : aiRes.status === 402
+              ? "Crediti AI esauriti."
+              : "Errore AI, riprova.",
+        }), { status: aiRes.status === 429 ? 429 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Reuse same SSE streaming logic as okr_wizard
-      const gReader = response.body!.getReader();
-      const gDecoder = new TextDecoder();
-      
-      const gStream = new ReadableStream({
-        async start(controller) {
-          const encoder = new TextEncoder();
-          let buffer = "";
-          let toolCallBuffers: Record<number, { name: string; args: string }> = {};
-          let streamDone = false;
+      const aiJson = await aiRes.json();
+      const choice = aiJson?.choices?.[0]?.message ?? {};
+      let finalReply: string = (choice.content ?? "").trim();
+      const toolCalls: any[] = choice.tool_calls ?? [];
 
-          while (!streamDone) {
-            const { done, value } = await gReader.read();
-            if (done) break;
-            buffer += gDecoder.decode(value, { stream: true });
+      // 1) letture: eseguite subito, poi risposta in linguaggio naturale
+      const queryCalls = toolCalls.filter((tc) => RADAR_QUERY_TOOLS.has(tc.function?.name));
+      if (queryCalls.length) {
+        const results: string[] = [];
+        for (const tc of queryCalls) {
+          let qArgs: Record<string, any> = {};
+          try { qArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
+          results.push(`${tc.function.name}: ${await queryRadar(adminClient, userId, tc.function.name, qArgs)}`);
+        }
+        const followRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              ...aiMsgs,
+              { role: "system", content: `DATI LETTI DAL DATABASE (usa solo questi, non inventare nulla, rispondi in italiano in modo sintetico):\n${results.join("\n\n")}` },
+            ],
+          }),
+        });
+        const followJson = await followRes.json().catch(() => ({}));
+        finalReply = ((followJson?.choices?.[0]?.message?.content ?? "").trim()) || results.join("\n\n");
+      }
 
-            let newlineIdx: number;
-            while ((newlineIdx = buffer.indexOf("\n")) !== -1) {
-              let line = buffer.slice(0, newlineIdx);
-              buffer = buffer.slice(newlineIdx + 1);
-              if (line.endsWith("\r")) line = line.slice(0, -1);
-              if (!line.startsWith("data: ")) continue;
-              const jsonStr = line.slice(6).trim();
-              if (jsonStr === "[DONE]") { streamDone = true; break; }
+      // 2) scritture: immediate (come su Telegram) oppure da confermare
+      const executed: any[] = [];
+      const pending: any[] = [];
+      for (const tc of toolCalls) {
+        const name = tc.function?.name;
+        if (!name || RADAR_QUERY_TOOLS.has(name)) continue;
+        let args: Record<string, any> = {};
+        try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
+        if (RADAR_INSTANT_ACTIONS.has(name)) {
+          const res: any = await executeAction(adminClient, userId, name, args);
+          executed.push({ type: name, data: args, ok: !res?.error, error: res?.error ?? null });
+        } else {
+          pending.push({ type: name, data: args });
+        }
+      }
 
-              try {
-                const parsed = JSON.parse(jsonStr);
-                const delta = parsed.choices?.[0]?.delta;
-                if (!delta) continue;
-
-                if (delta.content) {
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", content: delta.content })}\n\n`));
-                }
-
-                if (delta.tool_calls) {
-                  for (const tc of delta.tool_calls) {
-                    const idx = tc.index ?? 0;
-                    if (!toolCallBuffers[idx]) toolCallBuffers[idx] = { name: "", args: "" };
-                    if (tc.function?.name) toolCallBuffers[idx].name = tc.function.name;
-                    if (tc.function?.arguments) toolCallBuffers[idx].args += tc.function.arguments;
-                  }
-                }
-              } catch { /* partial JSON, skip */ }
-            }
-          }
-
-          const actions: any[] = [];
-          for (const idx of Object.keys(toolCallBuffers).sort()) {
-            const tc = toolCallBuffers[Number(idx)];
-            try {
-              actions.push({ type: tc.name, data: JSON.parse(tc.args) });
-            } catch {}
-          }
-          if (actions.length > 0) {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "actions", actions })}\n\n`));
-          }
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          const push = (obj: unknown) => controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+          if (finalReply) push({ type: "delta", content: cleanRadarReply(finalReply) });
+          if (executed.length) push({ type: "executed", executed });
+          if (pending.length) push({ type: "actions", actions: pending });
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         },
       });
 
-      return new Response(gStream, {
-        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-      });
+      return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
     // OKR Wizard: streaming with tool call support

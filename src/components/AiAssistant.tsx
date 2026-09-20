@@ -316,19 +316,16 @@ function useRadar() {
 
   const applyAction = async (action: GlobalAction) => {
     try {
-      switch (action.type) {
-        case 'create_enterprise': addEnterprise({ name: action.data.name, status: action.data.status || 'active', color: '#6366f1', strategicImportance: 3, growthPotential: 3, phase: action.data.phase || 'setup', businessCategory: action.data.business_category || 'scale_opportunity', timeHorizon: 'medium', enterpriseType: 'digital_services', priorityUntil: null }); toast.success(`Impresa "${action.data.name}" creata`); break;
-        case 'create_project': addProject({ name: action.data.name, enterpriseId: action.data.enterprise_id, type: action.data.type || 'operational', isStrategicLever: action.data.type === 'strategic', keyResultId: null }); toast.success(`Progetto "${action.data.name}" creato`); break;
-        case 'create_task': addTask({ title: action.data.title, projectId: action.data.project_id, enterpriseId: action.data.enterprise_id, priority: action.data.priority || 'medium', estimatedMinutes: action.data.estimated_minutes || 30, deadline: action.data.deadline || null, scheduledDate: null, scheduledTime: null, isRecurring: false, recurringFrequency: null, impact: null, effort: null, completedAt: null }); toast.success(`Task "${action.data.title}" creata`); break;
-        case 'create_focus_period': addFocusPeriod({ enterpriseId: action.data.enterprise_id, name: action.data.name, startDate: action.data.start_date, endDate: action.data.end_date, status: action.data.status || 'active' }); toast.success(`Focus "${action.data.name}" creato`); break;
-        case 'create_objective': addObjective({ focusPeriodId: action.data.focus_period_id, enterpriseId: action.data.enterprise_id, title: action.data.title, description: action.data.description || '', weight: 1, status: 'active' }); toast.success(`Objective "${action.data.title}" creato`); break;
-        case 'create_key_result': addKeyResult({ objectiveId: action.data.objective_id, enterpriseId: action.data.enterprise_id, title: action.data.title, targetValue: action.data.target_value, currentValue: 0, metricType: action.data.metric_type || 'number', deadline: action.data.deadline || null, status: 'active' }); toast.success(`KR "${action.data.title}" creato`); break;
-        case 'schedule_task': scheduleTask(action.data.task_id, action.data.date, action.data.time); toast.success('Task pianificata'); break;
-        case 'complete_task': completeTask(action.data.task_id); toast.success('Task completata'); break;
-        case 'create_appointment': addAppointment({ title: action.data.title, date: action.data.date, startTime: action.data.start_time, endTime: action.data.end_time, description: action.data.description || null, color: null, enterpriseId: action.data.enterprise_id || null }); toast.success(`Appuntamento "${action.data.title}" creato`); break;
-      }
+      const resp = await fetch(CHAT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`, 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ type: 'execute_action', action_name: action.type, action_args: action.data }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || json?.error) throw new Error(json?.error || 'Azione non riuscita');
+      toast.success(`${getActionTypeLabel(action.type)} · fatto`);
       setPendingActions(prev => prev.map(a => a.id === action.id ? { ...a, applied: true } : a));
-    } catch (e) { console.error(e); toast.error("Errore nell'azione"); }
+    } catch (e: any) { console.error(e); toast.error(e?.message || "Errore nell'azione"); }
   };
 
   // Core send function
@@ -366,6 +363,12 @@ function useRadar() {
           try {
             const p = JSON.parse(json);
             if (p.type === 'delta' && p.content) { assistantContent += p.content; const snap = assistantContent; setMessages(prev => prev.map((m, i) => i === prev.length - 1 && m.role === 'assistant' ? { ...m, content: snap } : m)); }
+            if (p.type === 'executed' && p.executed?.length) {
+              for (const ex of p.executed) {
+                if (ex.ok) toast.success(`${getActionTypeLabel(ex.type)} · fatto`);
+                else toast.error(ex.error || 'Azione non riuscita');
+              }
+            }
             if (p.type === 'actions' && p.actions?.length) {
               const acts: GlobalAction[] = p.actions.map((a: any, k: number) => ({
                 ...a,
@@ -500,6 +503,15 @@ function useRadar() {
       create_enterprise: 'Nuova impresa', create_project: 'Nuovo progetto', create_task: 'Nuova task',
       create_focus_period: 'Nuovo focus', create_objective: 'Nuovo obiettivo', create_key_result: 'Nuovo KR',
       schedule_task: 'Pianifica task', complete_task: 'Completa task', create_appointment: 'Nuovo appuntamento',
+      create_reminder: 'Nuovo promemoria', update_reminder: 'Promemoria aggiornato', dismiss_reminder: 'Promemoria chiuso',
+      postpone_reminder: 'Promemoria rimandato', delete_reminder: 'Elimina promemoria',
+      convert_reminder_to_task: 'Promemoria → attività',
+      update_task: 'Attività aggiornata', unschedule_task: 'Attività in backlog', delete_task: 'Elimina attività',
+      update_appointment: 'Appuntamento aggiornato', move_appointment: 'Appuntamento spostato', cancel_appointment: 'Elimina appuntamento',
+      update_project: 'Progetto aggiornato', delete_project: 'Elimina progetto', update_enterprise: 'Impresa aggiornata',
+      update_key_result: 'Key Result aggiornato', save_journal_entry: 'Nota di diario', log_time: 'Tempo registrato',
+      complete_ritual: 'Rituale completato', skip_ritual: 'Rituale saltato', create_ritual: 'Nuovo rituale',
+      update_ritual: 'Rituale aggiornato', delete_ritual: 'Elimina rituale',
     };
     return map[type] || type.replace(/_/g, ' ');
   };

@@ -202,6 +202,180 @@ export async function executeAction(
       if (error) throw error;
       return { table: "enterprises", id: data.id };
     }
+    if (name === "update_task") {
+      const patch: Record<string, any> = {};
+      for (const k of ["title", "description", "priority", "estimated_minutes", "deadline", "project_id", "impact", "effort"]) {
+        if (a[k] !== undefined && a[k] !== null) patch[k] = a[k];
+      }
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("tasks").update(patch).eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "unschedule_task") {
+      const { error } = await admin.from("tasks")
+        .update({ status: "backlog", scheduled_date: null, scheduled_time: null })
+        .eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "delete_task") {
+      const { error } = await admin.from("tasks").delete().eq("id", a.task_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "tasks", id: a.task_id };
+    }
+    if (name === "update_appointment") {
+      const patch: Record<string, any> = {};
+      for (const k of ["title", "description", "date", "start_time", "end_time", "enterprise_id"]) {
+        if (a[k] !== undefined && a[k] !== null) patch[k] = a[k];
+      }
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("appointments").update(patch)
+        .eq("id", a.appointment_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "appointments", id: a.appointment_id };
+    }
+    if (name === "update_reminder") {
+      const patch: Record<string, any> = {};
+      if (a.title) patch.title = a.title;
+      if (a.description !== undefined) patch.description = a.description;
+      if (a.reminder_date) patch.reminder_date = a.reminder_date;
+      if (a.reminder_time !== undefined) patch.reminder_time = a.reminder_time;
+      if (a.is_urgent !== undefined) patch.is_urgent = a.is_urgent === true;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("reminders").update(patch)
+        .eq("id", a.reminder_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "reminders", id: a.reminder_id };
+    }
+    if (name === "delete_reminder") {
+      const { error } = await admin.from("reminders").delete()
+        .eq("id", a.reminder_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "reminders", id: a.reminder_id };
+    }
+    if (name === "convert_reminder_to_task") {
+      const { data: r, error: rErr } = await admin.from("reminders")
+        .select("id,title,description,enterprise_id,reminder_date,reminder_time")
+        .eq("id", a.reminder_id).eq("user_id", userId).maybeSingle();
+      if (rErr) throw rErr;
+      if (!r) return { error: "Promemoria non trovato" };
+      const created = await executeAction(admin, userId, "create_task", {
+        title: a.title ?? r.title,
+        description: r.description,
+        enterprise_id: a.enterprise_id ?? r.enterprise_id,
+        project_id: a.project_id,
+        scheduled_date: a.scheduled_date ?? r.reminder_date,
+        scheduled_time: a.scheduled_time ?? r.reminder_time,
+        estimated_minutes: a.estimated_minutes ?? 30,
+        priority: a.priority ?? "medium",
+      });
+      if ("error" in created) return created;
+      await admin.from("reminders").update({ is_dismissed: true }).eq("id", r.id).eq("user_id", userId);
+      return created;
+    }
+    if (name === "update_project") {
+      const patch: Record<string, any> = {};
+      if (a.name) patch.name = a.name;
+      if (a.type) patch.type = a.type;
+      if (a.key_result_id !== undefined) patch.key_result_id = a.key_result_id;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("projects").update(patch)
+        .eq("id", a.project_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "projects", id: a.project_id };
+    }
+    if (name === "delete_project") {
+      const { error } = await admin.from("projects").delete()
+        .eq("id", a.project_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "projects", id: a.project_id };
+    }
+    if (name === "update_enterprise") {
+      const patch: Record<string, any> = {};
+      if (a.name) patch.name = a.name;
+      if (a.description !== undefined) patch.description = a.description;
+      if (a.status) patch.status = a.status;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("enterprises").update(patch)
+        .eq("id", a.enterprise_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "enterprises", id: a.enterprise_id };
+    }
+    if (name === "create_focus_period") {
+      const { data, error } = await admin.from("focus_periods").insert({
+        user_id: userId,
+        enterprise_id: a.enterprise_id,
+        name: a.name,
+        description: a.description ?? null,
+        start_date: a.start_date,
+        end_date: a.end_date,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "focus_periods", id: data.id };
+    }
+    if (name === "create_objective") {
+      const { data: fp } = await admin.from("focus_periods")
+        .select("id,enterprise_id").eq("id", a.focus_period_id).eq("user_id", userId).maybeSingle();
+      if (!fp) return { error: "Focus period non trovato" };
+      const { data, error } = await admin.from("objectives").insert({
+        user_id: userId,
+        focus_period_id: fp.id,
+        enterprise_id: fp.enterprise_id,
+        title: a.title,
+        description: a.description ?? null,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "objectives", id: data.id };
+    }
+    if (name === "create_key_result") {
+      const { data: o } = await admin.from("objectives")
+        .select("id,enterprise_id").eq("id", a.objective_id).eq("user_id", userId).maybeSingle();
+      if (!o) return { error: "Obiettivo non trovato" };
+      const { data, error } = await admin.from("key_results").insert({
+        user_id: userId,
+        objective_id: o.id,
+        enterprise_id: o.enterprise_id,
+        title: a.title,
+        target_value: a.target_value ?? 100,
+        current_value: a.current_value ?? 0,
+        metric_type: a.metric_type ?? "number",
+        deadline: a.deadline ?? null,
+        status: "active",
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "key_results", id: data.id };
+    }
+    if (name === "update_key_result") {
+      const patch: Record<string, any> = {};
+      if (a.current_value !== undefined) patch.current_value = a.current_value;
+      if (a.target_value !== undefined) patch.target_value = a.target_value;
+      if (a.title) patch.title = a.title;
+      if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
+      const { error } = await admin.from("key_results").update(patch)
+        .eq("id", a.key_result_id).eq("user_id", userId);
+      if (error) throw error;
+      return { table: "key_results", id: a.key_result_id };
+    }
+    if (name === "save_journal_entry") {
+      const day = a.entry_date ?? romeNow().date;
+      const { data: existing } = await admin.from("journal_entries")
+        .select("id").eq("user_id", userId).eq("entry_date", day).maybeSingle();
+      if (existing) {
+        const patch: Record<string, any> = { content: a.content };
+        if (a.mood) patch.mood = a.mood;
+        const { error } = await admin.from("journal_entries").update(patch).eq("id", existing.id);
+        if (error) throw error;
+        return { table: "journal_entries", id: existing.id };
+      }
+      const { data, error } = await admin.from("journal_entries").insert({
+        user_id: userId, entry_date: day, content: a.content, mood: a.mood ?? null,
+      }).select("id").single();
+      if (error) throw error;
+      return { table: "journal_entries", id: data.id };
+    }
     return { error: `Azione sconosciuta: ${name}` };
   } catch (e: any) {
     console.error("executeAction error", name, e?.message ?? e);
@@ -484,6 +658,25 @@ export async function queryRadar(
       return lines.length ? lines.join("\n") : `Nessun risultato per "${term}". Prova con una sola parola chiave.`;
     }
 
+    if (name === "list_reminders") {
+      const from = a.date || now.date;
+      const to = a.to_date || addDays(from, 14);
+      const { data } = await admin.from("reminders")
+        .select("id,title,reminder_date,reminder_time,is_urgent")
+        .eq("user_id", userId).eq("is_dismissed", false)
+        .gte("reminder_date", from).lte("reminder_date", to).order("reminder_date").limit(40);
+      if (!data?.length) return "Nessun promemoria attivo nel periodo.";
+      return data.map((r: any) => `${r.reminder_date} ${r.reminder_time ?? ""}: ${r.title}${r.is_urgent ? " (importante)" : ""} (id ${r.id})`).join("\n");
+    }
+
+    if (name === "get_journal") {
+      const day = a.entry_date || now.date;
+      const { data } = await admin.from("journal_entries")
+        .select("entry_date,content,mood,energy_level").eq("user_id", userId).eq("entry_date", day).maybeSingle();
+      if (!data) return `Nessuna nota di diario per il ${day}.`;
+      return `Diario ${data.entry_date}${data.mood ? ` (umore ${data.mood})` : ""}:\n${data.content}`;
+    }
+
     return `Interrogazione sconosciuta: ${name}`;
   } catch (e: any) {
     console.error("queryRadar error", name, e?.message ?? e);
@@ -493,7 +686,7 @@ export async function queryRadar(
 
 export const RADAR_QUERY_TOOLS = new Set([
   "get_day_overview", "get_agenda", "list_tasks", "list_projects",
-  "list_enterprises", "get_okr", "find_item",
+  "list_enterprises", "get_okr", "find_item", "list_reminders", "get_journal",
 ]);
 
 // ---------- definizione strumenti (condivisa voce/telegram) ----------
@@ -634,5 +827,100 @@ export const RADAR_TOOL_DEFS = [
     name: "cancel_appointment",
     description: "Elimina un appuntamento esistente",
     parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "list_reminders",
+    description: "Elenca i promemoria attivi in un periodo, con i relativi id",
+    parameters: { type: "object", properties: { date: { type: "string" }, to_date: { type: "string" } }, required: [] },
+  },
+  {
+    name: "get_journal",
+    description: "Legge la nota di diario di un giorno (default oggi)",
+    parameters: { type: "object", properties: { entry_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
+  },
+  {
+    name: "update_task",
+    description: "Modifica un'attività esistente (titolo, descrizione, priorità, durata, scadenza, progetto)",
+    parameters: { type: "object", properties: { task_id: { type: "string" }, title: { type: "string" }, description: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] }, estimated_minutes: { type: "number" }, deadline: { type: "string" }, project_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "unschedule_task",
+    description: "Rimette un'attività nel backlog togliendo data e ora",
+    parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "delete_task",
+    description: "Elimina definitivamente un'attività",
+    parameters: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"] },
+  },
+  {
+    name: "update_appointment",
+    description: "Modifica titolo, descrizione, data o orari di un appuntamento",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, title: { type: "string" }, description: { type: "string" }, date: { type: "string" }, start_time: { type: "string" }, end_time: { type: "string" } }, required: ["appointment_id"] },
+  },
+  {
+    name: "update_reminder",
+    description: "Modifica un promemoria (titolo, data, ora, importante)",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" }, title: { type: "string" }, reminder_date: { type: "string" }, reminder_time: { type: "string" }, is_urgent: { type: "boolean" } }, required: ["reminder_id"] },
+  },
+  {
+    name: "delete_reminder",
+    description: "Elimina definitivamente un promemoria",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" } }, required: ["reminder_id"] },
+  },
+  {
+    name: "convert_reminder_to_task",
+    description: "Trasforma un promemoria in attività pianificata e chiude il promemoria",
+    parameters: { type: "object", properties: { reminder_id: { type: "string" }, scheduled_date: { type: "string" }, scheduled_time: { type: "string" }, estimated_minutes: { type: "number" }, project_id: { type: "string" }, enterprise_id: { type: "string" }, priority: { type: "string", enum: ["high", "medium", "low"] } }, required: ["reminder_id"] },
+  },
+  {
+    name: "create_project",
+    description: "Crea un progetto dentro un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, type: { type: "string", enum: ["strategic", "operational", "maintenance"] } }, required: ["enterprise_id", "name"] },
+  },
+  {
+    name: "update_project",
+    description: "Rinomina o cambia tipo a un progetto",
+    parameters: { type: "object", properties: { project_id: { type: "string" }, name: { type: "string" }, type: { type: "string", enum: ["strategic", "operational", "maintenance"] } }, required: ["project_id"] },
+  },
+  {
+    name: "delete_project",
+    description: "Elimina un progetto (solo se vuoto o se l'utente conferma)",
+    parameters: { type: "object", properties: { project_id: { type: "string" } }, required: ["project_id"] },
+  },
+  {
+    name: "create_enterprise",
+    description: "Crea una nuova impresa",
+    parameters: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, status: { type: "string", enum: ["active", "development", "paused"] } }, required: ["name"] },
+  },
+  {
+    name: "update_enterprise",
+    description: "Modifica nome, descrizione o stato di un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, description: { type: "string" }, status: { type: "string", enum: ["active", "development", "paused"] } }, required: ["enterprise_id"] },
+  },
+  {
+    name: "create_focus_period",
+    description: "Crea un focus period (ciclo 90 giorni) per un'impresa",
+    parameters: { type: "object", properties: { enterprise_id: { type: "string" }, name: { type: "string" }, start_date: { type: "string" }, end_date: { type: "string" }, description: { type: "string" } }, required: ["enterprise_id", "name", "start_date", "end_date"] },
+  },
+  {
+    name: "create_objective",
+    description: "Crea un obiettivo dentro un focus period",
+    parameters: { type: "object", properties: { focus_period_id: { type: "string" }, title: { type: "string" }, description: { type: "string" } }, required: ["focus_period_id", "title"] },
+  },
+  {
+    name: "create_key_result",
+    description: "Crea un key result misurabile per un obiettivo",
+    parameters: { type: "object", properties: { objective_id: { type: "string" }, title: { type: "string" }, target_value: { type: "number" }, current_value: { type: "number" }, metric_type: { type: "string" }, deadline: { type: "string" } }, required: ["objective_id", "title"] },
+  },
+  {
+    name: "update_key_result",
+    description: "Aggiorna l'avanzamento o il target di un key result",
+    parameters: { type: "object", properties: { key_result_id: { type: "string" }, current_value: { type: "number" }, target_value: { type: "number" }, title: { type: "string" } }, required: ["key_result_id"] },
+  },
+  {
+    name: "save_journal_entry",
+    description: "Scrive o aggiorna la nota di diario di un giorno",
+    parameters: { type: "object", properties: { entry_date: { type: "string" }, content: { type: "string" }, mood: { type: "string" } }, required: ["content"] },
   },
 ];

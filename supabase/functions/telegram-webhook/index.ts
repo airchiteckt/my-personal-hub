@@ -106,7 +106,12 @@ async function transcribe(bytes: Uint8Array, mime: string): Promise<string | nul
 const TOOLS = RADAR_TOOL_DEFS.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
 // actions that are executed right away (with an undo button)
-const INSTANT = new Set(["create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task", "dismiss_reminder", "postpone_reminder"]);
+const INSTANT = new Set([
+  "create_appointment", "create_reminder", "create_task", "schedule_task", "complete_task",
+  "dismiss_reminder", "postpone_reminder", "update_task", "unschedule_task",
+  "update_appointment", "move_appointment", "update_reminder", "convert_reminder_to_task",
+  "update_key_result", "save_journal_entry",
+]);
 
 const ACTION_LABELS: Record<string, string> = {
   create_appointment: "Appuntamento",
@@ -118,6 +123,23 @@ const ACTION_LABELS: Record<string, string> = {
   create_enterprise: "Impresa",
   dismiss_reminder: "Promemoria chiuso",
   postpone_reminder: "Promemoria rimandato",
+  update_task: "Attività aggiornata",
+  unschedule_task: "Attività in backlog",
+  delete_task: "Attività eliminata",
+  update_appointment: "Appuntamento aggiornato",
+  move_appointment: "Appuntamento spostato",
+  cancel_appointment: "Appuntamento eliminato",
+  update_reminder: "Promemoria aggiornato",
+  delete_reminder: "Promemoria eliminato",
+  convert_reminder_to_task: "Promemoria trasformato in attività",
+  update_project: "Progetto aggiornato",
+  delete_project: "Progetto eliminato",
+  update_enterprise: "Impresa aggiornata",
+  create_focus_period: "Focus period",
+  create_objective: "Obiettivo",
+  create_key_result: "Key result",
+  update_key_result: "Key result aggiornato",
+  save_journal_entry: "Nota di diario",
 };
 
 function describeAction(name: string, a: Record<string, any>): string {

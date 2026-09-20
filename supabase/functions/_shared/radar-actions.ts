@@ -593,17 +593,19 @@ export async function startOutboundCall(
  */
 export async function buildVoiceDaySummary(admin: any, userId: string): Promise<string> {
   const now = romeNow();
-  const [summary, agenda, overdue, backlog] = await Promise.all([
+  const [summary, agenda, overdue, backlog, rituals] = await Promise.all([
     buildDaySummary(admin, userId),
     queryRadar(admin, userId, "get_agenda", { date: now.date, to_date: addDays(now.date, 7) }),
     queryRadar(admin, userId, "list_tasks", { scope: "overdue" }),
     queryRadar(admin, userId, "list_tasks", { scope: "backlog" }),
+    queryRadar(admin, userId, "list_rituals", {}),
   ]);
   return [
     summary,
     `\nAGENDA PROSSIMI 7 GIORNI (con id):\n${agenda}`,
     `\nATTIVITÀ IN RITARDO:\n${overdue}`,
     `\nBACKLOG:\n${backlog}`,
+    `\nRITUALI DI OGGI:\n${rituals}`,
   ].join("\n").slice(0, 12000);
 }
 

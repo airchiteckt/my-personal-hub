@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       name: t.name,
       description: t.description,
       api_schema: {
-        url: `${TOOLS_URL}?tool=${t.name}&user_id={{system__caller_id_user_id}}`,
+        url: `${TOOLS_URL}?tool=${t.name}&user_id={{user_id}}`,
         method: "POST",
         headers: TOOLS_SECRET ? { "x-voice-secret": TOOLS_SECRET } : {},
         body_params: t.parameters,

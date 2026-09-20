@@ -130,7 +130,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 
 export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => void } = {}) {
   const [weekStart, setWeekStart] = useState(() => addDays(new Date(), -3));
-  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder } = usePrp();
+  const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder, timeEntries } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
@@ -497,6 +497,11 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                 const dayAppts = getAppointmentsForDate(dayDate);
                 const dayExternalEvents = getExternalCalendarEventsForDate(dayDate);
                 const dayReminders = getRemindersForDate(dayDate);
+                const dayTimeEntries = timeEntries.filter(te => {
+                  const d = new Date(te.startedAt);
+                  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                  return local === dayDate && te.durationMinutes;
+                });
                 const isCurrent = isToday(day);
 
                 return (
@@ -610,6 +615,30 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                         <div className="flex-1 h-0.5 bg-destructive" />
                       </div>
                     )}
+
+                    {/* Work sessions (logged time) */}
+                    {dayTimeEntries.map(te => {
+                      const d = new Date(te.startedAt);
+                      const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+                      const { top, height } = getTaskPosition(hhmm, te.durationMinutes || 30, slotH);
+                      const ent = getEnterprise(te.enterpriseId);
+                      return (
+                        <div
+                          key={`te-${te.id}`}
+                          className="absolute left-0 right-0 rounded-md z-0 pointer-events-none border border-dashed"
+                          style={{
+                            top: top + 1,
+                            height: Math.max(height - 2, 16),
+                            backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.07)`,
+                            borderColor: `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
+                          }}
+                        >
+                          <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground">
+                            ⏱ {formatMinutes(te.durationMinutes || 0)}{te.description ? ` · ${te.description}` : ''}
+                          </span>
+                        </div>
+                      );
+                    })}
 
                     {/* All items with unified overlap layout */}
                     {(() => {

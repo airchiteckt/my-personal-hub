@@ -146,7 +146,7 @@ export function ProfileSettings() {
     }
     const { error } = await supabase
       .from('profiles')
-      .update({ display_name: displayName.trim(), phone_number: phone || null })
+      .update({ display_name: displayName.trim(), phone_number: phone || null, phone_verified: phoneVerified })
       .eq('user_id', user.id);
     setPhoneNumber(phone);
     setLoading(false);

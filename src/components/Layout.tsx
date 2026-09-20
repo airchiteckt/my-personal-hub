@@ -18,12 +18,8 @@ export function Layout() {
         <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
           <header className="h-14 flex items-center gap-3 border-b bg-card px-4 shrink-0">
             <SidebarTrigger />
-            {isFeatureEnabled('feature_ai_assistant') && (
-              <div className="hidden md:block flex-1 max-w-3xl">
-                <AiAssistant variant="inline" />
-              </div>
-            )}
           </header>
+          {isFeatureEnabled('feature_ai_assistant') && <AiAssistant variant="fab" />}
           <main
             className={
               isCalendar

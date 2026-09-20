@@ -111,6 +111,7 @@ const INSTANT = new Set([
   "dismiss_reminder", "postpone_reminder", "update_task", "unschedule_task",
   "update_appointment", "move_appointment", "update_reminder", "convert_reminder_to_task",
   "update_key_result", "save_journal_entry",
+  "complete_ritual", "skip_ritual", "update_ritual",
 ]);
 
 const ACTION_LABELS: Record<string, string> = {
@@ -123,6 +124,11 @@ const ACTION_LABELS: Record<string, string> = {
   create_enterprise: "Impresa",
   dismiss_reminder: "Promemoria chiuso",
   postpone_reminder: "Promemoria rimandato",
+  complete_ritual: "Rituale completato",
+  skip_ritual: "Rituale saltato",
+  create_ritual: "Rituale",
+  update_ritual: "Rituale aggiornato",
+  delete_ritual: "Rituale eliminato",
   update_task: "Attività aggiornata",
   unschedule_task: "Attività in backlog",
   delete_task: "Attività eliminata",

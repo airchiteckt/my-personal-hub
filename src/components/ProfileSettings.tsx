@@ -20,6 +20,7 @@ export function ProfileSettings() {
 
   const [newEmail, setNewEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -29,16 +30,26 @@ export function ProfileSettings() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('display_name, avatar_url')
+      .select('display_name, avatar_url, phone_number')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data) {
           setDisplayName(data.display_name || '');
           setAvatarUrl(data.avatar_url || '');
+          setPhoneNumber((data as any).phone_number || '');
         }
       });
   }, [user]);
+
+  const normalizePhone = (raw: string) => {
+    const cleaned = raw.trim().replace(/[\s.\-()]/g, '');
+    if (!cleaned) return '';
+    if (cleaned.startsWith('+')) return '+' + cleaned.slice(1).replace(/\D/g, '');
+    if (cleaned.startsWith('00')) return '+' + cleaned.slice(2).replace(/\D/g, '');
+    const digits = cleaned.replace(/\D/g, '');
+    return digits ? `+39${digits}` : '';
+  };
 
   const uploadAvatar = useCallback(async (file: File) => {
     if (!user) return;
@@ -88,10 +99,17 @@ export function ProfileSettings() {
   const saveProfile = async () => {
     if (!user) return;
     setLoading(true);
+    const phone = normalizePhone(phoneNumber);
+    if (phoneNumber.trim() && !/^\+[1-9]\d{6,14}$/.test(phone)) {
+      setLoading(false);
+      toast({ title: 'Numero non valido', description: 'Usa il formato internazionale, es. +39 333 1234567.', variant: 'destructive' });
+      return;
+    }
     const { error } = await supabase
       .from('profiles')
-      .update({ display_name: displayName.trim() })
+      .update({ display_name: displayName.trim(), phone_number: phone || null })
       .eq('user_id', user.id);
+    setPhoneNumber(phone);
     setLoading(false);
     if (error) {
       toast({ title: 'Errore', description: error.message, variant: 'destructive' });
@@ -218,6 +236,19 @@ export function ProfileSettings() {
           <div className="space-y-2">
             <Label htmlFor="display-name">Nome visualizzato</Label>
             <Input id="display-name" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Il tuo nome" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone-number">Cellulare</Label>
+            <Input
+              id="phone-number"
+              type="tel"
+              value={phoneNumber}
+              onChange={e => setPhoneNumber(e.target.value)}
+              placeholder="+39 333 1234567"
+            />
+            <p className="text-xs text-muted-foreground">
+              Serve per chiamare Radar e per ricevere le chiamate dei promemoria urgenti. Radar ti riconosce da questo numero.
+            </p>
           </div>
           <Button onClick={saveProfile} disabled={loading} size="sm">
             {loading ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}

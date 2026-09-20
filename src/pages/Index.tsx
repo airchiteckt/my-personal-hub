@@ -840,7 +840,7 @@ const Index = ({ date, onBack }: DayViewProps) => {
                       <div className="p-1.5 h-full flex flex-col justify-center">
                         <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
                           <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                          {rem.isFollowUp ? '🔔 ' : ''}{rem.title}
+                          {rem.isUrgent ? '🚨 ' : rem.isFollowUp ? '🔔 ' : ''}{rem.title}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                           {time}{ent ? ` · ${ent.name}` : ''}

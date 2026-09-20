@@ -235,6 +235,7 @@ function dbToReminder(row: any): Reminder {
     reminderDate: row.reminder_date, reminderTime: row.reminder_time ?? undefined,
     enterpriseId: row.enterprise_id ?? undefined, taskId: row.task_id ?? undefined,
     isFollowUp: row.is_follow_up, isDismissed: row.is_dismissed,
+    isUrgent: row.is_urgent ?? false,
     color: row.color ?? undefined, createdAt: row.created_at,
   };
 }
@@ -944,6 +945,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       task_id: r.taskId ?? null,
       is_follow_up: r.isFollowUp,
       is_dismissed: false,
+      is_urgent: r.isUrgent ?? false,
       color: r.color ?? null,
     }).select().single();
     if (error) { toast.error('Errore creazione promemoria'); return; }
@@ -958,6 +960,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.reminderDate !== undefined) dbUpdates.reminder_date = updates.reminderDate;
     if (updates.reminderTime !== undefined) dbUpdates.reminder_time = updates.reminderTime ?? null;
     if (updates.isDismissed !== undefined) dbUpdates.is_dismissed = updates.isDismissed;
+    if (updates.isUrgent !== undefined) dbUpdates.is_urgent = updates.isUrgent;
     if (updates.color !== undefined) dbUpdates.color = updates.color ?? null;
     await supabase.from('reminders').update(dbUpdates).eq('id', id);
     // If dismissed, remove from local state

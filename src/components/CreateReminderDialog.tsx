@@ -25,6 +25,7 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
   const [reminderDate, setReminderDate] = useState(defaultDate || '');
   const [reminderTime, setReminderTime] = useState(defaultTime || '09:00');
   const [selectedEnterpriseId, setSelectedEnterpriseId] = useState(enterpriseId || '');
+  const [isUrgent, setIsUrgent] = useState(false);
 
   const handleSave = () => {
     if (!title.trim() || !reminderDate) return;
@@ -37,6 +38,7 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
       taskId: taskId || undefined,
       isFollowUp: isFollowUp || false,
       isDismissed: false,
+      isUrgent,
       color: undefined,
     });
     onOpenChange(false);
@@ -45,6 +47,7 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
     setReminderDate('');
     setReminderTime('09:00');
     setSelectedEnterpriseId('');
+    setIsUrgent(false);
   };
 
   return (
@@ -94,6 +97,21 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
               </Select>
             </div>
           )}
+
+          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <input
+              type="checkbox"
+              checked={isUrgent}
+              onChange={e => setIsUrgent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-destructive"
+            />
+            <span>
+              <span className="text-sm font-medium flex items-center gap-1.5">🚨 Urgente — chiamata vocale</span>
+              <span className="text-xs text-muted-foreground block mt-0.5">
+                Oltre a Telegram ed email, Radar ti telefona all'orario del promemoria (serve il numero di cellulare nel profilo).
+              </span>
+            </span>
+          </label>
 
           <Button onClick={handleSave} className="w-full" disabled={!title.trim() || !reminderDate}>
             {isFollowUp ? 'Crea Promemoria Follow-up' : 'Crea Promemoria'}

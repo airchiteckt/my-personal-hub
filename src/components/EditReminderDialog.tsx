@@ -20,12 +20,14 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
   const [description, setDescription] = useState(reminder.description || '');
   const [reminderDate, setReminderDate] = useState(reminder.reminderDate);
   const [reminderTime, setReminderTime] = useState(reminder.reminderTime || '');
+  const [isUrgent, setIsUrgent] = useState(reminder.isUrgent ?? false);
 
   useEffect(() => {
     setTitle(reminder.title);
     setDescription(reminder.description || '');
     setReminderDate(reminder.reminderDate);
     setReminderTime(reminder.reminderTime || '');
+    setIsUrgent(reminder.isUrgent ?? false);
   }, [reminder]);
 
   const linkedTask = reminder.taskId ? tasks.find(t => t.id === reminder.taskId) : null;
@@ -38,6 +40,7 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
       description: description.trim() || undefined,
       reminderDate,
       reminderTime: reminderTime || undefined,
+      isUrgent,
     });
     onOpenChange(false);
   };
@@ -93,6 +96,21 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
               <Input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} />
             </div>
           </div>
+
+          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <input
+              type="checkbox"
+              checked={isUrgent}
+              onChange={e => setIsUrgent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-destructive"
+            />
+            <span>
+              <span className="text-sm font-medium">🚨 Urgente — chiamata vocale</span>
+              <span className="text-xs text-muted-foreground block mt-0.5">
+                Oltre a Telegram ed email, Radar ti telefona all'orario del promemoria.
+              </span>
+            </span>
+          </label>
 
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1" disabled={!title.trim() || !reminderDate}>Salva</Button>

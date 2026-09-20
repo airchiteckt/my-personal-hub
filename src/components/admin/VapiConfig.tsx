@@ -17,6 +17,7 @@ import { RADAR_VOICE_SYSTEM_PROMPT } from '@/constants/radarVoicePrompt';
 import {
   VAPI_AI_MODELS,
   VAPI_VOICE_PROVIDERS,
+  VOICE_PROVIDER_DEFAULTS,
   VAPI_TRANSCRIBER_PROVIDERS,
   getTtsOptions,
   getTranscriberOptions,

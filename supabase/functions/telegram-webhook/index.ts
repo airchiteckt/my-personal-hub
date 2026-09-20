@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS, startOutboundCall, getWorkDays, nextWorkDayAfter } from "../_shared/radar-actions.ts";
+import { ROME, romeNow, executeAction, buildContext, RADAR_TOOL_DEFS, RADAR_QUERY_TOOLS, queryRadar, startOutboundCall, getWorkDays, nextWorkDayAfter } from "../_shared/radar-actions.ts";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
 const AI_URL = "https://ai.gateway.lovable.dev/v1";
@@ -39,6 +39,49 @@ async function tg(method: string, body: Record<string, unknown>) {
 
 const send = (chatId: number, text: string, extra: Record<string, unknown> = {}) =>
   tg("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", ...extra });
+
+// scarica una nota vocale da Telegram
+async function downloadVoice(fileId: string): Promise<Uint8Array | null> {
+  const info = await tg("getFile", { file_id: fileId });
+  const path = info?.result?.file_path;
+  if (!path) return null;
+  const res = await fetch(`${GATEWAY_URL}/file/${path}`, {
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "X-Connection-Api-Key": TELEGRAM_API_KEY!,
+    },
+  });
+  if (!res.ok) {
+    console.error("Telegram file download failed", res.status, await res.text());
+    return null;
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+// trascrive la nota vocale (OpenAI Whisper)
+async function transcribe(bytes: Uint8Array, mime: string): Promise<string | null> {
+  const key = Deno.env.get("OPENAI_API_KEY");
+  if (!key) {
+    console.error("OPENAI_API_KEY mancante: impossibile trascrivere");
+    return null;
+  }
+  const ext = mime.includes("mpeg") ? "mp3" : mime.includes("mp4") || mime.includes("m4a") ? "m4a" : "ogg";
+  const form = new FormData();
+  form.append("file", new Blob([bytes as BlobPart], { type: mime }), `voice.${ext}`);
+  form.append("model", "whisper-1");
+  form.append("language", "it");
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("Trascrizione fallita", res.status, JSON.stringify(json));
+    return null;
+  }
+  return (json?.text ?? "").trim() || null;
+}
 
 
 
@@ -400,13 +443,40 @@ ${JSON.stringify(ctx)}`;
     const reply: string = (choice.content ?? "").trim();
     const toolCalls: any[] = choice.tool_calls ?? [];
 
-    if (reply) await send(chatId, reply);
+    // --- Strumenti di sola lettura: eseguiti subito, poi risposta in linguaggio naturale ---
+    const queryCalls = toolCalls.filter((tc) => RADAR_QUERY_TOOLS.has(tc.function?.name));
+    let finalReply = reply;
+    if (queryCalls.length) {
+      const results: string[] = [];
+      for (const tc of queryCalls) {
+        let qArgs: Record<string, any> = {};
+        try { qArgs = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
+        const out = await queryRadar(admin, userId, tc.function.name, qArgs);
+        results.push(`${tc.function.name}: ${out}`);
+      }
+      const followRes = await fetch(`${AI_URL}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            ...aiMessages,
+            { role: "system", content: `DATI LETTI DAL DATABASE (usa solo questi, non inventare nulla, rispondi in italiano in modo sintetico):\n${results.join("\n\n")}` },
+          ],
+        }),
+      });
+      const followJson = await followRes.json().catch(() => ({}));
+      const answer = (followJson?.choices?.[0]?.message?.content ?? "").trim();
+      finalReply = answer || results.join("\n\n");
+    }
+
+    if (finalReply) await send(chatId, finalReply);
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
       let args: Record<string, any> = {};
       try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
-      if (!name) continue;
+      if (!name || RADAR_QUERY_TOOLS.has(name)) continue;
 
       if (INSTANT.has(name)) {
         const res: any = await executeAction(admin, userId, name, args);

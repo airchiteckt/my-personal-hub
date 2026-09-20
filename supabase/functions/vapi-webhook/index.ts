@@ -97,8 +97,8 @@ Deno.serve(async (req) => {
           continue;
         }
         try {
-          if (name === "get_day_overview") {
-            results.push({ toolCallId, result: await buildDaySummary(admin, userId) });
+          if (RADAR_QUERY_TOOLS.has(name)) {
+            results.push({ toolCallId, result: await queryRadar(admin, userId, name, args) });
             continue;
           }
           const res = await executeAction(admin, userId, name, args);

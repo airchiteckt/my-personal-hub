@@ -125,11 +125,11 @@ Deno.serve(async (req) => {
       if (r.is_urgent && VAPI_API_KEY) {
         try {
           const { data: profile } = await admin.from("profiles")
-            .select("phone_number,display_name").eq("user_id", r.user_id).maybeSingle();
+            .select("phone_number,display_name,phone_verified").eq("user_id", r.user_id).maybeSingle();
           const { data: vs } = await admin.from("ai_voice_settings")
             .select("vapi_assistant_id,vapi_phone_number_id").limit(1).maybeSingle();
 
-          if (profile?.phone_number && vs?.vapi_assistant_id && vs?.vapi_phone_number_id) {
+          if (profile?.phone_number && profile?.phone_verified && vs?.vapi_assistant_id && vs?.vapi_phone_number_id) {
             const contextBrief = [
               `IMPRESE:\n${await queryRadar(admin, r.user_id, "list_enterprises")}`,
               `PROGETTI:\n${await queryRadar(admin, r.user_id, "list_projects")}`,

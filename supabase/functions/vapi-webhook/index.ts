@@ -123,6 +123,7 @@ Deno.serve(async (req) => {
       if (caller) {
         const { data } = await admin.from("profiles")
           .select("user_id,display_name,phone_number")
+          .eq("phone_verified", true)
           .not("phone_number", "is", null);
         profile = (data ?? []).find((p: any) => {
           const pn = normalizePhone(p.phone_number);

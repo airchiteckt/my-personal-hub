@@ -529,9 +529,12 @@ export async function startOutboundCall(
   if (!VAPI_API_KEY) return { ok: false, message: "⚠️ Le chiamate non sono configurate." };
 
   const { data: profile } = await admin.from("profiles")
-    .select("phone_number,display_name").eq("user_id", userId).maybeSingle();
+    .select("phone_number,display_name,phone_verified").eq("user_id", userId).maybeSingle();
   if (!profile?.phone_number) {
     return { ok: false, message: "📵 Non ho il tuo numero: salvalo in Impostazioni → Profilo e ti richiamo." };
+  }
+  if (!profile?.phone_verified) {
+    return { ok: false, message: "🔒 Il tuo numero non è ancora verificato: vai in Impostazioni → Profilo e conferma il codice SMS." };
   }
 
   const { data: vs } = await admin.from("ai_voice_settings")

@@ -13,6 +13,7 @@ import { ProfileSettings } from '@/components/ProfileSettings';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
 import { TelegramSettings } from '@/components/TelegramSettings';
 import { RadarProactiveSettings } from '@/components/RadarProactiveSettings';
+import { VoiceRadarSettings } from '@/components/VoiceRadarSettings';
 
 
 const Settings = () => {
@@ -64,6 +65,7 @@ const Settings = () => {
           <GoogleCalendarSettings />
           <TelegramSettings />
           <RadarProactiveSettings />
+          <VoiceRadarSettings />
         </TabsContent>
 
 

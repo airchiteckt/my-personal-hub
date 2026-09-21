@@ -40,6 +40,22 @@ Deno.serve(async (req) => {
     const admin = createClient(PROJECT_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
 
+    // --- Elenca i numeri presenti nell'account VAPI ---
+    if (body.action === "list_phone_numbers") {
+      const res = await fetch(`${VAPI_URL}/phone-number?limit=100`, { headers });
+      const data = await res.json().catch(() => []);
+      if (!res.ok) return json({ error: `Lettura numeri fallita [${res.status}]`, details: data }, res.status);
+      const numbers = (Array.isArray(data) ? data : []).map((n: any) => ({
+        id: n.id,
+        number: n.number ?? n.phoneNumber ?? null,
+        name: n.name ?? null,
+        assistant_id: n.assistantId ?? null,
+        fallback_assistant_id: n.fallbackAssistantId ?? null,
+        has_server: Boolean(n.server?.url),
+      }));
+      return json({ ok: true, numbers });
+    }
+
     const { data: vs } = await admin.from("ai_voice_settings")
       .select("id,vapi_assistant_id,vapi_phone_number_id,vapi_tuning").limit(1).maybeSingle();
 

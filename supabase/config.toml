@@ -35,7 +35,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.vapi-assistant-setup]
-verify_jwt = true
+verify_jwt = false
 
 [functions.google-appointments-push]
 verify_jwt = true

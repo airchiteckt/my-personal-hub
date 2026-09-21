@@ -30,6 +30,45 @@ export function romeDayBounds(dateStr: string) {
   return { start, end: new Date(start.getTime() + 24 * 3600_000) };
 }
 
+// ---------- ricerca tollerante appuntamenti ----------
+
+const MATCH_STOP = new Set(["il","lo","la","i","gli","le","un","una","di","del","della","dei","delle","con","per","su","da","in","a","al","alla","e","che","mio","mia","quello","quella","appuntamento","appuntamenti","incontro","riunione","meeting","call"]);
+
+function keywords(s: string): string[] {
+  return String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !MATCH_STOP.has(w));
+}
+
+function titleScore(query: string, title: string): number {
+  const q = keywords(query);
+  if (!q.length) return 0;
+  const t = keywords(title).join(" ");
+  const hits = q.filter((w) => t.includes(w)).length;
+  return hits / q.length;
+}
+
+// Trova un appuntamento da id oppure da titolo/data approssimativi.
+async function resolveAppointment(
+  admin: any, userId: string, a: Record<string, any>,
+): Promise<{ id: string; row?: any } | { error: string }> {
+  if (a.appointment_id) return { id: a.appointment_id };
+  const query = a.title ?? a.query ?? a.appointment_title ?? "";
+  if (!query) return { error: "Non so quale appuntamento spostare: dimmi il titolo." };
+  const now = romeNow();
+  let req = admin.from("appointments").select("id,title,date,start_time,end_time")
+    .eq("user_id", userId).gte("date", addDays(now.date, -30)).order("date").limit(80);
+  if (a.current_date || a.from_date) req = req.eq("date", a.current_date ?? a.from_date);
+  const { data } = await req;
+  const scored = (data ?? []).map((r: any) => ({ r, s: titleScore(query, r.title) }))
+    .filter((x: any) => x.s >= 0.5).sort((x: any, y: any) => y.s - x.s);
+  if (!scored.length) return { error: `Non trovo nessun appuntamento che somigli a "${query}".` };
+  if (scored.length > 1 && scored[1].s === scored[0].s) {
+    const opts = scored.slice(0, 3).map((x: any) => `${x.r.title} (${x.r.date} ${x.r.start_time})`).join("; ");
+    return { error: `Ce ne sono più di uno: ${opts}. Quale?` };
+  }
+  return { id: scored[0].r.id, row: scored[0].r };
+}
+
 // ---------- action execution ----------
 
 export async function executeAction(
@@ -40,6 +79,19 @@ export async function executeAction(
 ): Promise<{ table: string; id: string } | { error: string }> {
   try {
     if (name === "create_appointment") {
+      // Anti-duplicazione: se esiste già un appuntamento molto simile nei giorni vicini,
+      // quasi sempre l'utente voleva spostarlo, non crearne un altro.
+      if (a.title && !a.force) {
+        const nowD = romeNow().date;
+        const { data: near } = await admin.from("appointments")
+          .select("id,title,date,start_time")
+          .eq("user_id", userId)
+          .gte("date", addDays(nowD, -7)).lte("date", addDays(nowD, 21)).limit(60);
+        const dup = (near ?? []).find((r: any) => r.date !== a.date && titleScore(a.title, r.title) >= 0.8);
+        if (dup) {
+          return { error: `Esiste già l'appuntamento "${dup.title}" il ${dup.date} alle ${dup.start_time} (id ${dup.id}). Se l'utente voleva spostarlo usa move_appointment con questo id; se vuole davvero un secondo appuntamento richiama create_appointment con force true.` };
+        }
+      }
       const { data, error } = await admin.from("appointments").insert({
         user_id: userId,
         enterprise_id: a.enterprise_id ?? null,
@@ -176,21 +228,32 @@ export async function executeAction(
       return { table: "projects", id: data.id };
     }
     if (name === "move_appointment") {
+      const found = await resolveAppointment(admin, userId, a);
+      if ("error" in found) return found;
       const patch: Record<string, any> = {};
       if (a.date) patch.date = a.date;
       if (a.start_time) patch.start_time = a.start_time;
       if (a.end_time) patch.end_time = a.end_time;
+      // Se sposto solo la data mantenendo la durata, l'orario resta quello originale.
+      if (a.start_time && !a.end_time && found.row?.start_time && found.row?.end_time) {
+        const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+        const dur = toMin(found.row.end_time) - toMin(found.row.start_time);
+        const endMin = toMin(a.start_time) + (dur > 0 ? dur : 60);
+        patch.end_time = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      }
       if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
       const { error } = await admin.from("appointments").update(patch)
-        .eq("id", a.appointment_id).eq("user_id", userId);
+        .eq("id", found.id).eq("user_id", userId);
       if (error) throw error;
-      return { table: "appointments", id: a.appointment_id };
+      return { table: "appointments", id: found.id };
     }
     if (name === "cancel_appointment") {
+      const found = await resolveAppointment(admin, userId, a);
+      if ("error" in found) return found;
       const { error } = await admin.from("appointments").delete()
-        .eq("id", a.appointment_id).eq("user_id", userId);
+        .eq("id", found.id).eq("user_id", userId);
       if (error) throw error;
-      return { table: "appointments", id: a.appointment_id };
+      return { table: "appointments", id: found.id };
     }
     if (name === "create_enterprise") {
       const { data, error } = await admin.from("enterprises").insert({
@@ -923,7 +986,7 @@ export const RADAR_QUERY_TOOLS = new Set([
 export const RADAR_TOOL_DEFS = [
   {
     name: "create_appointment",
-    description: "Crea un appuntamento nel calendario",
+    description: "Crea un appuntamento NUOVO nel calendario. Non usarlo se l'utente chiede di spostare, rimandare o anticipare qualcosa che esiste già: in quel caso usa move_appointment.",
     parameters: {
       type: "object",
       properties: {
@@ -1049,13 +1112,13 @@ export const RADAR_TOOL_DEFS = [
   },
   {
     name: "move_appointment",
-    description: "Sposta un appuntamento esistente a nuova data e/o orario",
-    parameters: { type: "object", properties: { appointment_id: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD" }, start_time: { type: "string", description: "HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: ["appointment_id"] },
+    description: "Sposta o riprogramma un appuntamento GIÀ ESISTENTE a nuova data e/o orario. Usalo SEMPRE quando l'utente dice sposta, rimanda, anticipa, porta a, metti a, cambia orario: non creare mai un nuovo appuntamento in questi casi. Se non hai l'id passa il titolo (anche approssimativo) in title e, se lo sai, la data attuale in current_date.",
+    parameters: { type: "object", properties: { appointment_id: { type: "string", description: "id se lo conosci dal contesto" }, title: { type: "string", description: "titolo anche approssimativo, se non hai l'id" }, current_date: { type: "string", description: "data attuale dell'appuntamento YYYY-MM-DD, se nota" }, date: { type: "string", description: "nuova data YYYY-MM-DD" }, start_time: { type: "string", description: "nuovo orario HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: [] },
   },
   {
     name: "cancel_appointment",
-    description: "Elimina un appuntamento esistente",
-    parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
+    description: "Elimina un appuntamento esistente (id oppure titolo approssimativo)",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, title: { type: "string" }, current_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
   },
   {
     name: "list_reminders",

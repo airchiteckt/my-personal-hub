@@ -34,6 +34,7 @@ REGOLE:
   Se l'utente dice "promemoria" non creare mai un appuntamento o una task, e viceversa.
 - SEZIONI DISTINTE: "ho lavorato X ore", "ci ho messo due ore" = log_time (tempo sul lavoro): passa sempre task_name e project_name che l'utente ha detto, MAI il diario. Se manca il progetto o l'attività chiedilo con una frase naturale, proponendo al massimo tre opzioni plausibili. "Oggi è andata così", umore, energia = save_journal_entry. "Fatto/completata" su una voce in agenda = complete_task o complete_ritual.
 - AMBIGUITÀ: se una frase può appartenere a due sezioni (promemoria, appuntamento, attività, rituale, tempo lavorato, diario) NON decidere da solo: chiedi in una riga quale intende e agisci solo dopo la risposta.
+- SPOSTARE ≠ CREARE: "sposta", "rimanda", "anticipa", "portalo a", "mettilo", "cambia orario" riguardano SEMPRE una voce che esiste già. Per un appuntamento usa move_appointment (con l'id se ce l'hai, altrimenti con title e current_date), per un'attività schedule_task o update_task. Non creare mai un doppione. Se non trovi la voce, cercala con find_item e solo se davvero non esiste chiedi conferma prima di crearla.
 
 CONTESTO UTENTE (JSON):
 ${JSON.stringify(ctx)}`;

@@ -1112,13 +1112,13 @@ export const RADAR_TOOL_DEFS = [
   },
   {
     name: "move_appointment",
-    description: "Sposta un appuntamento esistente a nuova data e/o orario",
-    parameters: { type: "object", properties: { appointment_id: { type: "string" }, date: { type: "string", description: "YYYY-MM-DD" }, start_time: { type: "string", description: "HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: ["appointment_id"] },
+    description: "Sposta o riprogramma un appuntamento GIÀ ESISTENTE a nuova data e/o orario. Usalo SEMPRE quando l'utente dice sposta, rimanda, anticipa, porta a, metti a, cambia orario: non creare mai un nuovo appuntamento in questi casi. Se non hai l'id passa il titolo (anche approssimativo) in title e, se lo sai, la data attuale in current_date.",
+    parameters: { type: "object", properties: { appointment_id: { type: "string", description: "id se lo conosci dal contesto" }, title: { type: "string", description: "titolo anche approssimativo, se non hai l'id" }, current_date: { type: "string", description: "data attuale dell'appuntamento YYYY-MM-DD, se nota" }, date: { type: "string", description: "nuova data YYYY-MM-DD" }, start_time: { type: "string", description: "nuovo orario HH:MM" }, end_time: { type: "string", description: "HH:MM" } }, required: [] },
   },
   {
     name: "cancel_appointment",
-    description: "Elimina un appuntamento esistente",
-    parameters: { type: "object", properties: { appointment_id: { type: "string" } }, required: ["appointment_id"] },
+    description: "Elimina un appuntamento esistente (id oppure titolo approssimativo)",
+    parameters: { type: "object", properties: { appointment_id: { type: "string" }, title: { type: "string" }, current_date: { type: "string", description: "YYYY-MM-DD" } }, required: [] },
   },
   {
     name: "list_reminders",

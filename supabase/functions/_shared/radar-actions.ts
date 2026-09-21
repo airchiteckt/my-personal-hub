@@ -30,6 +30,45 @@ export function romeDayBounds(dateStr: string) {
   return { start, end: new Date(start.getTime() + 24 * 3600_000) };
 }
 
+// ---------- ricerca tollerante appuntamenti ----------
+
+const MATCH_STOP = new Set(["il","lo","la","i","gli","le","un","una","di","del","della","dei","delle","con","per","su","da","in","a","al","alla","e","che","mio","mia","quello","quella","appuntamento","appuntamenti","incontro","riunione","meeting","call"]);
+
+function keywords(s: string): string[] {
+  return String(s ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !MATCH_STOP.has(w));
+}
+
+function titleScore(query: string, title: string): number {
+  const q = keywords(query);
+  if (!q.length) return 0;
+  const t = keywords(title).join(" ");
+  const hits = q.filter((w) => t.includes(w)).length;
+  return hits / q.length;
+}
+
+// Trova un appuntamento da id oppure da titolo/data approssimativi.
+async function resolveAppointment(
+  admin: any, userId: string, a: Record<string, any>,
+): Promise<{ id: string; row?: any } | { error: string }> {
+  if (a.appointment_id) return { id: a.appointment_id };
+  const query = a.title ?? a.query ?? a.appointment_title ?? "";
+  if (!query) return { error: "Non so quale appuntamento spostare: dimmi il titolo." };
+  const now = romeNow();
+  let req = admin.from("appointments").select("id,title,date,start_time,end_time")
+    .eq("user_id", userId).gte("date", addDays(now.date, -30)).order("date").limit(80);
+  if (a.current_date || a.from_date) req = req.eq("date", a.current_date ?? a.from_date);
+  const { data } = await req;
+  const scored = (data ?? []).map((r: any) => ({ r, s: titleScore(query, r.title) }))
+    .filter((x: any) => x.s >= 0.5).sort((x: any, y: any) => y.s - x.s);
+  if (!scored.length) return { error: `Non trovo nessun appuntamento che somigli a "${query}".` };
+  if (scored.length > 1 && scored[1].s === scored[0].s) {
+    const opts = scored.slice(0, 3).map((x: any) => `${x.r.title} (${x.r.date} ${x.r.start_time})`).join("; ");
+    return { error: `Ce ne sono più di uno: ${opts}. Quale?` };
+  }
+  return { id: scored[0].r.id, row: scored[0].r };
+}
+
 // ---------- action execution ----------
 
 export async function executeAction(

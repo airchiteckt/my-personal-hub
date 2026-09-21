@@ -986,7 +986,7 @@ export const RADAR_QUERY_TOOLS = new Set([
 export const RADAR_TOOL_DEFS = [
   {
     name: "create_appointment",
-    description: "Crea un appuntamento nel calendario",
+    description: "Crea un appuntamento NUOVO nel calendario. Non usarlo se l'utente chiede di spostare, rimandare o anticipare qualcosa che esiste già: in quel caso usa move_appointment.",
     parameters: {
       type: "object",
       properties: {

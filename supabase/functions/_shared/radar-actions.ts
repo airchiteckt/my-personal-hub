@@ -79,6 +79,19 @@ export async function executeAction(
 ): Promise<{ table: string; id: string } | { error: string }> {
   try {
     if (name === "create_appointment") {
+      // Anti-duplicazione: se esiste già un appuntamento molto simile nei giorni vicini,
+      // quasi sempre l'utente voleva spostarlo, non crearne un altro.
+      if (a.title && !a.force) {
+        const nowD = romeNow().date;
+        const { data: near } = await admin.from("appointments")
+          .select("id,title,date,start_time")
+          .eq("user_id", userId)
+          .gte("date", addDays(nowD, -7)).lte("date", addDays(nowD, 21)).limit(60);
+        const dup = (near ?? []).find((r: any) => r.date !== a.date && titleScore(a.title, r.title) >= 0.8);
+        if (dup) {
+          return { error: `Esiste già l'appuntamento "${dup.title}" il ${dup.date} alle ${dup.start_time} (id ${dup.id}). Se l'utente voleva spostarlo usa move_appointment con questo id; se vuole davvero un secondo appuntamento richiama create_appointment con force true.` };
+        }
+      }
       const { data, error } = await admin.from("appointments").insert({
         user_id: userId,
         enterprise_id: a.enterprise_id ?? null,

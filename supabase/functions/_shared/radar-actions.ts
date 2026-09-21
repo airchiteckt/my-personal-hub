@@ -228,21 +228,32 @@ export async function executeAction(
       return { table: "projects", id: data.id };
     }
     if (name === "move_appointment") {
+      const found = await resolveAppointment(admin, userId, a);
+      if ("error" in found) return found;
       const patch: Record<string, any> = {};
       if (a.date) patch.date = a.date;
       if (a.start_time) patch.start_time = a.start_time;
       if (a.end_time) patch.end_time = a.end_time;
+      // Se sposto solo la data mantenendo la durata, l'orario resta quello originale.
+      if (a.start_time && !a.end_time && found.row?.start_time && found.row?.end_time) {
+        const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+        const dur = toMin(found.row.end_time) - toMin(found.row.start_time);
+        const endMin = toMin(a.start_time) + (dur > 0 ? dur : 60);
+        patch.end_time = `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      }
       if (!Object.keys(patch).length) return { error: "Nessuna modifica indicata" };
       const { error } = await admin.from("appointments").update(patch)
-        .eq("id", a.appointment_id).eq("user_id", userId);
+        .eq("id", found.id).eq("user_id", userId);
       if (error) throw error;
-      return { table: "appointments", id: a.appointment_id };
+      return { table: "appointments", id: found.id };
     }
     if (name === "cancel_appointment") {
+      const found = await resolveAppointment(admin, userId, a);
+      if ("error" in found) return found;
       const { error } = await admin.from("appointments").delete()
-        .eq("id", a.appointment_id).eq("user_id", userId);
+        .eq("id", found.id).eq("user_id", userId);
       if (error) throw error;
-      return { table: "appointments", id: a.appointment_id };
+      return { table: "appointments", id: found.id };
     }
     if (name === "create_enterprise") {
       const { data, error } = await admin.from("enterprises").insert({

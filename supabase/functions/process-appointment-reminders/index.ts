@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { startOutboundCall } from "../_shared/radar-actions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,35 @@ function reminderLabel(type: string): string {
 }
 
 const ROME = "Europe/Rome";
+
+// Appuntamenti importanti: Radar chiama 5 minuti prima (dedupe su radar_nudges).
+async function processImportantCalls(supabase: any) {
+  const now = Date.now();
+  const fmtD = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: ROME, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const today = fmtD(new Date(now));
+  const { data: appts } = await supabase.from("appointments")
+    .select("id,user_id,title,date,start_time").eq("is_important", true).eq("date", today).limit(100);
+  const nowRome = new Intl.DateTimeFormat("en-GB", { timeZone: ROME, hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(now));
+  const [nh, nm] = nowRome.split(":").map(Number);
+  const nowMin = nh * 60 + nm;
+  let called = 0;
+  for (const a of appts ?? []) {
+    const [h, m] = String(a.start_time).split(":").map(Number);
+    const diff = h * 60 + m - nowMin;
+    if (diff < 0 || diff > 6) continue;
+    const dedupe = `appt_call:${a.id}:${a.date}:${a.start_time}`;
+    const { data: ins } = await supabase.from("radar_nudges").insert({
+      user_id: a.user_id, kind: "appt_call", dedupe_key: dedupe, entity_table: "appointments", entity_id: a.id,
+    }).select("id").maybeSingle();
+    if (!ins) continue;
+    const r = await startOutboundCall(supabase, a.user_id, {
+      firstMessage: `Ciao, sono Radar. Tra ${diff <= 1 ? "un minuto" : diff + " minuti"} hai ${a.title}, alle ${a.start_time}. Ti serve qualcosa prima?`,
+      daySummaryPrefix: `Chiamata automatica: tra poco inizia l'appuntamento importante "${a.title}" alle ${a.start_time}. Sii brevissimo.`,
+    });
+    if (r.ok) called++; else console.error("important call failed", a.id, r.message);
+  }
+  return { called };
+}
 
 // Eventi di Google Calendar: una email per finestra (3h/1h/15m), dedupe su radar_nudges.
 async function processGoogleEvents(supabase: any, resendKey: string) {
@@ -150,6 +180,8 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    await processImportantCalls(supabase).catch((e) => console.error("important calls failed", e));
 
     // Promemoria email per gli eventi di Google Calendar (3h, 1h, 15m prima)
     const gcal = await processGoogleEvents(supabase, RESEND_API_KEY).catch((e) => {

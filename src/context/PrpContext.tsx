@@ -160,6 +160,7 @@ function dbToAppointment(row: any): Appointment {
     googleConnectionId: row.google_connection_id ?? undefined,
     syncedAt: row.synced_at ?? undefined,
     syncError: row.sync_error ?? undefined,
+    isImportant: !!row.is_important,
   };
 }
 function dbToExternalCalendarEvent(row: any, calendar?: any): ExternalCalendarEvent {
@@ -607,6 +608,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       title: a.title, description: a.description ?? null,
       date: a.date, start_time: a.startTime, end_time: a.endTime,
       enterprise_id: a.enterpriseId ?? null, color: a.color ?? null,
+      is_important: !!a.isImportant,
       user_id: userId,
     }).select().single();
     if (error) { toast.error('Errore creazione appuntamento'); return; }
@@ -626,6 +628,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
     if (updates.endTime !== undefined) dbUpdates.end_time = updates.endTime;
     if (updates.enterpriseId !== undefined) dbUpdates.enterprise_id = updates.enterpriseId ?? null;
     if (updates.color !== undefined) dbUpdates.color = updates.color ?? null;
+    if (updates.isImportant !== undefined) dbUpdates.is_important = updates.isImportant;
     const { error } = await supabase.from('appointments').update(dbUpdates).eq('id', id);
     if (error) {
       console.error('Update appointment failed:', error);

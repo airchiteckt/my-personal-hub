@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePrp } from '@/context/PrpContext';
 import type { Appointment } from '@/types/prp';
@@ -23,6 +24,7 @@ export function EditAppointmentDialog({ open, onOpenChange, appointment }: Props
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [enterpriseId, setEnterpriseId] = useState<string>('none');
+  const [isImportant, setIsImportant] = useState(false);
 
   useEffect(() => {
     if (open && appointment) {
@@ -32,6 +34,7 @@ export function EditAppointmentDialog({ open, onOpenChange, appointment }: Props
       setStartTime(appointment.startTime);
       setEndTime(appointment.endTime);
       setEnterpriseId(appointment.enterpriseId || 'none');
+      setIsImportant(!!appointment.isImportant);
     }
   }, [open, appointment]);
 
@@ -44,6 +47,7 @@ export function EditAppointmentDialog({ open, onOpenChange, appointment }: Props
       startTime,
       endTime,
       enterpriseId: enterpriseId !== 'none' ? enterpriseId : undefined,
+      isImportant,
     });
     onOpenChange(false);
   };
@@ -116,6 +120,14 @@ export function EditAppointmentDialog({ open, onOpenChange, appointment }: Props
               </SelectContent>
             </Select>
           </div>
+
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+            <Checkbox checked={isImportant} onCheckedChange={v => setIsImportant(v === true)} className="mt-0.5" />
+            <span>
+              <span className="text-sm font-medium">⭐ Importante</span>
+              <span className="block text-xs text-muted-foreground">Radar ti chiama 5 minuti prima</span>
+            </span>
+          </label>
 
           <div className="flex gap-2">
             <Button onClick={handleSave} className="flex-1">Salva</Button>

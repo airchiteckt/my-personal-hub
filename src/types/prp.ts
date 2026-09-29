@@ -215,6 +215,7 @@ export interface Appointment {
   googleConnectionId?: string;
   syncedAt?: string;
   syncError?: string;
+  isImportant?: boolean;
 }
 
 export interface ExternalEventAttendee {

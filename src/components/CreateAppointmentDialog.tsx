@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePrp } from '@/context/PrpContext';
 import { useState } from 'react';
@@ -25,6 +26,7 @@ export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defau
   const [startTime, setStartTime] = useState(defaultTime || '09:00');
   const [endTime, setEndTime] = useState(defaultEndTime || (defaultTime ? addMinutes(defaultTime, 60) : '10:00'));
   const [enterpriseId, setEnterpriseId] = useState<string>('none');
+  const [isImportant, setIsImportant] = useState(false);
 
   // Sync defaults when dialog opens with new values
   useEffect(() => {
@@ -52,10 +54,12 @@ export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defau
       startTime,
       endTime,
       enterpriseId: enterpriseId !== 'none' ? enterpriseId : undefined,
+      isImportant,
     });
     setTitle('');
     setDescription('');
     setEnterpriseId('none');
+    setIsImportant(false);
     onOpenChange(false);
   };
 
@@ -129,6 +133,14 @@ export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defau
               </SelectContent>
             </Select>
           </div>
+
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer">
+            <Checkbox checked={isImportant} onCheckedChange={v => setIsImportant(v === true)} className="mt-0.5" />
+            <span>
+              <span className="text-sm font-medium">⭐ Importante</span>
+              <span className="block text-xs text-muted-foreground">Radar ti chiama 5 minuti prima</span>
+            </span>
+          </label>
 
           <Button onClick={handleSubmit} className="w-full">Crea Appuntamento</Button>
         </div>

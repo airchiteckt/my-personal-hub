@@ -289,6 +289,7 @@ export type Database = {
           google_connection_id: string | null
           google_event_id: string | null
           id: string
+          is_important: boolean
           start_time: string
           sync_error: string | null
           synced_at: string | null
@@ -306,6 +307,7 @@ export type Database = {
           google_connection_id?: string | null
           google_event_id?: string | null
           id?: string
+          is_important?: boolean
           start_time: string
           sync_error?: string | null
           synced_at?: string | null
@@ -323,6 +325,7 @@ export type Database = {
           google_connection_id?: string | null
           google_event_id?: string | null
           id?: string
+          is_important?: boolean
           start_time?: string
           sync_error?: string | null
           synced_at?: string | null

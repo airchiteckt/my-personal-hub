@@ -19,10 +19,70 @@ const BRAND = {
 function reminderLabel(type: string): string {
   switch (type) {
     case "24h": return "24 ore";
+    case "3h": return "3 ore";
     case "1h": return "1 ora";
     case "15m": return "15 minuti";
     default: return type;
   }
+}
+
+const ROME = "Europe/Rome";
+
+// Eventi di Google Calendar: una email per finestra (3h/1h/15m), dedupe su radar_nudges.
+async function processGoogleEvents(supabase: any, resendKey: string) {
+  const now = Date.now();
+  const { data: events, error } = await supabase
+    .from("external_calendar_events")
+    .select("id,user_id,title,description,location,start_at,end_at,all_day,status,google_event_id,hangout_link")
+    .eq("all_day", false)
+    .gt("start_at", new Date(now).toISOString())
+    .lte("start_at", new Date(now + 181 * 60000).toISOString())
+    .limit(200);
+  if (error) throw error;
+
+  let sent = 0;
+  for (const e of events ?? []) {
+    if (e.status === "cancelled") continue;
+    const mins = Math.round((new Date(e.start_at).getTime() - now) / 60000);
+    const type = mins <= 15 ? "15m" : mins <= 60 ? "1h" : mins <= 180 ? "3h" : null;
+    if (!type) continue;
+
+    const dedupe = `gcal_email:${e.google_event_id ?? e.id}:${e.start_at}:${type}`;
+    const { data: ins } = await supabase.from("radar_nudges").insert({
+      user_id: e.user_id, kind: "gcal_email", dedupe_key: dedupe,
+      entity_table: "external_calendar_events", entity_id: e.id,
+    }).select("id").maybeSingle();
+    if (!ins) continue;
+
+    const { data: email } = await supabase.rpc("get_user_email", { _user_id: e.user_id });
+    if (!email) continue;
+
+    const start = new Date(e.start_at);
+    const end = new Date(e.end_at);
+    const fmtT = (d: Date) => new Intl.DateTimeFormat("it-IT", { timeZone: ROME, hour: "2-digit", minute: "2-digit" }).format(d);
+    const dateStr = new Intl.DateTimeFormat("it-IT", { timeZone: ROME, weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(start);
+    const extra = [e.location ? `Luogo: ${e.location}` : "", e.hangout_link ? `Videocall: ${e.hangout_link}` : ""].filter(Boolean).join("\n");
+    const desc = [extra, e.description ? String(e.description).slice(0, 800) : ""].filter(Boolean).join("\n\n") || null;
+    const title = e.title ?? "Evento";
+
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "FlyDeck <noreply@radar.flydeck.app>",
+        to: [email],
+        subject: `⏰ ${title} — tra ${reminderLabel(type)}`,
+        html: buildEmailHtml(title, dateStr, fmtT(start), fmtT(end), type, desc),
+      }),
+    });
+    if (!res.ok) {
+      console.error(`gcal email failed [${res.status}]: ${await res.text()}`);
+      await supabase.from("radar_nudges").delete().eq("id", ins.id);
+      continue;
+    }
+    sent++;
+  }
+  return { sent };
 }
 
 function buildEmailHtml(
@@ -91,6 +151,12 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Promemoria email per gli eventi di Google Calendar (3h, 1h, 15m prima)
+    const gcal = await processGoogleEvents(supabase, RESEND_API_KEY).catch((e) => {
+      console.error("gcal reminders failed", e);
+      return { sent: 0 };
+    });
+
     // Fetch pending reminders that are due
     const { data: pendingReminders, error: fetchError } = await supabase
       .from("appointment_reminders")
@@ -101,7 +167,7 @@ serve(async (req) => {
 
     if (fetchError) throw fetchError;
     if (!pendingReminders || pendingReminders.length === 0) {
-      return new Response(JSON.stringify({ processed: 0 }), {
+      return new Response(JSON.stringify({ processed: 0, gcal_sent: gcal.sent }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

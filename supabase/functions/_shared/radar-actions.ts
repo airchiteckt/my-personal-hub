@@ -616,6 +616,26 @@ export async function executeAction(
   }
 }
 
+// Eventi dei calendari Google collegati, nello stesso formato degli appuntamenti.
+export async function fetchExternalEvents(admin: any, userId: string, from: string, to: string) {
+  const start = new Date(`${from}T00:00:00Z`); start.setUTCDate(start.getUTCDate() - 1);
+  const end = new Date(`${to}T23:59:59Z`); end.setUTCDate(end.getUTCDate() + 1);
+  const { data } = await admin.from("external_calendar_events")
+    .select("id,title,start_at,end_at,all_day,status,location")
+    .eq("user_id", userId).gte("start_at", start.toISOString()).lte("start_at", end.toISOString())
+    .order("start_at").limit(200);
+  const fd = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const ft = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Rome", hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  return (data ?? []).filter((e: any) => e.status !== "cancelled").map((e: any) => {
+    const s = new Date(e.start_at), en = new Date(e.end_at);
+    return {
+      id: `gcal:${e.id}`, title: e.title ?? "Evento", date: e.all_day ? String(e.start_at).slice(0, 10) : fd(s),
+      start_time: e.all_day ? "tutto il giorno" : ft(s), end_time: e.all_day ? "" : ft(en),
+      location: e.location ?? null, external: true,
+    };
+  }).filter((e: any) => e.date >= from && e.date <= to);
+}
+
 // ---------- context ----------
 
 export async function buildContext(admin: any, userId: string) {
@@ -633,11 +653,14 @@ export async function buildContext(admin: any, userId: string) {
     admin.from("objectives").select("id,title,focus_period_id,enterprise_id").eq("user_id", userId).eq("status", "active"),
     admin.from("key_results").select("id,title,objective_id,enterprise_id,current_value,target_value").eq("user_id", userId),
   ]);
+  const ext = await fetchExternalEvents(admin, userId, today, addDays(today, 21)).catch(() => []);
+  const allAppts = [...(appts.data ?? []), ...ext]
+    .sort((x: any, y: any) => `${x.date} ${x.start_time}`.localeCompare(`${y.date} ${y.start_time}`));
   return {
     enterprises: ent.data ?? [],
     projects: proj.data ?? [],
     tasks: tasks.data ?? [],
-    appointments: appts.data ?? [],
+    appointments: allAppts,
     reminders: rem.data ?? [],
     focus_periods: focus.data ?? [],
     objectives: objs.data ?? [],
@@ -809,7 +832,9 @@ export async function queryRadar(
           .gte("reminder_date", from).lte("reminder_date", to)
           .order("reminder_date").order("reminder_time").limit(200),
       ]);
-      const apptRows = appts ?? [];
+      const ext = await fetchExternalEvents(admin, userId, from, to).catch(() => []);
+      const apptRows = [...(appts ?? []), ...ext]
+        .sort((x: any, y: any) => `${x.date} ${x.start_time}`.localeCompare(`${y.date} ${y.start_time}`));
       const taskRows = (tasks ?? []).filter((t: any) => t.status !== "done");
       const doneRows = (tasks ?? []).filter((t: any) => t.status === "done");
       const remRows = (rem ?? []).filter((r: any) => !r.is_dismissed);
@@ -820,7 +845,9 @@ export async function queryRadar(
         `${remClosed.length ? `, ${remClosed.length} promemoria già chiusi` : ""}.`,
         "Elenca tutto senza omettere nulla.",
       ];
-      for (const x of apptRows) lines.push(`Appuntamento ${x.date} ${x.start_time}-${x.end_time}: ${x.title} (id ${x.id})`);
+      for (const x of apptRows) lines.push((x as any).external
+        ? `Appuntamento ${x.date} ${x.start_time}${x.end_time ? "-" + x.end_time : ""}: ${x.title}${(x as any).location ? " @ " + (x as any).location : ""} (dal calendario Google: si può leggere ma non spostare da qui)`
+        : `Appuntamento ${x.date} ${x.start_time}-${x.end_time}: ${x.title} (id ${x.id})`);
       for (const x of taskRows) lines.push(`Attività ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (${x.estimated_minutes} min, id ${x.id})`);
       for (const x of doneRows) lines.push(`Attività già completata ${x.scheduled_date} ${x.scheduled_time ?? ""}: ${x.title} (id ${x.id})`);
       for (const x of remRows) lines.push(`Promemoria ${x.reminder_date} ${x.reminder_time ?? ""}: ${x.title}${x.is_urgent ? " (importante)" : ""} (id ${x.id})`);

@@ -1283,3 +1283,42 @@ export const RADAR_TOOL_DEFS = [
     parameters: { type: "object", properties: { entry_date: { type: "string" }, content: { type: "string" }, mood: { type: "string" }, energy_level: { type: "number" }, energy_morning: { type: "number" }, energy_afternoon: { type: "number" }, energy_evening: { type: "number" } }, required: ["content"] },
   },
 ];
+
+/** Avvia una sessione vocale Radar nel browser (stesso assistente VAPI del telefono). */
+export async function startWebCall(admin: any, userId: string): Promise<{ ok: boolean; webCallUrl?: string; callId?: string; message?: string }> {
+  const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
+  if (!VAPI_API_KEY) return { ok: false, message: "La voce di Radar non è configurata." };
+  const { data: vs } = await admin.from("ai_voice_settings").select("vapi_assistant_id").limit(1).maybeSingle();
+  if (!vs?.vapi_assistant_id) return { ok: false, message: "La voce di Radar non è ancora attiva." };
+  const { data: profile } = await admin.from("profiles").select("display_name").eq("user_id", userId).maybeSingle();
+  const now = romeNow();
+  const [daySummary, ent, proj] = await Promise.all([
+    buildVoiceDaySummary(admin, userId).catch(() => ""),
+    queryRadar(admin, userId, "list_enterprises"),
+    queryRadar(admin, userId, "list_projects"),
+  ]);
+  const res = await fetch("https://api.vapi.ai/call/web", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      assistantId: vs.vapi_assistant_id,
+      assistantOverrides: {
+        variableValues: {
+          user_known: "yes",
+          user_name: profile?.display_name ?? "",
+          user_id: userId,
+          now_info: `${now.weekday} ${now.date}, ore ${now.time}`,
+          context_brief: `IMPRESE:\n${ent}\n\nPROGETTI:\n${proj}`.slice(0, 3000),
+          day_summary: `L'utente ti parla dall'app FlyDeck (non è una telefonata).\n${daySummary}`,
+        },
+        firstMessage: "Dimmi pure.",
+      },
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json?.webCallUrl) {
+    console.error("web call failed", res.status, JSON.stringify(json));
+    return { ok: false, message: "Non riesco ad avviare la voce di Radar, riprova tra poco." };
+  }
+  return { ok: true, webCallUrl: json.webCallUrl, callId: json.id };
+}

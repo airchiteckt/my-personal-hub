@@ -974,6 +974,16 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             <ListTodo className="h-3.5 w-3.5 mr-1" />
             Backlog
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs px-2.5"
+            onClick={() => window.dispatchEvent(new CustomEvent('radar:toggle'))}
+            title="Apri Radar"
+          >
+            <Radar className="h-3.5 w-3.5 mr-1 text-primary" />
+            Radar
+          </Button>
           <div className="flex-1 flex justify-center min-w-0 px-2">
             <div className="flex w-full max-w-[280px] items-center gap-2 rounded-md border bg-background px-2 py-1" title="Messa a fuoco: usa la ghiera, Ctrl + rotellina o il gesto pinch">
               <Aperture className="h-4 w-4 shrink-0 text-primary" />

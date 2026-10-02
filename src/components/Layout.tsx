@@ -16,7 +16,7 @@ export function Layout() {
       <div className="min-h-[100dvh] flex w-full overflow-hidden">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0 h-[100dvh]">
-          <header className="h-14 flex items-center gap-3 border-b bg-card px-4 shrink-0">
+          <header className="h-14 flex items-center gap-3 border-b bg-card px-4 shrink-0 md:hidden">
             <SidebarTrigger />
           </header>
           {isFeatureEnabled('feature_ai_assistant') && <AiAssistant variant="fab" />}

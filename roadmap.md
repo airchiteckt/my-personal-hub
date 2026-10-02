@@ -3,6 +3,8 @@
 ## Calendario tablet
 - [x] Riunire Task, Appuntamento e Promemoria nel comando “Aggiungi”
 - [x] Compattare la barra superiore nella vista tablet
+- [x] Integrare il comando di espansione nella barra verticale
+- [x] Rimuovere il titolo ridondante e preservare la leggibilità delle schede strette
 
 ## Radar vocale con VAPI (sostituisce ElevenLabs ConvAI)
 - [x] VAPI_API_KEY salvata (segreto)

@@ -6,7 +6,7 @@ import { useFeatureFlags } from '@/hooks/use-feature-flags';
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
-  SidebarFooter, useSidebar,
+  SidebarFooter, SidebarHeader, SidebarTrigger, useSidebar,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 
@@ -34,6 +34,9 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
+      <SidebarHeader className="hidden h-14 shrink-0 items-center justify-end border-b px-2 md:flex group-data-[collapsible=icon]:justify-center">
+        <SidebarTrigger />
+      </SidebarHeader>
       <SidebarContent>
         {!collapsed && (
           <div className="p-5 pb-2">

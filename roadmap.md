@@ -21,3 +21,10 @@
 - Incollare l'ID del numero in FlyDeck → Impostazioni → Integrazioni → Radar al telefono
 - FlyDeck → Impostazioni → Integrazioni → "Radar al telefono": cliccare "Attiva Radar vocale", poi incollare l'ID numero VAPI e premere "Collega"
 - Test end-to-end: chiamata in entrata (riconoscimento dal numero) e promemoria importante (chiamata in uscita)
+
+## Calendario a messa a fuoco
+- [ ] Ghiera unica continua con aggancio ai livelli
+- [ ] Vista oraria adattiva da Momento a Settimana
+- [ ] Griglie sintetiche Mese e Anno
+- [ ] Zoom con rotellina e pinch ancorato al punto osservato
+- [ ] Verifica desktop e tablet

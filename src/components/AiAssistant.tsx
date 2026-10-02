@@ -839,9 +839,18 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
 // ─── Main Sheet Component ───
 export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' | 'fab' } = {}) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [expanded, setExpanded] = useState(false);
   const r = useRadar();
   const inline = variant === 'inline';
+  const onCalendarPage = location.pathname.startsWith('/calendar');
+
+  // External triggers (e.g. Radar button in the calendar bottom bar)
+  useEffect(() => {
+    const onToggle = () => setExpanded(v => !v);
+    window.addEventListener('radar:toggle', onToggle);
+    return () => window.removeEventListener('radar:toggle', onToggle);
+  }, []);
 
   // Switch view to chat when expanding (skip home gauges since dock IS the entry)
   useEffect(() => {
@@ -1043,7 +1052,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           title={expanded ? 'Chiudi Radar' : 'Apri Radar'}
-          className="fixed z-50 right-4 bottom-4 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 flex items-center justify-center"
+          className={`fixed z-50 right-4 bottom-4 h-14 w-14 rounded-2xl bg-primary text-primary-foreground shadow-xl shadow-primary/25 flex items-center justify-center${onCalendarPage ? ' hidden' : ''}`}
         >
           <AnimatePresence mode="wait" initial={false}>
             {expanded ? (

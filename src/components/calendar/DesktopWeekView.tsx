@@ -83,11 +83,13 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
       title={`${ritual.name} [${isDone ? 'Completato' : isSkipped ? 'Saltato' : 'Pianificato'}]`}
     >
       <div className="p-1.5 h-full flex flex-col">
-        <p className={`font-medium text-xs leading-tight truncate flex items-center gap-1 ${isDone ? 'line-through' : ''}`}>
+        <p className={`font-medium text-xs leading-tight flex items-start gap-1 ${isDone ? 'line-through' : ''}`}>
           <CatIcon className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-          {isDone && '✅ '}
-          {isSkipped && '⏭ '}
-          {ritual.name}
+          <span className="min-w-0 break-words line-clamp-2">
+            {isDone && '✅ '}
+            {isSkipped && '⏭ '}
+            {ritual.name}
+          </span>
         </p>
         <p className="text-[10px] mt-0.5 truncate" style={{ color: `hsl(${color} / 0.8)` }}>
           <Repeat className="h-2.5 w-2.5 inline mr-0.5" />
@@ -167,8 +169,6 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const isDraggingCreate = useRef(false);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const weekLabel = `${format(weekStart, 'd MMM', { locale: it })} — ${format(addDays(weekStart, 6), 'd MMM yyyy', { locale: it })}`;
-
   // All active rituals for the drag widget
   const activeRituals = rituals.filter(r => r.is_active);
   const getWeeklyCount = (ritualId: string) => {
@@ -755,9 +755,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 title={`${appt.title}\n${appt.startTime}–${appt.endTime}`}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className="font-medium text-xs leading-tight break-words line-clamp-2">
+                                  <p className="font-medium text-xs leading-tight flex items-start gap-1">
                                     <CalendarClock className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                    <span>{appt.title}</span>
+                                    <span className="min-w-0 break-words line-clamp-2">{appt.title}</span>
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {appt.startTime}–{appt.endTime}
@@ -797,9 +797,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 title={`${event.title}\n${event.startTime}–${event.endTime}`}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className="font-medium text-xs leading-tight break-words line-clamp-2">
+                                  <p className="font-medium text-xs leading-tight flex items-start gap-1">
                                     <CalendarClock className="h-3 w-3 shrink-0" style={{ color: googleSolidColor(color) }} />
-                                    <span>{event.title}</span>
+                                    <span className="min-w-0 break-words line-clamp-2">{event.title}</span>
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}
@@ -878,10 +878,12 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col justify-center">
-                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                  <p className="font-medium text-xs leading-tight flex items-start gap-1" title={rem.title}>
                                     <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                    {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}
-                                    {rem.title}
+                                    <span className="min-w-0 break-words line-clamp-2">
+                                      {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}
+                                      {rem.title}
+                                    </span>
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {time}{ent ? ` · ${ent.name}` : ''}

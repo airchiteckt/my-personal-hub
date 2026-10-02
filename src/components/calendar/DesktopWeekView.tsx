@@ -132,6 +132,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const [weekStart, setWeekStart] = useState(() => addDays(new Date(), -3));
   const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder, timeEntries } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const headerScrollRef = useRef<HTMLDivElement>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
@@ -281,11 +282,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   return (
     <div className="flex flex-col h-full">
       {/* Week nav */}
-      <div className="flex items-center justify-between gap-3 mb-3 px-1 shrink-0">
-        <div className="flex min-w-0 items-center gap-3">
-          <h1 className="text-lg font-bold">Calendario</h1>
-          <span className="hidden text-xs text-muted-foreground whitespace-nowrap xl:inline">{weekLabel}</span>
-        </div>
+      <div className="flex items-center justify-end gap-3 mb-3 px-1 shrink-0">
         <div className="flex min-w-0 items-center justify-end gap-1.5">
           <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => { setApptDefaults({}); setShowChoice(true); }}>
             <Plus className="h-3.5 w-3.5 mr-1" />
@@ -405,12 +402,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             </>
           )}
           {/* Day headers - sticky */}
-          <div
-            className="grid border-b shrink-0 bg-card"
-            style={{ gridTemplateColumns: '40px repeat(7, 1fr)' }}
-          >
-            <div className="p-1" />
-            {days.map(day => {
+          <div ref={headerScrollRef} className="overflow-hidden border-b shrink-0 bg-card">
+            <div
+              className="grid min-w-[760px]"
+              style={{ gridTemplateColumns: '40px repeat(7, minmax(100px, 1fr))' }}
+            >
+              <div className="p-1" />
+              {days.map(day => {
               const dayDate = format(day, 'yyyy-MM-dd');
               const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
               const totalMins = dayTasks.filter(t => t.status !== 'done').reduce((s, t) => s + t.estimatedMinutes, 0);
@@ -459,14 +457,21 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                   </button>
                 </div>
               );
-            })}
+              })}
+            </div>
           </div>
 
           {/* Scrollable time grid */}
-          <div ref={scrollRef} className="flex-1 overflow-auto">
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-auto"
+            onScroll={e => {
+              if (headerScrollRef.current) headerScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+            }}
+          >
             <div
-              className="grid"
-              style={{ gridTemplateColumns: '40px repeat(7, 1fr)', height: TOTAL_SLOTS * slotH }}
+              className="grid min-w-[760px]"
+              style={{ gridTemplateColumns: '40px repeat(7, minmax(100px, 1fr))', height: TOTAL_SLOTS * slotH }}
             >
               {/* Time column */}
               <div className="relative">
@@ -706,7 +711,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className={`font-medium text-xs leading-tight truncate ${isDone ? 'line-through' : ''}`}>
+                                  <p className={`font-medium text-xs leading-tight break-words line-clamp-2 ${isDone ? 'line-through' : ''}`} title={task.title}>
                                     {isDone ? '✅ ' : getUrgencyDot(getUrgencyLevel(task.deadline, prioritySettings)) + ' '}
                                     {task.title}
                                   </p>
@@ -750,9 +755,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 title={`${appt.title}\n${appt.startTime}–${appt.endTime}`}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                  <p className="font-medium text-xs leading-tight break-words line-clamp-2">
                                     <CalendarClock className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                    {appt.title}
+                                    <span>{appt.title}</span>
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {appt.startTime}–{appt.endTime}
@@ -792,9 +797,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 title={`${event.title}\n${event.startTime}–${event.endTime}`}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
-                                  <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
+                                  <p className="font-medium text-xs leading-tight break-words line-clamp-2">
                                     <CalendarClock className="h-3 w-3 shrink-0" style={{ color: googleSolidColor(color) }} />
-                                    {event.title}
+                                    <span>{event.title}</span>
                                   </p>
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {event.allDay ? 'Tutto il giorno' : `${event.startTime}–${event.endTime}`}

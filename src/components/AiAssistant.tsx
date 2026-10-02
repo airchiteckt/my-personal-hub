@@ -530,7 +530,7 @@ function useRadar() {
 
   return {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
-    input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
+    input, setInput, isLoading, scrollRef, inputRef, callState: vapi.state as CallState, callActive: vapi.active,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
     getActionDescription, getActionTypeLabel, approveAction, rejectAction,
@@ -622,7 +622,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, pendingActions]);
   
   const stateLabel: Record<CallState, string> = {
-    idle: 'CHIAMA RADAR',
+    idle: 'PARLA CON RADAR',
     connecting: 'CONNESSIONE...',
     listening: 'TI ASCOLTO',
     processing: 'ELABORO...',
@@ -669,7 +669,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
                 className="relative h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
                 whileTap={{ scale: 0.93 }}
               >
-                <Phone className="h-4 w-4" />
+                <Mic className="h-4 w-4" />
               </motion.button>
             ) : (
               <motion.div
@@ -700,7 +700,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
             {stateLabel[callState]}
           </motion.p>
         </div>
-        {callState === 'speaking' && (
+        {false && (
           <button onClick={stopSpeaking} className="text-[10px] text-muted-foreground hover:text-foreground active:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             STOP
           </button>
@@ -795,9 +795,9 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
             onClick={(e) => { e.stopPropagation(); endCall(); }}
             className="h-14 w-14 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform"
           >
-            <PhoneOff className="h-6 w-6" />
+            <MicOff className="h-6 w-6" />
           </motion.button>
-          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RIATTACCA</span>
+          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>TERMINA</span>
         </div>
       )}
     </motion.div>
@@ -974,9 +974,10 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
           onClick={() => { setExpanded(true); r.startCall(); }}
           disabled={r.isLoading}
           title="Parla con Radar"
+          aria-label="Parla con Radar"
           className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/15 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40"
         >
-          <Phone className="h-4 w-4" />
+          <Mic className="h-4 w-4" />
         </button>
         <Button size="icon" onClick={() => { setExpanded(true); r.handleSend(); }} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg">
           <Send className="h-4 w-4" />
@@ -1181,8 +1182,8 @@ export function RadarFullPage() {
                 ))}
               </div>
               <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] active:bg-primary/[0.18] border border-primary/15 transition-all py-4 group min-h-[52px]">
-                <Phone className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors" />
-                <span className="text-sm font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>CHIAMA RADAR</span>
+                <Mic className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors" />
+                <span className="text-sm font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>PARLA CON RADAR</span>
               </button>
 
               <div className="mt-4 flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
@@ -1243,7 +1244,7 @@ export function RadarFullPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="min-w-[160px]">
                       <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
-                        <Phone className="h-4 w-4 mr-2" /> Chiama Radar
+                        <Mic className="h-4 w-4 mr-2" /> Parla con Radar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

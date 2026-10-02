@@ -1,5 +1,9 @@
 # Roadmap
 
+## Calendario tablet
+- [x] Riunire Task, Appuntamento e Promemoria nel comando “Aggiungi”
+- [x] Compattare la barra superiore nella vista tablet
+
 ## Radar vocale con VAPI (sostituisce ElevenLabs ConvAI)
 - [x] VAPI_API_KEY salvata (segreto)
 - [x] DB: colonne vapi_assistant_id / vapi_phone_number_id su ai_voice_settings, vapi_call_id su voice_calls

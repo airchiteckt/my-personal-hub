@@ -5,7 +5,7 @@ import { CalendarClock, ListChecks, Bell } from 'lucide-react';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  timeLabel: string;
+  timeLabel?: string;
   onChooseAppointment: () => void;
   onChooseTask: () => void;
   onChooseReminder: () => void;
@@ -17,7 +17,7 @@ export function CalendarCreateChoice({ open, onOpenChange, timeLabel, onChooseAp
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="text-base">Cosa vuoi creare?</DialogTitle>
-          <p className="text-xs text-muted-foreground">{timeLabel}</p>
+          {timeLabel && <p className="text-xs text-muted-foreground">{timeLabel}</p>}
         </DialogHeader>
         <div className="grid grid-cols-3 gap-3 pt-2">
           <Button

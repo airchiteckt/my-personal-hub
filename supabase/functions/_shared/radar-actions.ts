@@ -1286,8 +1286,9 @@ export const RADAR_TOOL_DEFS = [
 
 /** Avvia una sessione vocale Radar nel browser (stesso assistente VAPI del telefono). */
 export async function startWebCall(admin: any, userId: string): Promise<{ ok: boolean; webCallUrl?: string; callId?: string; message?: string }> {
-  const VAPI_API_KEY = Deno.env.get("VAPI_API_KEY");
-  if (!VAPI_API_KEY) return { ok: false, message: "La voce di Radar non è configurata." };
+  // /call/web accetta solo la chiave pubblica VAPI
+  const VAPI_PUBLIC_KEY = Deno.env.get("VAPI_PUBLIC_KEY");
+  if (!VAPI_PUBLIC_KEY) return { ok: false, message: "La voce di Radar nell'app non è ancora configurata." };
   const { data: vs } = await admin.from("ai_voice_settings").select("vapi_assistant_id").limit(1).maybeSingle();
   if (!vs?.vapi_assistant_id) return { ok: false, message: "La voce di Radar non è ancora attiva." };
   const { data: profile } = await admin.from("profiles").select("display_name").eq("user_id", userId).maybeSingle();
@@ -1299,7 +1300,7 @@ export async function startWebCall(admin: any, userId: string): Promise<{ ok: bo
   ]);
   const res = await fetch("https://api.vapi.ai/call/web", {
     method: "POST",
-    headers: { Authorization: `Bearer ${VAPI_API_KEY}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${VAPI_PUBLIC_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       assistantId: vs.vapi_assistant_id,
       assistantOverrides: {

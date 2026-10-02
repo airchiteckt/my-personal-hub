@@ -280,3 +280,32 @@ const Settings = () => {
 };
 
 export default Settings;
+
+const AppearanceSettings = () => {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Moon className="h-4 w-4 text-muted-foreground" />
+        <h2 className="font-semibold">Aspetto</h2>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Tema</Label>
+        <Select value={theme ?? 'system'} onValueChange={setTheme}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="light">Chiaro</SelectItem>
+            <SelectItem value="dark">Scuro (night view)</SelectItem>
+            <SelectItem value="system">Come il dispositivo</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          La vista scura riduce l'affaticamento degli occhi la sera.
+        </p>
+      </div>
+    </Card>
+  );
+};

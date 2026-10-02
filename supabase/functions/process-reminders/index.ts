@@ -74,19 +74,18 @@ Deno.serve(async (req) => {
     const { data: due, error } = await admin.from("reminders")
       .select("id,user_id,title,description,reminder_date,reminder_time,is_urgent,call_status")
       .eq("is_dismissed", false)
-      .lte("reminder_date", now.date)
-      .is("call_status", null);
+      .eq("reminder_date", now.date);
     if (error) throw error;
 
     const results: any[] = [];
 
     for (const r of due ?? []) {
       const tMin = toMin(r.reminder_time);
-      const isDue = r.reminder_date < now.date || tMin === null || tMin <= nowMin;
+      const isDue = tMin === null || tMin <= nowMin;
       if (!isDue) continue;
 
       // dedupe: un solo ciclo di notifiche per promemoria
-      const dedupe = `reminder:${r.id}`;
+      const dedupe = `reminder:${r.id}:${r.reminder_date}:${r.reminder_time ?? ""}`;
       const { data: inserted } = await admin.from("radar_nudges").insert({
         user_id: r.user_id, kind: "reminder", dedupe_key: dedupe,
         entity_table: "reminders", entity_id: r.id,

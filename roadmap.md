@@ -23,8 +23,8 @@
 - Test end-to-end: chiamata in entrata (riconoscimento dal numero) e promemoria importante (chiamata in uscita)
 
 ## Calendario a messa a fuoco
-- [ ] Ghiera unica continua con aggancio ai livelli
-- [ ] Vista oraria adattiva da Momento a Settimana
-- [ ] Griglie sintetiche Mese e Anno
-- [ ] Zoom con rotellina e pinch ancorato al punto osservato
-- [ ] Verifica desktop e tablet
+- [x] Ghiera unica continua con aggancio ai livelli
+- [x] Vista oraria adattiva da Momento a Settimana
+- [x] Griglie sintetiche Mese e Anno
+- [x] Zoom con rotellina e pinch ancorato al punto osservato
+- [x] Verifica tecnica desktop e tablet; controllo autenticato manuale necessario

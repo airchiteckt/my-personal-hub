@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useVapiWebCall } from '@/hooks/useVapiWebCall';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -415,66 +416,33 @@ function useRadar() {
 
   doSendRef.current = doSend;
 
-  // Start a call
-  const startCall = useCallback(async () => {
-    // Check SpeechRecognition support before starting
-    if (!SRConstructor) {
-      toast.error('Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Safari.');
-      return;
+  // Voice: same VAPI Radar used for phone calls, running in the browser
+  const vapi = useVapiWebCall({
+    onFinal: (role, text) => { if (text?.trim()) setMessages(prev => [...prev, { role, content: text.trim() }]); },
+    onPartial: (t) => setInput(t),
+    onError: (m) => toast.error(m),
+  });
+
+  useEffect(() => {
+    if (!vapi.active) {
+      if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
+      releaseWakeLock();
+      setView(v => (v === 'voice' ? 'chat' : v));
+      setInput('');
     }
+  }, [vapi.active]);
 
-    // Unlock audio on iOS (must happen in user gesture context)
-    if (isIOS) unlockAudio();
-
-    setCallActive(true);
-    callActiveRef.current = true;
-    isSpeakingRef.current = false;
-    setVoiceEnabled(true);
+  const startCall = useCallback(async () => {
     setView('voice');
     setCallDuration(0);
     setInput('');
-    setCallState('processing');
-
-    // Pre-create audio element
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-    }
-    audioRef.current.preload = 'auto';
-
+    if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
-
-    // Request wake lock
     requestWakeLock();
+    await vapi.start();
+  }, [vapi.start]);
 
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      toast.error('Permesso microfono necessario per la chiamata');
-      endCall();
-      return;
-    }
-
-    setMessages(prev => [...prev, { role: 'assistant', content: 'Pronto.' }]);
-    speakText('Pronto.');
-  }, []);
-
-  // End a call
-  const endCall = useCallback(() => {
-    callActiveRef.current = false;
-    isSpeakingRef.current = false;
-    isStartingRecognitionRef.current = false;
-    setCallActive(false);
-    setCallState('idle');
-    setInput('');
-    pendingSendRef.current = null;
-
-    if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
-    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-
-    releaseWakeLock();
-    setView(messages.length > 0 ? 'chat' : 'home');
-  }, [messages.length]);
+  const endCall = useCallback(() => { vapi.stop(); }, [vapi.stop]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; };

@@ -88,6 +88,9 @@ export function CalendarOverview({ mode, centerDate, onOpenDay }: CalendarOvervi
 
   return (
     <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-card">
+      <div className="sticky left-0 border-b bg-card px-3 py-2">
+        <h2 className="text-sm font-semibold capitalize">{format(centerDate, 'MMMM yyyy', { locale: it })}</h2>
+      </div>
       <div className="grid min-w-[700px] grid-cols-7 border-b bg-muted/30">
         {weekdays.map((weekday, index) => <div key={`${weekday}-${index}`} className="border-l px-2 py-2 text-center text-xs font-medium text-muted-foreground first:border-l-0">{weekday}</div>)}
       </div>

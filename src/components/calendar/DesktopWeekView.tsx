@@ -162,6 +162,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const focusSurfaceRef = useRef<HTMLDivElement>(null);
   const focusRef = useRef(45);
   const pinchDistanceRef = useRef<number | null>(null);
+  const focusSnapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
@@ -227,9 +228,14 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   useEffect(() => {
     const surface = focusSurfaceRef.current;
     if (!surface) return;
-    const applyDelta = (delta: number) => setFocus(current => Math.max(0, Math.min(100, current + delta)));
+    const applyDelta = (delta: number) => {
+      setFocus(current => Math.max(0, Math.min(100, current + delta)));
+      if (focusSnapTimerRef.current) clearTimeout(focusSnapTimerRef.current);
+      focusSnapTimerRef.current = setTimeout(() => setFocus(current => snapFocus(current)), 180);
+    };
     const onWheel = (event: WheelEvent) => {
-      if (!event.ctrlKey && !event.metaKey) return;
+      const target = event.target instanceof Element ? event.target : null;
+      if (!event.ctrlKey && !event.metaKey && !target?.closest('[role="slider"]')) return;
       event.preventDefault();
       const normalized = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
       applyDelta(-normalized * 0.035);
@@ -254,6 +260,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
     surface.addEventListener('touchmove', onTouchMove, { passive: false });
     surface.addEventListener('touchend', onTouchEnd);
     return () => {
+      if (focusSnapTimerRef.current) clearTimeout(focusSnapTimerRef.current);
       surface.removeEventListener('wheel', onWheel);
       surface.removeEventListener('touchstart', onTouchStart);
       surface.removeEventListener('touchmove', onTouchMove);
@@ -398,11 +405,6 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
               onValueCommit={value => setFocus(snapFocus(value[0]))}
               className="min-w-0 flex-1"
               aria-label="Messa a fuoco del calendario"
-              onWheel={event => {
-                event.preventDefault();
-                const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
-                setFocus(current => Math.max(0, Math.min(100, current - delta * 0.035)));
-              }}
             />
             <span className="w-14 text-right text-[10px] font-medium text-muted-foreground">{FOCUS_STOPS.reduce((best, stop) => Math.abs(stop.value - focus) < Math.abs(best.value - focus) ? stop : best).label}</span>
           </div>

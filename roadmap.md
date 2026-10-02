@@ -27,4 +27,4 @@
 - [x] Vista oraria adattiva da Momento a Settimana
 - [x] Griglie sintetiche Mese e Anno
 - [x] Zoom con rotellina e pinch ancorato al punto osservato
-- [ ] Verifica desktop e tablet
+- [x] Verifica tecnica desktop e tablet; controllo autenticato manuale necessario

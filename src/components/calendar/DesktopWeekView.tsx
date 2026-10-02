@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { format, addDays, addWeeks, subWeeks, isToday } from 'date-fns';
+import { format, addDays, addMonths, addYears, isToday, subMonths, subYears } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
@@ -31,6 +31,8 @@ import { CreateAppointmentDialog } from '@/components/CreateAppointmentDialog';
 import { CalendarCreateChoice } from './CalendarCreateChoice';
 import { CalendarCreateTaskDialog } from './CalendarCreateTaskDialog';
 import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon, type RitualData } from '@/lib/ritual-utils';
+import { CalendarOverview } from './CalendarOverview';
+import { Slider } from '@/components/ui/slider';
 
 import { JournalDialog } from './JournalDialog';
 
@@ -56,6 +58,28 @@ const googleTintColor = (color?: string, alpha = 0.12) => {
   if (!color?.startsWith('#')) return `hsl(${color || '210 80% 50%'} / ${alpha})`;
   const hexAlpha = Math.round(alpha * 255).toString(16).padStart(2, '0');
   return `${color}${hexAlpha}`;
+};
+
+const FOCUS_STOPS = [
+  { value: 0, label: 'Anno' },
+  { value: 20, label: 'Mese' },
+  { value: 45, label: 'Settimana' },
+  { value: 65, label: '3 giorni' },
+  { value: 82, label: 'Giorno' },
+  { value: 100, label: 'Momento' },
+] as const;
+
+const snapFocus = (value: number) => FOCUS_STOPS.reduce((best, stop) =>
+  Math.abs(stop.value - value) < Math.abs(best.value - value) ? stop : best
+).value;
+
+const getFocusMode = (value: number): 'year' | 'month' | 'week' | 'threeDays' | 'day' | 'moment' => {
+  if (value < 10) return 'year';
+  if (value < 33) return 'month';
+  if (value < 55) return 'week';
+  if (value < 74) return 'threeDays';
+  if (value < 91) return 'day';
+  return 'moment';
 };
 
 function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time, slotH, onComplete, onSkip, onDelete, onDragStart, onClick, style: posStyle }: RitualCalendarCardProps) {
@@ -131,10 +155,13 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 }
 
 export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => void } = {}) {
-  const [weekStart, setWeekStart] = useState(() => addDays(new Date(), -3));
+  const [centerDate, setCenterDate] = useState(() => new Date());
   const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder, timeEntries } = usePrp();
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
+  const focusSurfaceRef = useRef<HTMLDivElement>(null);
+  const focusRef = useRef(45);
+  const pinchDistanceRef = useRef<number | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
@@ -156,19 +183,26 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [backlogOpen, setBacklogOpen] = useState(false);
-  const [zoom, setZoom] = useState<number>(() => {
-    if (typeof window === 'undefined') return 1;
-    const stored = parseFloat(window.localStorage.getItem('calendar-zoom') || '1');
-    return isNaN(stored) ? 1 : Math.max(0.5, Math.min(2, stored));
+  const [focus, setFocus] = useState<number>(() => {
+    if (typeof window === 'undefined') return 45;
+    const stored = parseFloat(window.localStorage.getItem('calendar-focus') || '45');
+    return isNaN(stored) ? 45 : Math.max(0, Math.min(100, stored));
   });
-  const slotH = DESKTOP_SLOT_HEIGHT * zoom;
-  useEffect(() => { try { window.localStorage.setItem('calendar-zoom', String(zoom)); } catch {} }, [zoom]);
+  const focusMode = getFocusMode(focus);
+  const isOverview = focusMode === 'month' || focusMode === 'year';
+  const dayCount = focusMode === 'week' ? 7 : focusMode === 'threeDays' ? 3 : 1;
+  const timelineFocus = Math.max(45, focus);
+  const slotH = 24 + ((timelineFocus - 45) / 55) * 40;
+  useEffect(() => {
+    focusRef.current = focus;
+    try { window.localStorage.setItem('calendar-focus', String(focus)); } catch {}
+  }, [focus]);
 
   // Drag-to-create state
   const [dragCreate, setDragCreate] = useState<{ dayDate: string; startSlot: number; endSlot: number } | null>(null);
   const isDraggingCreate = useRef(false);
 
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(centerDate, i - Math.floor(dayCount / 2)));
   // All active rituals for the drag widget
   const activeRituals = rituals.filter(r => r.is_active);
   const getWeeklyCount = (ritualId: string) => {
@@ -176,7 +210,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   };
   const getWeeklyTarget = (ritual: typeof activeRituals[0]) => {
     if (ritual.planning_mode === 'flexible') return ritual.weekly_times_per_week || 2;
-    if (ritual.frequency === 'daily') return 7;
+    if (ritual.frequency === 'daily') return dayCount;
     if (ritual.weekly_specific_days?.length) return ritual.weekly_specific_days.length;
     return 1;
   };
@@ -189,6 +223,54 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
     const nowY = timeToSlot(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`) * slotH;
     el.scrollTop = Math.max(0, nowY - el.clientHeight / 2);
   }, [slotH]);
+
+  useEffect(() => {
+    const surface = focusSurfaceRef.current;
+    if (!surface) return;
+    const applyDelta = (delta: number) => setFocus(current => Math.max(0, Math.min(100, current + delta)));
+    const onWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const normalized = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+      applyDelta(-normalized * 0.035);
+    };
+    const distance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) pinchDistanceRef.current = distance(event.touches);
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      if (event.touches.length !== 2 || pinchDistanceRef.current === null) return;
+      event.preventDefault();
+      const nextDistance = distance(event.touches);
+      applyDelta((nextDistance - pinchDistanceRef.current) * 0.12);
+      pinchDistanceRef.current = nextDistance;
+    };
+    const onTouchEnd = () => {
+      if (pinchDistanceRef.current !== null) setFocus(current => snapFocus(current));
+      pinchDistanceRef.current = null;
+    };
+    surface.addEventListener('wheel', onWheel, { passive: false });
+    surface.addEventListener('touchstart', onTouchStart, { passive: true });
+    surface.addEventListener('touchmove', onTouchMove, { passive: false });
+    surface.addEventListener('touchend', onTouchEnd);
+    return () => {
+      surface.removeEventListener('wheel', onWheel);
+      surface.removeEventListener('touchstart', onTouchStart);
+      surface.removeEventListener('touchmove', onTouchMove);
+      surface.removeEventListener('touchend', onTouchEnd);
+    };
+  }, []);
+
+  const shiftPeriod = (direction: -1 | 1) => {
+    if (focusMode === 'year') return setCenterDate(date => direction < 0 ? subYears(date, 1) : addYears(date, 1));
+    if (focusMode === 'month') return setCenterDate(date => direction < 0 ? subMonths(date, 1) : addMonths(date, 1));
+    setCenterDate(date => addDays(date, direction * dayCount));
+  };
+
+  const openOverviewDay = (date: Date) => {
+    setCenterDate(date);
+    setFocus(82);
+  };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData('text/plain', `task:${taskId}`);
@@ -226,7 +308,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const handleEdgeHover = (direction: 'prev' | 'next') => {
     if (dragNavTimerRef.current) return; // already waiting
     dragNavTimerRef.current = setTimeout(() => {
-      setWeekStart(s => direction === 'next' ? addWeeks(s, 1) : subWeeks(s, 1));
+      setCenterDate(date => addDays(date, direction === 'next' ? dayCount : -dayCount));
       dragNavTimerRef.current = null;
     }, 600);
   };
@@ -280,7 +362,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const nowSlot = timeToSlot(format(new Date(), 'HH:mm'));
 
   return (
-    <div className="flex flex-col h-full">
+    <div ref={focusSurfaceRef} className="flex flex-col h-full">
       {/* Week nav */}
       <div className="flex items-center justify-end gap-3 mb-3 px-1 shrink-0">
         <div className="flex min-w-0 items-center justify-end gap-1.5">
@@ -305,13 +387,25 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Riduci zoom" disabled={zoom <= 0.5}>
-            <ZoomOut className="h-3.5 w-3.5" />
-          </Button>
-          <span className="text-[10px] text-muted-foreground tabular-nums w-8 text-center cursor-pointer" onClick={() => setZoom(1)} title="Reset zoom">{Math.round(zoom * 100)}%</span>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(2, +(z + 0.1).toFixed(2)))} title="Aumenta zoom" disabled={zoom >= 2}>
-            <ZoomIn className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex w-[210px] items-center gap-2 rounded-md border bg-card px-2 py-1" title="Messa a fuoco: usa la ghiera, Ctrl + rotellina o il gesto pinch">
+            <Aperture className="h-4 w-4 shrink-0 text-primary" />
+            <Slider
+              value={[focus]}
+              min={0}
+              max={100}
+              step={1}
+              onValueChange={value => setFocus(value[0])}
+              onValueCommit={value => setFocus(snapFocus(value[0]))}
+              className="min-w-0 flex-1"
+              aria-label="Messa a fuoco del calendario"
+              onWheel={event => {
+                event.preventDefault();
+                const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+                setFocus(current => Math.max(0, Math.min(100, current - delta * 0.035)));
+              }}
+            />
+            <span className="w-14 text-right text-[10px] font-medium text-muted-foreground">{FOCUS_STOPS.reduce((best, stop) => Math.abs(stop.value - focus) < Math.abs(best.value - focus) ? stop : best).label}</span>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -323,13 +417,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             Backlog
           </Button>
           <div className="w-px h-5 bg-border mx-0.5" />
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(s => subWeeks(s, 1))}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(-1)}>
             <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setWeekStart(addDays(new Date(), -3))}>
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setCenterDate(new Date())}>
             Oggi
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setWeekStart(s => addWeeks(s, 1))}>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(1)}>
             <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -377,7 +471,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 gap-3">
+      {isOverview ? (
+        <CalendarOverview mode={focusMode} centerDate={centerDate} onOpenDay={openOverviewDay} />
+      ) : <div className="flex flex-1 min-h-0 gap-3">
         {/* Main grid */}
         <div className="flex-1 border rounded-xl bg-card shadow-sm overflow-hidden flex flex-col relative">
           {/* Drag edge zones for week navigation */}
@@ -404,8 +500,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
           {/* Day headers - sticky */}
           <div ref={headerScrollRef} className="overflow-hidden border-b shrink-0 bg-card">
             <div
-              className="grid min-w-[760px]"
-              style={{ gridTemplateColumns: '40px repeat(7, minmax(100px, 1fr))' }}
+              className={dayCount === 7 ? 'grid min-w-[760px]' : 'grid min-w-full'}
+              style={{ gridTemplateColumns: `40px repeat(${dayCount}, minmax(100px, 1fr))` }}
             >
               <div className="p-1" />
               {days.map(day => {
@@ -470,8 +566,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             }}
           >
             <div
-              className="grid min-w-[760px]"
-              style={{ gridTemplateColumns: '40px repeat(7, minmax(100px, 1fr))', height: TOTAL_SLOTS * slotH }}
+              className={dayCount === 7 ? 'grid min-w-[760px]' : 'grid min-w-full'}
+              style={{ gridTemplateColumns: `40px repeat(${dayCount}, minmax(100px, 1fr))`, height: TOTAL_SLOTS * slotH }}
             >
               {/* Time column */}
               <div className="relative">
@@ -902,7 +998,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
           </div>
         </div>
 
-      </div>
+      </div>}
 
       <Sheet open={backlogOpen} onOpenChange={setBacklogOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">

@@ -58,8 +58,9 @@ const Settings = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="space-y-4">
           <ProfileSettings />
+          <AppearanceSettings />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-4">

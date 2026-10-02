@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { useState, useRef, useEffect } from 'react';
 import { format, addDays, addMonths, addYears, isToday, subMonths, subYears } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -186,6 +187,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
   const [backlogOpen, setBacklogOpen] = useState(false);
+  const [backlogDragging, setBacklogDragging] = useState(false);
   const [focus, setFocus] = useState<number>(() => {
     if (typeof window === 'undefined') return 45;
     const stored = parseFloat(window.localStorage.getItem('calendar-focus') || '45');
@@ -1034,17 +1036,24 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
       </div>
 
-      <Sheet open={backlogOpen} onOpenChange={setBacklogOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">
+      <Sheet open={backlogOpen} onOpenChange={setBacklogOpen} modal={false}>
+        <SheetContent
+          side="right"
+          onInteractOutside={e => { if (backlogDragging) e.preventDefault(); }}
+          className={cn('w-full sm:max-w-md p-0 flex flex-col gap-0 shadow-2xl transition-opacity duration-150', backlogDragging && 'opacity-0 pointer-events-none')}
+        >
           <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
             <SheetTitle className="text-sm font-semibold">Backlog</SheetTitle>
             <Button asChild variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-6" onClick={() => setBacklogOpen(false)}>
               <Link to="/backlog"><Maximize2 className="h-3.5 w-3.5" /> Apri pagina</Link>
             </Button>
           </SheetHeader>
-          <div className="flex-1 overflow-hidden p-3">
+          <div
+            className="flex-1 overflow-hidden p-3"
+            onDragEnd={() => { setBacklogDragging(false); setBacklogOpen(false); }}
+          >
             <SmartBacklog
-              onDragStart={handleDragStart}
+              onDragStart={(e, id) => { handleDragStart(e, id); setTimeout(() => setBacklogDragging(true), 0); }}
               onDrop={handleBacklogDrop}
               onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
             />

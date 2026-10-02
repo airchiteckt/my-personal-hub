@@ -3,7 +3,7 @@ import { format, addDays, addWeeks, subWeeks, isToday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, ZoomIn, ZoomOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, ZoomIn, ZoomOut } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
@@ -281,23 +281,15 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   return (
     <div className="flex flex-col h-full">
       {/* Week nav */}
-      <div className="flex items-center justify-between mb-3 px-1 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 mb-3 px-1 shrink-0">
+        <div className="flex min-w-0 items-center gap-3">
           <h1 className="text-lg font-bold">Calendario</h1>
-          <span className="text-xs text-muted-foreground">{weekLabel}</span>
+          <span className="hidden text-xs text-muted-foreground whitespace-nowrap xl:inline">{weekLabel}</span>
         </div>
-        <div className="flex items-center gap-1.5">
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateTask(true); }}>
-            <Clock className="h-3 w-3 mr-1" />
-            Task
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateAppt(true); }}>
-            <CalendarClock className="h-3 w-3 mr-1" />
-            Appunt.
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => { setApptDefaults({}); setShowCreateReminder(true); }}>
-            <Bell className="h-3 w-3 mr-1" />
-            Memo
+        <div className="flex min-w-0 items-center justify-end gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => { setApptDefaults({}); setShowChoice(true); }}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Aggiungi
           </Button>
           <Button
             variant={slotSelectMode ? "default" : "outline"}
@@ -926,7 +918,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
       <CalendarCreateChoice
         open={showChoice}
         onOpenChange={setShowChoice}
-        timeLabel={`${apptDefaults.date ?? ''} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}`}
+        timeLabel={apptDefaults.date ? `${apptDefaults.date} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}` : undefined}
         onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
         onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}
         onChooseReminder={() => { setShowChoice(false); setTimeout(() => setShowCreateReminder(true), 150); }}
@@ -1007,7 +999,6 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         <CreateReminderDialog
           open={showCreateReminder}
           onOpenChange={setShowCreateReminder}
-          defaultDate={apptDefaults.date}
           defaultTime={apptDefaults.startTime}
         />
       )}

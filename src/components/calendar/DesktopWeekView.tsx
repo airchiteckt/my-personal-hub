@@ -370,108 +370,6 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
 
   return (
     <div ref={focusSurfaceRef} className="flex flex-col h-full">
-      {/* Week nav */}
-      <div className="flex items-center justify-end gap-3 mb-3 px-1 shrink-0">
-        <div className="flex min-w-0 items-center justify-end gap-1.5">
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => { setApptDefaults({}); setShowChoice(true); }}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            Aggiungi
-          </Button>
-          <Button
-            variant={slotSelectMode ? "default" : "outline"}
-            size="sm"
-            className="h-8 text-xs px-2"
-            onClick={() => {
-              if (slotSelectMode && selectedSlots.length > 0) {
-                setShowSlotDialog(true);
-              } else {
-                setSlotSelectMode(!slotSelectMode);
-                if (!slotSelectMode) setSelectedSlots([]);
-              }
-            }}
-          >
-            <Send className="h-3 w-3 mr-1" />
-            {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
-          </Button>
-          <div className="w-px h-5 bg-border mx-0.5" />
-          <div className="flex w-[210px] items-center gap-2 rounded-md border bg-card px-2 py-1" title="Messa a fuoco: usa la ghiera, Ctrl + rotellina o il gesto pinch">
-            <Aperture className="h-4 w-4 shrink-0 text-primary" />
-            <Slider
-              value={[focus]}
-              min={0}
-              max={100}
-              step={1}
-              onValueChange={value => setFocus(value[0])}
-              onValueCommit={value => setFocus(snapFocus(value[0]))}
-              className="min-w-0 flex-1"
-              aria-label="Messa a fuoco del calendario"
-            />
-            <span className="w-14 text-right text-[10px] font-medium text-muted-foreground">{FOCUS_STOPS.reduce((best, stop) => Math.abs(stop.value - focus) < Math.abs(best.value - focus) ? stop : best).label}</span>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs px-2"
-            onClick={() => setBacklogOpen(true)}
-            title="Apri backlog"
-          >
-            <ListTodo className="h-3.5 w-3.5 mr-1" />
-            Backlog
-          </Button>
-          <div className="w-px h-5 bg-border mx-0.5" />
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(-1)}>
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setCenterDate(new Date())}>
-            Oggi
-          </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(1)}>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-      {/* Rituals drag widget */}
-      {activeRituals.length > 0 && (
-        <div className="flex items-center gap-1.5 mb-3 px-1 shrink-0 overflow-x-auto scrollbar-none">
-          <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
-            <Repeat className="h-2.5 w-2.5 inline mr-0.5" />Rituali
-          </span>
-          {activeRituals.map(r => {
-            const count = getWeeklyCount(r.id);
-            const target = getWeeklyTarget(r);
-            const color = getRitualCalendarColor(r.category);
-            const CatIcon = getRitualIcon(r.category);
-            const done = count >= target;
-            if (done) {
-              return (
-                <div
-                  key={r.id}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap opacity-40 cursor-default"
-                  style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
-                >
-                  <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
-                  <span className="font-medium">{r.name}</span>
-                  <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
-                </div>
-              );
-            }
-            return (
-              <div
-                key={r.id}
-                draggable
-                onDragStart={e => handleRitualDragStart(e, r.id)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02] transition-all"
-                style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
-                title="Trascina sul calendario per pianificare"
-              >
-                <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
-                <span className="font-medium">{r.name}</span>
-                <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {isOverview ? (
         <CalendarOverview mode={focusMode} centerDate={centerDate} onOpenDay={openOverviewDay} />
@@ -1001,6 +899,108 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
 
       </div>}
+
+      {/* Bottom toolbar */}
+      <div className="shrink-0 mt-2 rounded-xl border bg-card shadow-sm px-2 py-1.5 flex flex-col gap-1.5">
+        {activeRituals.length > 0 && (
+          <div className="flex items-center gap-1.5 px-1 overflow-x-auto scrollbar-none">
+            <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
+              <Repeat className="h-2.5 w-2.5 inline mr-0.5" />Rituali
+            </span>
+            {activeRituals.map(r => {
+              const count = getWeeklyCount(r.id);
+              const target = getWeeklyTarget(r);
+              const color = getRitualCalendarColor(r.category);
+              const CatIcon = getRitualIcon(r.category);
+              const done = count >= target;
+              if (done) {
+                return (
+                  <div
+                    key={r.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap opacity-40 cursor-default"
+                    style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
+                  >
+                    <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
+                    <span className="font-medium">{r.name}</span>
+                    <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={r.id}
+                  draggable
+                  onDragStart={e => handleRitualDragStart(e, r.id)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs whitespace-nowrap cursor-grab active:cursor-grabbing hover:shadow-sm hover:scale-[1.02] transition-all"
+                  style={{ borderColor: `hsl(${color} / 0.3)`, backgroundColor: `hsl(${color} / 0.06)` }}
+                  title="Trascina sul calendario per pianificare"
+                >
+                  <CatIcon className="h-3 w-3" style={{ color: `hsl(${color})` }} />
+                  <span className="font-medium">{r.name}</span>
+                  <span className="font-bold" style={{ color: `hsl(${color})` }}>{count}/{target}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2.5" onClick={() => { setApptDefaults({}); setShowChoice(true); }}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Aggiungi
+          </Button>
+          <Button
+            variant={slotSelectMode ? "default" : "outline"}
+            size="sm"
+            className="h-8 text-xs px-2"
+            onClick={() => {
+              if (slotSelectMode && selectedSlots.length > 0) {
+                setShowSlotDialog(true);
+              } else {
+                setSlotSelectMode(!slotSelectMode);
+                if (!slotSelectMode) setSelectedSlots([]);
+              }
+            }}
+          >
+            <Send className="h-3 w-3 mr-1" />
+            {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs px-2"
+            onClick={() => setBacklogOpen(true)}
+            title="Apri backlog"
+          >
+            <ListTodo className="h-3.5 w-3.5 mr-1" />
+            Backlog
+          </Button>
+          <div className="flex-1 flex justify-center min-w-0 px-2">
+            <div className="flex w-full max-w-[280px] items-center gap-2 rounded-md border bg-background px-2 py-1" title="Messa a fuoco: usa la ghiera, Ctrl + rotellina o il gesto pinch">
+              <Aperture className="h-4 w-4 shrink-0 text-primary" />
+              <Slider
+                value={[focus]}
+                min={0}
+                max={100}
+                step={1}
+                onValueChange={value => setFocus(value[0])}
+                onValueCommit={value => setFocus(snapFocus(value[0]))}
+                className="min-w-0 flex-1"
+                aria-label="Messa a fuoco del calendario"
+              />
+              <span className="w-14 text-right text-[10px] font-medium text-muted-foreground">{FOCUS_STOPS.reduce((best, stop) => Math.abs(stop.value - focus) < Math.abs(best.value - focus) ? stop : best).label}</span>
+            </div>
+          </div>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(-1)}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 text-xs px-2" onClick={() => setCenterDate(new Date())}>
+            Oggi
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shiftPeriod(1)}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
 
       <Sheet open={backlogOpen} onOpenChange={setBacklogOpen}>
         <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col gap-0">

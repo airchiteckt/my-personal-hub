@@ -235,10 +235,23 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
     };
     const onWheel = (event: WheelEvent) => {
       const target = event.target instanceof Element ? event.target : null;
-      if (!event.ctrlKey && !event.metaKey && !target?.closest('[role="slider"]')) return;
+      const normalize = (v: number) => v * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+      if (!event.ctrlKey && !event.metaKey && !target?.closest('[role="slider"]')) {
+        // Horizontal scroll (trackpad swipe or Shift+wheel): shift days
+        const horizontal = event.shiftKey ? event.deltaY : event.deltaX;
+        if (Math.abs(horizontal) < 2 || (!event.shiftKey && Math.abs(event.deltaX) <= Math.abs(event.deltaY))) return;
+        event.preventDefault();
+        dayShiftAccumRef.current += normalize(horizontal);
+        const threshold = 160;
+        while (Math.abs(dayShiftAccumRef.current) >= threshold) {
+          const dir = dayShiftAccumRef.current > 0 ? 1 : -1;
+          dayShiftAccumRef.current -= dir * threshold;
+          shiftByGestureRef.current?.(dir);
+        }
+        return;
+      }
       event.preventDefault();
-      const normalized = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
-      applyDelta(-normalized * 0.035);
+      applyDelta(-normalize(event.deltaY) * 0.035);
     };
     const distance = (touches: TouchList) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
     const onTouchStart = (event: TouchEvent) => {

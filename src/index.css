@@ -56,6 +56,58 @@
     --sidebar-border: 220 15% 92%;
     --sidebar-ring: 222 60% 25%;
   }
+
+  .dark {
+    --background: 222 30% 7%;
+    --foreground: 220 20% 95%;
+
+    --card: 222 28% 11%;
+    --card-foreground: 220 20% 95%;
+
+    --popover: 222 28% 11%;
+    --popover-foreground: 220 20% 95%;
+
+    --primary: 217 70% 65%;
+    --primary-foreground: 222 30% 8%;
+
+    --secondary: 222 20% 18%;
+    --secondary-foreground: 220 20% 95%;
+
+    --muted: 222 20% 16%;
+    --muted-foreground: 220 12% 65%;
+
+    --accent: 222 25% 20%;
+    --accent-foreground: 217 70% 70%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 18% 20%;
+    --input: 222 18% 24%;
+    --ring: 217 70% 65%;
+
+    /* Project types */
+    --strategic: 220 80% 65%;
+    --strategic-light: 220 50% 20%;
+    --operational: 38 90% 60%;
+    --operational-light: 38 50% 18%;
+    --maintenance: 220 10% 65%;
+    --maintenance-light: 220 15% 20%;
+
+    /* Warning */
+    --warning: 38 90% 60%;
+    --warning-foreground: 38 90% 10%;
+
+    /* Sidebar */
+    --sidebar-background: 222 30% 9%;
+    --sidebar-foreground: 220 20% 95%;
+    --sidebar-primary: 217 70% 65%;
+    --sidebar-primary-foreground: 222 30% 8%;
+    --sidebar-accent: 222 25% 16%;
+    --sidebar-accent-foreground: 217 70% 70%;
+    --sidebar-border: 222 18% 18%;
+    --sidebar-ring: 217 70% 65%;
+  }
 }
 
 @layer base {

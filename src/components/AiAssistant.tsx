@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useVapiWebCall } from '@/hooks/useVapiWebCall';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -415,66 +416,33 @@ function useRadar() {
 
   doSendRef.current = doSend;
 
-  // Start a call
-  const startCall = useCallback(async () => {
-    // Check SpeechRecognition support before starting
-    if (!SRConstructor) {
-      toast.error('Il tuo browser non supporta il riconoscimento vocale. Usa Chrome o Safari.');
-      return;
+  // Voice: same VAPI Radar used for phone calls, running in the browser
+  const vapi = useVapiWebCall({
+    onFinal: (role, text) => { if (text?.trim()) setMessages(prev => [...prev, { role, content: text.trim() }]); },
+    onPartial: (t) => setInput(t),
+    onError: (m) => toast.error(m),
+  });
+
+  useEffect(() => {
+    if (!vapi.active) {
+      if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
+      releaseWakeLock();
+      setView(v => (v === 'voice' ? 'chat' : v));
+      setInput('');
     }
+  }, [vapi.active]);
 
-    // Unlock audio on iOS (must happen in user gesture context)
-    if (isIOS) unlockAudio();
-
-    setCallActive(true);
-    callActiveRef.current = true;
-    isSpeakingRef.current = false;
-    setVoiceEnabled(true);
+  const startCall = useCallback(async () => {
     setView('voice');
     setCallDuration(0);
     setInput('');
-    setCallState('processing');
-
-    // Pre-create audio element
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
-    }
-    audioRef.current.preload = 'auto';
-
+    if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
-
-    // Request wake lock
     requestWakeLock();
+    await vapi.start();
+  }, [vapi.start]);
 
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      toast.error('Permesso microfono necessario per la chiamata');
-      endCall();
-      return;
-    }
-
-    setMessages(prev => [...prev, { role: 'assistant', content: 'Pronto.' }]);
-    speakText('Pronto.');
-  }, []);
-
-  // End a call
-  const endCall = useCallback(() => {
-    callActiveRef.current = false;
-    isSpeakingRef.current = false;
-    isStartingRecognitionRef.current = false;
-    setCallActive(false);
-    setCallState('idle');
-    setInput('');
-    pendingSendRef.current = null;
-
-    if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
-    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-
-    releaseWakeLock();
-    setView(messages.length > 0 ? 'chat' : 'home');
-  }, [messages.length]);
+  const endCall = useCallback(() => { vapi.stop(); }, [vapi.stop]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; };
@@ -562,7 +530,7 @@ function useRadar() {
 
   return {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
-    input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
+    input, setInput, isLoading, scrollRef, inputRef, callState: vapi.state as CallState, callActive: vapi.active,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
     getActionDescription, getActionTypeLabel, approveAction, rejectAction,
@@ -654,7 +622,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, pendingActions]);
   
   const stateLabel: Record<CallState, string> = {
-    idle: 'CHIAMA RADAR',
+    idle: 'PARLA CON RADAR',
     connecting: 'CONNESSIONE...',
     listening: 'TI ASCOLTO',
     processing: 'ELABORO...',
@@ -701,7 +669,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
                 className="relative h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"
                 whileTap={{ scale: 0.93 }}
               >
-                <Phone className="h-4 w-4" />
+                <Mic className="h-4 w-4" />
               </motion.button>
             ) : (
               <motion.div
@@ -732,7 +700,7 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
             {stateLabel[callState]}
           </motion.p>
         </div>
-        {callState === 'speaking' && (
+        {false && (
           <button onClick={stopSpeaking} className="text-[10px] text-muted-foreground hover:text-foreground active:text-foreground transition-colors px-2 py-1 rounded-md hover:bg-muted min-h-[32px]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
             STOP
           </button>
@@ -827,9 +795,9 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
             onClick={(e) => { e.stopPropagation(); endCall(); }}
             className="h-14 w-14 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-lg active:scale-90 transition-transform"
           >
-            <PhoneOff className="h-6 w-6" />
+            <MicOff className="h-6 w-6" />
           </motion.button>
-          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>RIATTACCA</span>
+          <span className="text-[10px] text-muted-foreground" style={{ fontFamily: "'JetBrains Mono', monospace" }}>TERMINA</span>
         </div>
       )}
     </motion.div>
@@ -1006,9 +974,10 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
           onClick={() => { setExpanded(true); r.startCall(); }}
           disabled={r.isLoading}
           title="Parla con Radar"
+          aria-label="Parla con Radar"
           className="shrink-0 h-8 w-8 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/15 text-primary hover:bg-primary/20 active:scale-95 transition-all disabled:opacity-40"
         >
-          <Phone className="h-4 w-4" />
+          <Mic className="h-4 w-4" />
         </button>
         <Button size="icon" onClick={() => { setExpanded(true); r.handleSend(); }} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg">
           <Send className="h-4 w-4" />
@@ -1213,8 +1182,8 @@ export function RadarFullPage() {
                 ))}
               </div>
               <button onClick={r.startCall} className="w-full flex items-center justify-center gap-2.5 rounded-xl bg-primary/[0.06] hover:bg-primary/[0.12] active:bg-primary/[0.18] border border-primary/15 transition-all py-4 group min-h-[52px]">
-                <Phone className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors" />
-                <span className="text-sm font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>CHIAMA RADAR</span>
+                <Mic className="h-5 w-5 text-primary/70 group-hover:text-primary transition-colors" />
+                <span className="text-sm font-semibold text-primary/80 group-hover:text-primary transition-colors" style={{ fontFamily: "'JetBrains Mono', monospace" }}>PARLA CON RADAR</span>
               </button>
 
               <div className="mt-4 flex items-end gap-1.5 bg-card rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/30 transition-all duration-200">
@@ -1275,7 +1244,7 @@ export function RadarFullPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" side="top" className="min-w-[160px]">
                       <DropdownMenuItem onClick={r.startCall} disabled={r.isLoading}>
-                        <Phone className="h-4 w-4 mr-2" /> Chiama Radar
+                        <Mic className="h-4 w-4 mr-2" /> Parla con Radar
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

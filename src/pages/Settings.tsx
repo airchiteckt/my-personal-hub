@@ -7,7 +7,8 @@ import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle, Briefcase, CalendarDays } from 'lucide-react';
+ import { RotateCcw, Gauge, Clock, Target, FolderKanban, Settings as SettingsIcon, Link2, UserCircle, Briefcase, CalendarDays, Moon } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { PublicLinkSettings } from '@/components/PublicLinkSettings';
 import { ProfileSettings } from '@/components/ProfileSettings';
 import { GoogleCalendarSettings } from '@/components/GoogleCalendarSettings';
@@ -57,8 +58,9 @@ const Settings = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile">
+        <TabsContent value="profile" className="space-y-4">
           <ProfileSettings />
+          <AppearanceSettings />
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-4">
@@ -278,3 +280,32 @@ const Settings = () => {
 };
 
 export default Settings;
+
+const AppearanceSettings = () => {
+  const { theme, setTheme } = useTheme();
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Moon className="h-4 w-4 text-muted-foreground" />
+        <h2 className="font-semibold">Aspetto</h2>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Tema</Label>
+        <Select value={theme ?? 'system'} onValueChange={setTheme}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="light">Chiaro</SelectItem>
+            <SelectItem value="dark">Scuro (night view)</SelectItem>
+            <SelectItem value="system">Come il dispositivo</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          La vista scura riduce l'affaticamento degli occhi la sera.
+        </p>
+      </div>
+    </Card>
+  );
+};

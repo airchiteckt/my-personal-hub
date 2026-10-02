@@ -160,6 +160,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const focusSurfaceRef = useRef<HTMLDivElement>(null);
+  const dayShiftAccumRef = useRef(0);
+  const shiftByGestureRef = useRef<((dir: number) => void) | null>(null);
   const focusRef = useRef(45);
   const pinchDistanceRef = useRef<number | null>(null);
   const focusSnapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -285,6 +287,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
     if (focusMode === 'year') return setCenterDate(date => direction < 0 ? subYears(date, 1) : addYears(date, 1));
     if (focusMode === 'month') return setCenterDate(date => direction < 0 ? subMonths(date, 1) : addMonths(date, 1));
     setCenterDate(date => addDays(date, direction * dayCount));
+  };
+
+  // Horizontal scroll gesture: one day at a time in hourly views, one month/year in overviews
+  shiftByGestureRef.current = (dir: number) => {
+    if (focusMode === 'year') return setCenterDate(date => dir < 0 ? subYears(date, 1) : addYears(date, 1));
+    if (focusMode === 'month') return setCenterDate(date => dir < 0 ? subMonths(date, 1) : addMonths(date, 1));
+    setCenterDate(date => addDays(date, dir));
   };
 
   const openOverviewDay = (date: Date) => {

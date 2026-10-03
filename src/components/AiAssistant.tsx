@@ -1027,28 +1027,23 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
           )}
         </AnimatePresence>
 
-        {/* Mic button: starts voice listening with live transcript overlay */}
-        <AnimatePresence>
-          {!expanded && (
-            <motion.button
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.6 }}
-              transition={{ duration: 0.15 }}
-              onClick={() => { setExpanded(true); r.startCall(); }}
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              title="Parla con Radar"
-              aria-label="Parla con Radar"
-              className={`fixed z-50 right-[4.75rem] bottom-[1.35rem] h-11 w-11 rounded-full bg-card border border-primary/30 text-primary shadow-lg shadow-black/10 flex items-center justify-center${onCalendarPage ? ' hidden' : ''}`}
-            >
-              <Mic className="h-5 w-5" />
-            </motion.button>
-          )}
-        </AnimatePresence>
-
+        {/* Long-press on the Radar FAB starts the voice system; a normal tap opens the chat */}
         <motion.button
-          onClick={() => setExpanded(v => !v)}
+          onClick={() => {
+            if (longPressRef.current.fired) { longPressRef.current.fired = false; return; }
+            setExpanded(v => !v);
+          }}
+          onPointerDown={() => {
+            longPressRef.current.fired = false;
+            longPressRef.current.timer = window.setTimeout(() => {
+              longPressRef.current.fired = true;
+              setExpanded(true);
+              r.startCall();
+            }, 500);
+          }}
+          onPointerUp={() => { if (longPressRef.current.timer) { clearTimeout(longPressRef.current.timer); longPressRef.current.timer = null; } }}
+          onPointerLeave={() => { if (longPressRef.current.timer) { clearTimeout(longPressRef.current.timer); longPressRef.current.timer = null; } }}
+          onContextMenu={(e) => e.preventDefault()}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           title={expanded ? 'Chiudi Radar' : 'Apri Radar'}

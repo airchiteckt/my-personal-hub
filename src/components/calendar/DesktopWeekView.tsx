@@ -464,7 +464,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                     <p className="text-[10px] text-muted-foreground">{formatMinutes(totalMins)}</p>
                   )}
                   <button
-                    onClick={() => setJournalDate(dayDate)}
+                    onClick={(e) => { e.stopPropagation(); setJournalDate(dayDate); }}
                     className={`mt-0.5 text-[10px] flex items-center gap-0.5 mx-auto rounded px-1 py-0.5 transition-colors ${
                       getJournalForDate(dayDate)
                         ? 'text-primary font-medium hover:bg-primary/10'

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useVapiWebCall } from '@/hooks/useVapiWebCall';
 import { useRadarWakeWord } from '@/hooks/useRadarWakeWord';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -417,21 +416,14 @@ function useRadar() {
 
   doSendRef.current = doSend;
 
-  // Voice: same VAPI Radar used for phone calls, running in the browser
-  const vapi = useVapiWebCall({
-    onFinal: (role, text) => { if (text?.trim()) setMessages(prev => [...prev, { role, content: text.trim() }]); },
-    onPartial: (t) => setInput(t),
-    onError: (m) => toast.error(m),
-  });
-
+  // Voce: microfono del browser + risposte lette con la voce ElevenLabs
   useEffect(() => {
-    if (!vapi.active) {
+    if (!callActive) {
       if (callTimerRef.current) { clearInterval(callTimerRef.current); callTimerRef.current = undefined; }
       releaseWakeLock();
       setView(v => (v === 'voice' ? 'chat' : v));
-      setInput('');
     }
-  }, [vapi.active]);
+  }, [callActive]);
 
   // Wake word "Radar" (Picovoice, in locale nel browser)
   const [wakeEnabled, setWakeEnabledState] = useState(() => {
@@ -443,22 +435,35 @@ function useRadar() {
   }, []);
   const wakeRef = useRef<() => void>(() => {});
   const wake = useRadarWakeWord({
-    enabled: wakeEnabled && !vapi.active,
+    enabled: wakeEnabled && !callActive,
     onWake: () => wakeRef.current(),
   });
 
   const startCall = useCallback(async () => {
+    if (callActiveRef.current) return;
+    unlockAudio();
+    callActiveRef.current = true;
+    setCallActive(true);
     setView('voice');
     setCallDuration(0);
     setInput('');
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
     requestWakeLock();
-    await vapi.start();
-  }, [vapi.start]);
+    speakText('Pronto.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakText]);
   wakeRef.current = () => { if (!callActiveRef.current) startCall(); };
 
-  const endCall = useCallback(() => { vapi.stop(); }, [vapi.stop]);
+  const endCall = useCallback(() => {
+    callActiveRef.current = false;
+    setCallActive(false);
+    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } } catch {}
+    if (audioRef.current) { audioRef.current.pause(); }
+    isSpeakingRef.current = false;
+    setCallState('idle');
+    setInput('');
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } };
   const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'; };
@@ -546,7 +551,7 @@ function useRadar() {
 
   return {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
-    input, setInput, isLoading, scrollRef, inputRef, callState: vapi.state as CallState, callActive: vapi.active,
+    input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
     wakeEnabled, setWakeEnabled, wakeState: wake.state, wakeError: wake.errorMsg,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,

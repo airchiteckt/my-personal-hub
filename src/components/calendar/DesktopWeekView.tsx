@@ -1025,10 +1025,10 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
               radarPressRef.current.fired = false;
               radarPressRef.current.timer = window.setTimeout(() => {
                 radarPressRef.current.fired = true;
-                window.dispatchEvent(new CustomEvent('radar:voice'));
-              }, 500);
+                try { navigator.vibrate?.(30); } catch {}
+              }, 450);
             }}
-            onPointerUp={() => { if (radarPressRef.current.timer) { clearTimeout(radarPressRef.current.timer); radarPressRef.current.timer = null; } }}
+            onPointerUp={() => { if (radarPressRef.current.fired) window.dispatchEvent(new CustomEvent('radar:voice')); if (radarPressRef.current.timer) { clearTimeout(radarPressRef.current.timer); radarPressRef.current.timer = null; } }}
             onPointerLeave={() => { if (radarPressRef.current.timer) { clearTimeout(radarPressRef.current.timer); radarPressRef.current.timer = null; } }}
             onContextMenu={(e) => e.preventDefault()}
             title="Apri Radar (tieni premuto per parlare)"

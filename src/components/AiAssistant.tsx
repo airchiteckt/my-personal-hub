@@ -432,6 +432,20 @@ function useRadar() {
     }
   }, [vapi.active]);
 
+  // Wake word "Radar" (Picovoice, in locale nel browser)
+  const [wakeEnabled, setWakeEnabledState] = useState(() => {
+    try { return localStorage.getItem('flydeck:wakeword') === '1'; } catch { return false; }
+  });
+  const setWakeEnabled = useCallback((v: boolean) => {
+    setWakeEnabledState(v);
+    try { localStorage.setItem('flydeck:wakeword', v ? '1' : '0'); } catch { /* noop */ }
+  }, []);
+  const wakeRef = useRef<() => void>(() => {});
+  const wake = useRadarWakeWord({
+    enabled: wakeEnabled && !vapi.active,
+    onWake: () => wakeRef.current(),
+  });
+
   const startCall = useCallback(async () => {
     setView('voice');
     setCallDuration(0);
@@ -441,6 +455,7 @@ function useRadar() {
     requestWakeLock();
     await vapi.start();
   }, [vapi.start]);
+  wakeRef.current = () => { if (!callActiveRef.current) startCall(); };
 
   const endCall = useCallback(() => { vapi.stop(); }, [vapi.stop]);
 
@@ -532,6 +547,7 @@ function useRadar() {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState: vapi.state as CallState, callActive: vapi.active,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
+    wakeEnabled, setWakeEnabled, wakeState: wake.state, wakeError: wake.errorMsg,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
     getActionDescription, getActionTypeLabel, approveAction, rejectAction,
     goBack, stopSpeaking, tasksDueToday, activeEnterprises, backlogCount, activeFocus,

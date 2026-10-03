@@ -150,6 +150,7 @@ function useRadar() {
     r.interimResults = true;
 
     let finalTranscript = '';
+    let latestText = '';
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
     r.onresult = (e: any) => {
@@ -160,6 +161,7 @@ function useRadar() {
         else interim += e.results[i][0].transcript;
       }
       const currentText = finalTranscript + interim;
+      latestText = currentText;
       setInput(currentText);
 
       // Interrupt TTS if user speaks
@@ -187,6 +189,13 @@ function useRadar() {
       if (pendingSendRef.current) {
         const text = pendingSendRef.current;
         pendingSendRef.current = null;
+        setCallState('processing');
+        if (doSendRef.current) doSendRef.current(text, true);
+        return;
+      }
+      // Safari/iPad: la frase spesso resta "provvisoria" e la sessione si chiude senza risultato finale
+      if (callActiveRef.current && !isSpeakingRef.current && latestText.trim().length > 1) {
+        const text = latestText.trim(); latestText = '';
         setCallState('processing');
         if (doSendRef.current) doSendRef.current(text, true);
         return;
@@ -435,9 +444,20 @@ function useRadar() {
     if (callTimerRef.current) clearInterval(callTimerRef.current);
     callTimerRef.current = setInterval(() => setCallDuration(prev => prev + 1), 1000);
     requestWakeLock();
-    speakText('Pronto.');
+    // Ascolto immediato: niente saluto vocale, così si parla subito
+    setCallState('listening');
+    startContinuousListening();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [speakText]);
+  }, [startContinuousListening]);
+
+  // Testo scritto durante la modalità vocale: ferma l'ascolto e invia, la risposta viene letta a voce
+  const sendTyped = useCallback((text: string) => {
+    const t = text.trim(); if (!t) return;
+    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } } catch {}
+    pendingSendRef.current = null;
+    setCallState('processing');
+    doSendRef.current?.(t, true);
+  }, []);
 
   const endCall = useCallback(() => {
     callActiveRef.current = false;
@@ -536,7 +556,7 @@ function useRadar() {
   return {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
-    callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
+    callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall, sendTyped,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
     getActionDescription, getActionTypeLabel, approveAction, rejectAction,
     goBack, stopSpeaking, tasksDueToday, activeEnterprises, backlogCount, activeFocus,
@@ -611,7 +631,8 @@ function ActionConfirmCard({ action, getActionIcon, getActionLabel, getActionDes
 }
 
 // ─── Voice View (shared) ───
-function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction }: {
+function VoiceCallView({ sendTyped, callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction }: {
+  sendTyped?: (t: string) => void;
   callState: CallState; callActive: boolean; callDuration: number; input: string; isLoading: boolean;
   startCall: () => void; endCall: () => void; stopSpeaking: () => void; formatDuration: (s: number) => string;
   messages: Msg[];
@@ -624,6 +645,8 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
   rejectAction: (a: GlobalAction) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [typed, setTyped] = useState('');
+  const submitTyped = () => { if (!typed.trim() || !sendTyped) return; sendTyped(typed); setTyped(''); };
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages, pendingActions]);
   
   const stateLabel: Record<CallState, string> = {
@@ -791,6 +814,22 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
       )}
 
       {/* Bottom controls — fixed at bottom with safe area */}
+      {callActive && sendTyped && (
+        <div className="shrink-0 px-4 pt-2">
+          <div className="flex items-center gap-1.5 bg-background rounded-xl border border-input px-3 py-1.5 focus-within:ring-2 focus-within:ring-primary/20">
+            <input
+              value={typed}
+              onChange={e => setTyped(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submitTyped(); } }}
+              placeholder="Oppure scrivi qui..."
+              className="flex-1 bg-transparent text-sm border-0 outline-none placeholder:text-muted-foreground/50 min-h-[36px]"
+            />
+            <Button size="icon" onClick={submitTyped} disabled={!typed.trim() || isLoading} className="shrink-0 h-8 w-8 rounded-lg">
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
       {callActive && (
         <div className="shrink-0 flex flex-col items-center gap-2 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <motion.button
@@ -837,6 +876,13 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     if (expanded && r.view === 'home') r.setView('chat');
     if (!expanded && r.callActive) r.endCall();
   }, [expanded]);
+
+  // Chiudendo la modalità vocale si chiude anche Radar
+  const prevCallRef = useRef(false);
+  useEffect(() => {
+    if (prevCallRef.current && !r.callActive) setExpanded(false);
+    prevCallRef.current = r.callActive;
+  }, [r.callActive]);
 
   // Auto-expand when user starts typing or messages arrive
   useEffect(() => {
@@ -902,7 +948,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     <>
       {r.view === 'voice' ? (
         <div className="flex-1 min-h-0 overflow-hidden">
-          <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
+          <VoiceCallView sendTyped={r.sendTyped} callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1018,8 +1064,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
             <motion.div
               initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.18 }}
-              className="fixed z-50 right-4 bottom-24 w-[400px] max-w-[calc(100vw-2rem)] bg-card border border-border/60 shadow-2xl shadow-black/15 rounded-2xl overflow-hidden flex flex-col"
-              style={{ maxHeight: 'min(72vh, 680px)' }}
+              className="fixed z-[60] inset-0 bg-card overflow-hidden flex flex-col pt-[env(safe-area-inset-top)]"
             >
               {headerBlock}
               {bodyBlock}
@@ -1038,11 +1083,10 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
             longPressRef.current.fired = false;
             longPressRef.current.timer = window.setTimeout(() => {
               longPressRef.current.fired = true;
-              setExpanded(true);
-              r.startCall();
-            }, 500);
+              try { navigator.vibrate?.(30); } catch {}
+            }, 450);
           }}
-          onPointerUp={() => { if (longPressRef.current.timer) { clearTimeout(longPressRef.current.timer); longPressRef.current.timer = null; } }}
+          onPointerUp={() => { if (longPressRef.current.fired) { setExpanded(true); r.startCall(); } if (longPressRef.current.timer) { clearTimeout(longPressRef.current.timer); longPressRef.current.timer = null; } }}
           onPointerLeave={() => { if (longPressRef.current.timer) { clearTimeout(longPressRef.current.timer); longPressRef.current.timer = null; } }}
           onContextMenu={(e) => e.preventDefault()}
           whileHover={{ scale: 1.05 }}
@@ -1221,7 +1265,7 @@ export function RadarFullPage() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
+            <VoiceCallView sendTyped={r.sendTyped} callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
           )}
 
           {r.view === 'chat' && (

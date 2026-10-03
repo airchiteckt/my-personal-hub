@@ -4,7 +4,7 @@ import { format, addDays, addMonths, addYears, isToday, subMonths, subYears } fr
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause, Mic } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause } from 'lucide-react';
 import { useTaskTimer } from '@/hooks/use-task-timer';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
@@ -162,6 +162,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const timer = useTaskTimer({ ripple: true });
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
+  const radarPressRef = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
   const focusSurfaceRef = useRef<HTMLDivElement>(null);
   const dayShiftAccumRef = useRef(0);
   const shiftByGestureRef = useRef<((dir: number) => void) | null>(null);

@@ -27,6 +27,17 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
   const [selectedEnterpriseId, setSelectedEnterpriseId] = useState(enterpriseId || '');
   const [isUrgent, setIsUrgent] = useState(false);
 
+  useEffect(() => {
+    if (open) {
+      setTitle(defaultTitle || '');
+      setDescription('');
+      setReminderDate(defaultDate || '');
+      setReminderTime(defaultTime || '09:00');
+      setSelectedEnterpriseId(enterpriseId || '');
+      setIsUrgent(false);
+    }
+  }, [open, defaultDate, defaultTime, defaultTitle, enterpriseId]);
+
   const handleSave = () => {
     if (!title.trim() || !reminderDate) return;
     addReminder({
@@ -52,7 +63,7 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onInteractOutside={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{isFollowUp ? '🔔 Promemoria Follow-up' : '🔔 Nuovo Promemoria'}</DialogTitle>
         </DialogHeader>

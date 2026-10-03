@@ -1016,21 +1016,24 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             variant="outline"
             size="sm"
             className="h-8 text-xs px-2.5"
-            onClick={() => window.dispatchEvent(new CustomEvent('radar:toggle'))}
-            title="Apri Radar"
+            onClick={() => {
+              if (radarPressRef.current.fired) { radarPressRef.current.fired = false; return; }
+              window.dispatchEvent(new CustomEvent('radar:toggle'));
+            }}
+            onPointerDown={() => {
+              radarPressRef.current.fired = false;
+              radarPressRef.current.timer = window.setTimeout(() => {
+                radarPressRef.current.fired = true;
+                window.dispatchEvent(new CustomEvent('radar:voice'));
+              }, 500);
+            }}
+            onPointerUp={() => { if (radarPressRef.current.timer) { clearTimeout(radarPressRef.current.timer); radarPressRef.current.timer = null; } }}
+            onPointerLeave={() => { if (radarPressRef.current.timer) { clearTimeout(radarPressRef.current.timer); radarPressRef.current.timer = null; } }}
+            onContextMenu={(e) => e.preventDefault()}
+            title="Apri Radar (tieni premuto per parlare)"
           >
             <Radar className="h-3.5 w-3.5 mr-1 text-primary" />
             Radar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-8 w-8 px-0"
-            onClick={() => window.dispatchEvent(new CustomEvent('radar:voice'))}
-            title="Parla con Radar"
-            aria-label="Parla con Radar"
-          >
-            <Mic className="h-3.5 w-3.5 text-primary" />
           </Button>
           <div className="flex-1 flex justify-center min-w-0 px-2">
             <div className="flex w-full max-w-[280px] items-center gap-2 rounded-md border bg-background px-2 py-1" title="Messa a fuoco: usa la ghiera, Ctrl + rotellina o il gesto pinch">

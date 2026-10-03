@@ -926,7 +926,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     <>
       {r.view === 'voice' ? (
         <div className="flex-1 min-h-0 overflow-hidden">
-          <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
+          <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} wakeEnabled={r.wakeEnabled} setWakeEnabled={r.setWakeEnabled} wakeState={r.wakeState} wakeError={r.wakeError} />
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1230,7 +1230,7 @@ export function RadarFullPage() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} wakeEnabled={r.wakeEnabled} setWakeEnabled={r.setWakeEnabled} wakeState={r.wakeState} wakeError={r.wakeError} />
           )}
 
           {r.view === 'chat' && (

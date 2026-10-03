@@ -1021,6 +1021,26 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
           )}
         </AnimatePresence>
 
+        {/* Mic button: starts voice listening with live transcript overlay */}
+        <AnimatePresence>
+          {!expanded && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => { setExpanded(true); r.startCall(); }}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              title="Parla con Radar"
+              aria-label="Parla con Radar"
+              className={`fixed z-50 right-[4.75rem] bottom-[1.35rem] h-11 w-11 rounded-full bg-card border border-primary/30 text-primary shadow-lg shadow-black/10 flex items-center justify-center${onCalendarPage ? ' hidden' : ''}`}
+            >
+              <Mic className="h-5 w-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         <motion.button
           onClick={() => setExpanded(v => !v)}
           whileHover={{ scale: 1.05 }}

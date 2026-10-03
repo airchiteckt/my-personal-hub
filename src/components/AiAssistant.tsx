@@ -860,8 +860,10 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
 
   // External triggers (e.g. Radar button in the calendar bottom bar)
   useEffect(() => {
-    const onToggle = () => setExpanded(v => !v);
-    const onVoice = () => { setExpanded(true); r.startCall(); };
+    // Solo l'istanza visibile risponde: su schermi md+ è il bottone flottante, sotto è la barra mobile
+    const isMine = () => (variant === 'fab') === window.matchMedia('(min-width: 768px)').matches;
+    const onToggle = () => { if (isMine()) setExpanded(v => !v); };
+    const onVoice = () => { if (!isMine()) return; setExpanded(true); r.startCall(); };
     window.addEventListener('radar:toggle', onToggle);
     window.addEventListener('radar:voice', onVoice);
     return () => {
@@ -1149,7 +1151,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={() => !r.callActive && setExpanded(false)}
-            className="fixed inset-0 z-40 bg-background/40 backdrop-blur-[2px]"
+            className="md:hidden fixed inset-0 z-40 bg-background/40 backdrop-blur-[2px]"
           />
         )}
       </AnimatePresence>

@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRadarWakeWord } from '@/hooks/useRadarWakeWord';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -425,20 +424,6 @@ function useRadar() {
     }
   }, [callActive]);
 
-  // Wake word "Radar" (Picovoice, in locale nel browser)
-  const [wakeEnabled, setWakeEnabledState] = useState(() => {
-    try { return localStorage.getItem('flydeck:wakeword') === '1'; } catch { return false; }
-  });
-  const setWakeEnabled = useCallback((v: boolean) => {
-    setWakeEnabledState(v);
-    try { localStorage.setItem('flydeck:wakeword', v ? '1' : '0'); } catch { /* noop */ }
-  }, []);
-  const wakeRef = useRef<() => void>(() => {});
-  const wake = useRadarWakeWord({
-    enabled: wakeEnabled && !callActive,
-    onWake: () => wakeRef.current(),
-  });
-
   const startCall = useCallback(async () => {
     if (callActiveRef.current) return;
     unlockAudio();
@@ -453,7 +438,6 @@ function useRadar() {
     speakText('Pronto.');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speakText]);
-  wakeRef.current = () => { if (!callActiveRef.current) startCall(); };
 
   const endCall = useCallback(() => {
     callActiveRef.current = false;
@@ -553,7 +537,6 @@ function useRadar() {
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall,
-    wakeEnabled, setWakeEnabled, wakeState: wake.state, wakeError: wake.errorMsg,
     handleSend, handleKeyDown, handleTextareaInput, getActionIcon, getActionLabel,
     getActionDescription, getActionTypeLabel, approveAction, rejectAction,
     goBack, stopSpeaking, tasksDueToday, activeEnterprises, backlogCount, activeFocus,
@@ -628,10 +611,9 @@ function ActionConfirmCard({ action, getActionIcon, getActionLabel, getActionDes
 }
 
 // ─── Voice View (shared) ───
-function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction, wakeEnabled, setWakeEnabled, wakeState, wakeError }: {
+function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction }: {
   callState: CallState; callActive: boolean; callDuration: number; input: string; isLoading: boolean;
   startCall: () => void; endCall: () => void; stopSpeaking: () => void; formatDuration: (s: number) => string;
-  wakeEnabled: boolean; setWakeEnabled: (v: boolean) => void; wakeState: string; wakeError: string;
   messages: Msg[];
   pendingActions: GlobalAction[];
   getActionIcon: (type: string) => React.ReactNode;
@@ -729,24 +711,6 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
           </button>
         )}
       </div>
-
-      {/* Wake word toggle */}
-      {!callActive && (
-        <div className="flex items-center justify-center gap-2 pb-2 shrink-0">
-          <button
-            onClick={() => setWakeEnabled(!wakeEnabled)}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] transition-colors min-h-[28px] ${
-              wakeEnabled ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/50 text-muted-foreground hover:text-foreground'
-            }`}
-            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-          >
-            <Radio className="h-3 w-3" />
-            {wakeEnabled
-              ? (wakeState === 'listening' ? 'DI "RADAR" E PARTO' : wakeState === 'starting' ? 'ATTIVO...' : wakeState === 'error' ? (wakeError || 'ERRORE') : 'PAROLA "RADAR"')
-              : 'ATTIVA CON PAROLA "RADAR"'}
-          </button>
-        </div>
-      )}
 
       {/* Live transcript */}
       <AnimatePresence>
@@ -931,7 +895,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     <>
       {r.view === 'voice' ? (
         <div className="flex-1 min-h-0 overflow-hidden">
-          <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} wakeEnabled={r.wakeEnabled} setWakeEnabled={r.setWakeEnabled} wakeState={r.wakeState} wakeError={r.wakeError} />
+          <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col">
@@ -1054,6 +1018,26 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
               {bodyBlock}
               {composerBlock}
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Mic button: starts voice listening with live transcript overlay */}
+        <AnimatePresence>
+          {!expanded && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => { setExpanded(true); r.startCall(); }}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              title="Parla con Radar"
+              aria-label="Parla con Radar"
+              className={`fixed z-50 right-[4.75rem] bottom-[1.35rem] h-11 w-11 rounded-full bg-card border border-primary/30 text-primary shadow-lg shadow-black/10 flex items-center justify-center${onCalendarPage ? ' hidden' : ''}`}
+            >
+              <Mic className="h-5 w-5" />
+            </motion.button>
           )}
         </AnimatePresence>
 
@@ -1235,7 +1219,7 @@ export function RadarFullPage() {
           )}
 
           {r.view === 'voice' && (
-            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} wakeEnabled={r.wakeEnabled} setWakeEnabled={r.setWakeEnabled} wakeState={r.wakeState} wakeError={r.wakeError} />
+            <VoiceCallView callState={r.callState} callActive={r.callActive} callDuration={r.callDuration} input={r.input} isLoading={r.isLoading} startCall={r.startCall} endCall={r.endCall} stopSpeaking={r.stopSpeaking} formatDuration={r.formatDuration} messages={r.messages} pendingActions={r.pendingActions} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} approveAction={r.approveAction} rejectAction={r.rejectAction} />
           )}
 
           {r.view === 'chat' && (

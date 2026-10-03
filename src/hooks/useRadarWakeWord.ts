@@ -30,7 +30,7 @@ export function useRadarWakeWord(opts: { enabled: boolean; onWake: () => void })
     if (p) {
       try { await WebVoiceProcessor.unsubscribe(p); } catch { /* noop */ }
       try { await p.release(); } catch { /* noop */ }
-      try { await p.terminate(); } catch { /* noop */ }
+      
     }
     setState('off');
   }, []);
@@ -59,7 +59,7 @@ export function useRadarWakeWord(opts: { enabled: boolean; onWake: () => void })
           { publicPath: MODEL_PATH },
           { processErrorCallback: (e) => { console.error('[wake word]', e); setState('error'); setErrorMsg('Errore motore di ascolto'); } },
         );
-        if (cancelled) { await porcupine.release(); await porcupine.terminate(); return; }
+        if (cancelled) { await porcupine.release(); return; }
         porcupineRef.current = porcupine;
         await WebVoiceProcessor.subscribe(porcupine);
         if (!cancelled) setState('listening');

@@ -821,8 +821,14 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
   // External triggers (e.g. Radar button in the calendar bottom bar)
   useEffect(() => {
     const onToggle = () => setExpanded(v => !v);
+    const onVoice = () => { setExpanded(true); r.startCall(); };
     window.addEventListener('radar:toggle', onToggle);
-    return () => window.removeEventListener('radar:toggle', onToggle);
+    window.addEventListener('radar:voice', onVoice);
+    return () => {
+      window.removeEventListener('radar:toggle', onToggle);
+      window.removeEventListener('radar:voice', onVoice);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Switch view to chat when expanding (skip home gauges since dock IS the entry)

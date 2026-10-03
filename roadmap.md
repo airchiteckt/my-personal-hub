@@ -28,3 +28,9 @@
 - [x] Griglie sintetiche Mese e Anno
 - [x] Zoom con rotellina e pinch ancorato al punto osservato
 - [x] Verifica tecnica desktop e tablet; controllo autenticato manuale necessario
+
+## Tracciamento lavoro reale
+- [x] Ripristinare "ADV Ambressa" come completata
+- [x] Avvia / Pausa / Completa sulle attività del calendario (sessioni multiple)
+- [x] Fascia "In corso" che si estende oltre l'orario previsto
+- [x] Slittamento automatico delle attività successive di oggi (scavalca gli appuntamenti)

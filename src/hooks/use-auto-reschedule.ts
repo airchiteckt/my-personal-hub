@@ -50,8 +50,10 @@ export function useAutoReschedule() {
     const targetIsToday = targetDay === todayStr;
 
     // ---------- Reminders: move to target day, spaced to avoid collisions ----------
+    // Only items from days strictly before today: anything the user explicitly
+    // placed on today or on upcoming non-work days (e.g. weekend) stays put.
     const pastReminders = (reminders ?? []).filter(r =>
-      !r.isDismissed && r.reminderDate && r.reminderDate < targetDay
+      !r.isDismissed && r.reminderDate && r.reminderDate < todayStr
     );
     if (pastReminders.length > 0) {
       const usedTimes = new Set(
@@ -79,7 +81,7 @@ export function useAutoReschedule() {
 
     // ---------- Tasks ----------
     const pastIncompleteTasks = tasks.filter(t =>
-      t.status === 'scheduled' && t.scheduledDate && t.scheduledDate < targetDay
+      t.status === 'scheduled' && t.scheduledDate && t.scheduledDate < todayStr
     );
 
     if (pastIncompleteTasks.length === 0) {

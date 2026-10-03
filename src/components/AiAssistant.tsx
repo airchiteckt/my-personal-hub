@@ -131,105 +131,75 @@ function useRadar() {
     audioRef.current = audio;
   };
 
-  // Start continuous listening
+  // Microfono sempre aperto per tutta la conversazione: una sola sessione continua,
+  // riavviata in silenzio solo se il browser la chiude. Mentre Radar elabora o parla, ciò che sente viene ignorato.
+  const srAliveRef = useRef(false);
+  const busyRef = useRef(false);
   const startContinuousListening = useCallback(() => {
     if (!callActiveRef.current) return;
-    if (isStartingRecognitionRef.current) return;
-    if (!SRConstructor) {
-      toast.error('Il browser non supporta il riconoscimento vocale');
-      return;
-    }
+    if (srAliveRef.current || isStartingRecognitionRef.current) return;
+    if (!SRConstructor) { toast.error('Il browser non supporta il riconoscimento vocale'); return; }
     isStartingRecognitionRef.current = true;
-
-    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.onerror = null; recognitionRef.current.abort(); } } catch {}
 
     const r = new SRConstructor();
     r.lang = 'it-IT';
-    // iOS: continuous mode crashes; Android/desktop: use continuous
-    r.continuous = !isMobileDevice;
+    r.continuous = true;
     r.interimResults = true;
 
-    let finalTranscript = '';
+    let offset = 0;          // risultati già consumati
     let latestText = '';
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    r.onresult = (e: any) => {
-      let interim = '';
-      finalTranscript = '';
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      const currentText = finalTranscript + interim;
-      latestText = currentText;
-      setInput(currentText);
-
-      // Interrupt TTS if user speaks
-      if (isSpeakingRef.current && currentText.trim().length > 2) {
-        if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-        isSpeakingRef.current = false;
-        setCallState('listening');
-      }
-
-      if (finalTranscript.trim()) {
-        if (silenceTimer) clearTimeout(silenceTimer);
-        const delay = isMobileDevice ? 1200 : 700;
-        silenceTimer = setTimeout(() => {
-          if (callActiveRef.current && finalTranscript.trim()) {
-            pendingSendRef.current = finalTranscript.trim();
-            try { r.stop(); } catch {}
-          }
-        }, delay);
-      }
+    const flush = () => {
+      const text = latestText.trim();
+      latestText = '';
+      setInput('');
+      if (!text || !callActiveRef.current || busyRef.current || isSpeakingRef.current) return;
+      busyRef.current = true;
+      setCallState('processing');
+      doSendRef.current?.(text, true);
     };
 
-    r.onend = () => {
-      isStartingRecognitionRef.current = false;
+    r.onresult = (e: any) => {
+      if (busyRef.current || isSpeakingRef.current) { offset = e.results.length; latestText = ''; return; }
+      let text = '';
+      let hasFinal = false;
+      for (let i = offset; i < e.results.length; i++) {
+        text += e.results[i][0].transcript;
+        if (e.results[i].isFinal) hasFinal = true;
+      }
+      latestText = text;
+      setInput(text);
       if (silenceTimer) clearTimeout(silenceTimer);
-      if (pendingSendRef.current) {
-        const text = pendingSendRef.current;
-        pendingSendRef.current = null;
-        setCallState('processing');
-        if (doSendRef.current) doSendRef.current(text, true);
-        return;
-      }
-      // Safari/iPad: la frase spesso resta "provvisoria" e la sessione si chiude senza risultato finale
-      if (callActiveRef.current && !isSpeakingRef.current && latestText.trim().length > 1) {
-        const text = latestText.trim(); latestText = '';
-        setCallState('processing');
-        if (doSendRef.current) doSendRef.current(text, true);
-        return;
-      }
-      if (isSpeakingRef.current) return;
-      // On mobile, use a longer delay to avoid rapid restarts
-      const restartDelay = isMobileDevice ? 500 : 200;
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, restartDelay);
+      silenceTimer = setTimeout(() => { offset = e.results.length; flush(); }, hasFinal ? 700 : 1300);
+    };
+
+    r.onstart = () => { srAliveRef.current = true; isStartingRecognitionRef.current = false; if (!busyRef.current && !isSpeakingRef.current) setCallState('listening'); };
+
+    r.onend = () => {
+      srAliveRef.current = false;
+      isStartingRecognitionRef.current = false;
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+      if (latestText.trim()) flush(); // Safari: frase rimasta provvisoria
+      if (callActiveRef.current) setTimeout(() => startContinuousListening(), 150);
     };
 
     r.onerror = (e: any) => {
-      isStartingRecognitionRef.current = false;
-      if (silenceTimer) clearTimeout(silenceTimer);
-      if (e.error === 'no-speech' || e.error === 'aborted') {
-        if (isSpeakingRef.current) return;
-        if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, isMobileDevice ? 600 : 300);
-        return;
-      }
-      if (e.error === 'not-allowed') {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         toast.error('Permesso microfono negato. Controlla le impostazioni del browser.');
-        return;
+        callActiveRef.current = false;
+        setCallActive(false);
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        console.warn('Speech error:', e.error);
       }
-      console.error('Speech error:', e.error);
-      if (callActiveRef.current) setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, 800);
     };
 
     recognitionRef.current = r;
-    try {
-      r.start();
-      if (!isSpeakingRef.current) setCallState('listening');
-    } catch (err) {
-      console.warn('[Radar] STT start failed, retrying...', err);
+    try { r.start(); }
+    catch (err) {
+      console.warn('[Radar] STT start failed', err);
       isStartingRecognitionRef.current = false;
-      setTimeout(() => { if (callActiveRef.current && !isStartingRecognitionRef.current) startContinuousListening(); }, 800);
+      setTimeout(() => startContinuousListening(), 400);
     }
   }, []);
 
@@ -241,8 +211,6 @@ function useRadar() {
       isSpeakingRef.current = true;
       setCallState('speaking');
 
-      // On desktop, listen during TTS for interruption; on mobile skip
-      if (!isMobileDevice) startContinuousListening();
 
       let blob: Blob;
       const isGreeting = clean === 'Pronto.' || clean === 'Pronto';
@@ -342,6 +310,24 @@ function useRadar() {
     doSendRef.current = doSend;
     if (!text) return;
     if (isLoading && !isVoiceCall) return;
+    // Approvazione a voce delle proposte in attesa
+    const open = pendingActions.filter(a => !a.applied && !a.rejected);
+    if (isVoiceCall && open.length) {
+      const t = text.toLowerCase().replace(/[.,!?]/g, ' ').trim();
+      const yes = /^(s[iì]|ok|okay|va bene|vai|confermo|conferma|procedi|fallo|esatto|certo|perfetto)\b/.test(t);
+      const no = /^(no|annulla|lascia stare|non farlo|niente|stop)\b/.test(t);
+      if (yes || no) {
+        setMessages(prev => [...prev, { role: 'user', content: text }]);
+        setInput('');
+        if (yes) { for (const a of open) await applyAction(a); }
+        else { setPendingActions(prev => prev.map(a => open.some(o => o.id === a.id) ? { ...a, rejected: true } : a)); }
+        const reply = yes ? (open.length > 1 ? 'Fatto, tutto inserito.' : 'Fatto.') : 'Annullato.';
+        setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+        busyRef.current = false;
+        speakText(reply);
+        return;
+      }
+    }
     const userMsg: Msg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages); setInput(''); setIsLoading(true);
@@ -412,6 +398,8 @@ function useRadar() {
         setTimeout(() => startContinuousListening(), 1000);
       }
     }
+    busyRef.current = false;
+    if (isVoiceCall && callActiveRef.current && !isSpeakingRef.current) setCallState('listening');
     setIsLoading(false);
   };
 
@@ -453,8 +441,7 @@ function useRadar() {
   // Testo scritto durante la modalità vocale: ferma l'ascolto e invia, la risposta viene letta a voce
   const sendTyped = useCallback((text: string) => {
     const t = text.trim(); if (!t) return;
-    try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } } catch {}
-    pendingSendRef.current = null;
+    busyRef.current = true;
     setCallState('processing');
     doSendRef.current?.(t, true);
   }, []);
@@ -462,6 +449,7 @@ function useRadar() {
   const endCall = useCallback(() => {
     callActiveRef.current = false;
     setCallActive(false);
+    srAliveRef.current = false; busyRef.current = false;
     try { if (recognitionRef.current) { recognitionRef.current.onend = null; recognitionRef.current.abort(); } } catch {}
     if (audioRef.current) { audioRef.current.pause(); }
     isSpeakingRef.current = false;

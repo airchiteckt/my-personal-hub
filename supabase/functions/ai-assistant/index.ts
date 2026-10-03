@@ -732,7 +732,8 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
         function: { name: t.name, description: t.description, parameters: t.parameters },
       }));
 
-      const aiMsgs: any[] = [{ role: "system", content: systemPrompt }, ...(clientMessages ?? [])];
+      const confirmNote = "\n\nAPPROVAZIONE OBBLIGATORIA (app): ogni modifica che richiedi con uno strumento NON viene eseguita subito, ma mostrata all'utente come proposta da approvare. Quindi non dire mai 'fatto' per una modifica: descrivi in una frase cosa proponi (titolo, giorno, orario) e chiedi 'Confermi?'. Se l'utente conferma una proposta già fatta, non riproporla.";
+      const aiMsgs: any[] = [{ role: "system", content: systemPrompt + confirmNote }, ...(clientMessages ?? [])];
 
       const aiRes = await fetchWithRetry("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -789,7 +790,7 @@ CONTESTO: Hai accesso ai dati dell'impresa e degli OKR esistenti. Usa queste inf
         if (!name || RADAR_QUERY_TOOLS.has(name)) continue;
         let args: Record<string, any> = {};
         try { args = JSON.parse(tc.function?.arguments ?? "{}"); } catch { /* ignore */ }
-        if (RADAR_INSTANT_ACTIONS.has(name)) {
+        if (false && RADAR_INSTANT_ACTIONS.has(name)) {
           const res: any = await executeAction(adminClient, userId, name, args);
           executed.push({ type: name, data: args, ok: !res?.error, error: res?.error ?? null });
         } else {

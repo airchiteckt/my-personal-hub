@@ -571,9 +571,12 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const uncompleteTask = useCallback(async (id: string) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'backlog' as const, completedAt: undefined } : t));
-    await supabase.from('tasks').update({ status: 'backlog', completed_at: null }).eq('id', id);
-  }, []);
+    // riaprendo, una task con data resta sul calendario dov'era
+    const t0 = tasks.find(t => t.id === id);
+    const status = t0?.scheduledDate ? 'scheduled' as const : 'backlog' as const;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status, completedAt: undefined } : t));
+    await supabase.from('tasks').update({ status, completed_at: null }).eq('id', id);
+  }, [tasks]);
 
   const unscheduleTask = useCallback(async (id: string) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'backlog' as const, scheduledDate: undefined, scheduledTime: undefined } : t));

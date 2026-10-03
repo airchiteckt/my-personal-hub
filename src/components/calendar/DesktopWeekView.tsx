@@ -4,7 +4,7 @@ import { format, addDays, addMonths, addYears, isToday, subMonths, subYears } fr
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause, Mic } from 'lucide-react';
 import { useTaskTimer } from '@/hooks/use-task-timer';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';

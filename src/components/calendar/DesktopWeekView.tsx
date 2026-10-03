@@ -1145,6 +1145,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         <CreateReminderDialog
           open={showCreateReminder}
           onOpenChange={setShowCreateReminder}
+          defaultDate={apptDefaults.date}
           defaultTime={apptDefaults.startTime}
         />
       )}

@@ -57,7 +57,7 @@ export function EditReminderDialog({ open, onOpenChange, reminder }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" onInteractOutside={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>
             {reminder.isFollowUp ? '🔔 Promemoria Follow-up' : '🔔 Modifica Promemoria'}

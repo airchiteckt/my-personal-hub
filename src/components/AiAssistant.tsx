@@ -817,6 +817,7 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
   const r = useRadar();
   const inline = variant === 'inline';
   const onCalendarPage = location.pathname.startsWith('/calendar');
+  const longPressRef = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
 
   // External triggers (e.g. Radar button in the calendar bottom bar)
   useEffect(() => {

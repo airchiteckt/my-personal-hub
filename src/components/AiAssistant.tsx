@@ -725,6 +725,24 @@ function VoiceCallView({ callState, callActive, callDuration, input, isLoading, 
         )}
       </div>
 
+      {/* Wake word toggle */}
+      {!callActive && (
+        <div className="flex items-center justify-center gap-2 pb-2 shrink-0">
+          <button
+            onClick={() => setWakeEnabled(!wakeEnabled)}
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] transition-colors min-h-[28px] ${
+              wakeEnabled ? 'border-primary/30 bg-primary/10 text-primary' : 'border-border/50 text-muted-foreground hover:text-foreground'
+            }`}
+            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+          >
+            <Radio className="h-3 w-3" />
+            {wakeEnabled
+              ? (wakeState === 'listening' ? 'DI "RADAR" E PARTO' : wakeState === 'starting' ? 'ATTIVO...' : wakeState === 'error' ? (wakeError || 'ERRORE') : 'PAROLA "RADAR"')
+              : 'ATTIVA CON PAROLA "RADAR"'}
+          </button>
+        </div>
+      )}
+
       {/* Live transcript */}
       <AnimatePresence>
         {callActive && input && callState === 'listening' && (

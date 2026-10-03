@@ -4,7 +4,8 @@ import { format, addDays, addMonths, addYears, isToday, subMonths, subYears } fr
 import { it } from 'date-fns/locale';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause } from 'lucide-react';
+import { useTaskTimer } from '@/hooks/use-task-timer';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
@@ -158,6 +159,7 @@ function RitualCalendarCard({ ritual, status, top, height, color, CatIcon, time,
 export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => void } = {}) {
   const [centerDate, setCenterDate] = useState(() => new Date());
   const { tasks, appointments, enterprises, getEnterprise, getProject, getProjectType, getAppointmentsForDate, getExternalCalendarEventsForDate, scheduleTask, unscheduleTask, updateTask, deleteAppointment, prioritySettings, getRitualsForDate, isRitualCompleted, rituals, ritualCompletions, planRitualOnDate, completeRitualOnDate, skipRitualOnDate, deleteRitualCompletion, getJournalForDate, saveJournalEntry, deleteJournalEntry, getRemindersForDate, reminders, updateReminder, timeEntries } = usePrp();
+  const timer = useTaskTimer({ ripple: true });
   const scrollRef = useRef<HTMLDivElement>(null);
   const headerScrollRef = useRef<HTMLDivElement>(null);
   const focusSurfaceRef = useRef<HTMLDivElement>(null);
@@ -519,7 +521,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                 const dayTimeEntries = timeEntries.filter(te => {
                   const d = new Date(te.startedAt);
                   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-                  return local === dayDate && te.durationMinutes;
+                  return local === dayDate && (te.durationMinutes || !te.endedAt);
                 });
                 const isCurrent = isToday(day);
 
@@ -639,21 +641,23 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                     {dayTimeEntries.map(te => {
                       const d = new Date(te.startedAt);
                       const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-                      const { top, height } = getTaskPosition(hhmm, te.durationMinutes || 30, slotH);
+                      const running = !te.endedAt;
+                      const mins = running ? Math.max(1, Math.round((timer.now - d.getTime()) / 60000)) : (te.durationMinutes || 0);
+                      const { top, height } = getTaskPosition(hhmm, mins || 30, slotH);
                       const ent = getEnterprise(te.enterpriseId);
                       return (
                         <div
                           key={`te-${te.id}`}
-                          className="absolute left-0 right-0 rounded-md z-0 pointer-events-none border border-dashed"
+                          className={`absolute left-0 right-0 rounded-md pointer-events-none border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'}`}
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, 16),
-                            backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.07)`,
+                            backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
                             borderColor: `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
                           }}
                         >
                           <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground">
-                            ⏱ {formatMinutes(te.durationMinutes || 0)}{te.description ? ` · ${te.description}` : ''}
+                            {running ? '● In corso ' : '⏱ '}{formatMinutes(mins)}{te.description ? ` · ${te.description}` : ''}
                           </span>
                         </div>
                       );
@@ -739,6 +743,16 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                     {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                                   </p>
                                 </div>
+                                {!isDone && (
+                                  <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5">
+                                    {timer.activeTaskId === task.id ? (
+                                      <button aria-label="Pausa" title="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground shadow-sm"><Pause className="h-3 w-3" /></button>
+                                    ) : (
+                                      <button aria-label="Avvia" title="Avvia" onClick={e => { e.stopPropagation(); timer.start(task); }} className="h-5 w-5 hidden group-hover:flex items-center justify-center rounded bg-card/90 border shadow-sm hover:bg-accent"><Play className="h-3 w-3" /></button>
+                                    )}
+                                    <button aria-label="Completa" title="Completa" onClick={e => { e.stopPropagation(); timer.complete(task); }} className={`h-5 w-5 items-center justify-center rounded bg-card/90 border shadow-sm hover:bg-accent ${timer.activeTaskId === task.id ? 'flex' : 'hidden group-hover:flex'}`}><Check className="h-3 w-3" /></button>
+                                  </div>
+                                )}
                                 {!isDone && (
                                   <div className="absolute bottom-0.5 right-0.5 hidden group-hover:flex items-center gap-0.5 bg-card/90 rounded-md border shadow-sm px-1 py-0.5">
                                     {task.estimatedMinutes > 30 && (

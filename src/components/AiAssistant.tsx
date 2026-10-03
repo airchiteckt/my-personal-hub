@@ -623,9 +623,10 @@ function ActionConfirmCard({ action, getActionIcon, getActionLabel, getActionDes
 }
 
 // ─── Voice View (shared) ───
-function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction }: {
+function VoiceCallView({ callState, callActive, callDuration, input, isLoading, startCall, endCall, stopSpeaking, formatDuration, messages, pendingActions, getActionIcon, getActionLabel, getActionDescription, getActionTypeLabel, approveAction, rejectAction, wakeEnabled, setWakeEnabled, wakeState, wakeError }: {
   callState: CallState; callActive: boolean; callDuration: number; input: string; isLoading: boolean;
   startCall: () => void; endCall: () => void; stopSpeaking: () => void; formatDuration: (s: number) => string;
+  wakeEnabled: boolean; setWakeEnabled: (v: boolean) => void; wakeState: string; wakeError: string;
   messages: Msg[];
   pendingActions: GlobalAction[];
   getActionIcon: (type: string) => React.ReactNode;

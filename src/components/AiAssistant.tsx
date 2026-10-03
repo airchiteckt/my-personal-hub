@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { useRadarWakeWord } from '@/hooks/useRadarWakeWord';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -425,20 +424,6 @@ function useRadar() {
     }
   }, [callActive]);
 
-  // Wake word "Radar" (Picovoice, in locale nel browser)
-  const [wakeEnabled, setWakeEnabledState] = useState(() => {
-    try { return localStorage.getItem('flydeck:wakeword') === '1'; } catch { return false; }
-  });
-  const setWakeEnabled = useCallback((v: boolean) => {
-    setWakeEnabledState(v);
-    try { localStorage.setItem('flydeck:wakeword', v ? '1' : '0'); } catch { /* noop */ }
-  }, []);
-  const wakeRef = useRef<() => void>(() => {});
-  const wake = useRadarWakeWord({
-    enabled: wakeEnabled && !callActive,
-    onWake: () => wakeRef.current(),
-  });
-
   const startCall = useCallback(async () => {
     if (callActiveRef.current) return;
     unlockAudio();
@@ -453,7 +438,6 @@ function useRadar() {
     speakText('Pronto.');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speakText]);
-  wakeRef.current = () => { if (!callActiveRef.current) startCall(); };
 
   const endCall = useCallback(() => {
     callActiveRef.current = false;

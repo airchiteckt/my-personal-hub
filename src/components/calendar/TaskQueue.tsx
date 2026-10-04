@@ -77,7 +77,6 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       ) : (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {list.map(t => {
-            const ent = getEnterprise(t.enterpriseId);
             const running = timer.activeTaskId === t.id;
             const done = t.status === 'done';
             const w = worked(t.id);
@@ -88,8 +87,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
                 onDragStart={e => onDragStart(e, t.id)}
                 onDragEnd={onDragEnd}
                 onClick={() => onOpenTask(t)}
-                className={`shrink-0 w-[220px] rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'ring-2 ring-primary' : ''} ${done ? 'opacity-50' : ''}`}
-                style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 60%'})` }}
+                className={`shrink-0 w-[220px] rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40' : ''} ${done ? 'opacity-50' : ''}`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>

@@ -2,7 +2,7 @@ import { EffortPicker, snapEffort } from '@/components/EffortPicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -221,15 +221,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Titolo</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Descrivi la task" onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
-          </div>
+          <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} onSubmit={handleSubmit} />
 
           {/* AI Quality Validation */}
           <OkrValidationFeedback

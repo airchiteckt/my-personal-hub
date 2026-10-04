@@ -515,7 +515,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
               {/* Day columns */}
               {days.map(day => {
                 const dayDate = format(day, 'yyyy-MM-dd');
-                const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done'));
+                const dayTasks = tasks.filter(t => t.scheduledDate === dayDate && (t.status === 'scheduled' || t.status === 'done') && !!t.scheduledTime);
                 const dayAppts = getAppointmentsForDate(dayDate);
                 const dayExternalEvents = getExternalCalendarEventsForDate(dayDate);
                 const dayReminders = getRemindersForDate(dayDate);

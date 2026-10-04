@@ -267,9 +267,9 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
               <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔴 Alta</SelectItem>
-                  <SelectItem value="medium">🟡 Media</SelectItem>
-                  <SelectItem value="low">⚪ Bassa</SelectItem>
+                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
                 </SelectContent>
               </Select>
             </div>

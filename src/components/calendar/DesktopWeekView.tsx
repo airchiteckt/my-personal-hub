@@ -684,6 +684,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                        const ent = getEnterprise(te.enterpriseId);
                       const linkedTask = te.taskId ? tasks.find(t => t.id === te.taskId) : undefined;
                       const taskDone = linkedTask?.status === 'done';
+                      const loggedOnly = !linkedTask && !running;
+                      const doneStyle = taskDone || loggedOnly;
+                      const bandTitle = linkedTask ? linkedTask.title : (te.description || 'Tempo lavorato');
                       return (
                         <div
                           key={`te-${te.id}`}
@@ -693,10 +696,10 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                             height: Math.max(height - 2, 16),
                             left: `${(layout.col / layout.cols) * 100}%`,
                             width: `calc(${100 / layout.cols}% - 2px)`,
-                            backgroundColor: taskDone
+                            backgroundColor: doneStyle
                               ? 'hsl(142 70% 45% / 0.12)'
                               : `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
-                            borderColor: taskDone
+                            borderColor: doneStyle
                               ? 'hsl(142 70% 45% / 0.5)'
                               : `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
                           }}
@@ -706,13 +709,11 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                           onTouchStart={linkedTask ? (e) => e.stopPropagation() : undefined}
                           title={linkedTask ? `Apri "${linkedTask.title}"` : undefined}
                         >
-                          {linkedTask && (
-                            <span className={`absolute top-0.5 left-1 text-[9px] font-medium pointer-events-none truncate max-w-[calc(100%-8px)] ${taskDone ? 'text-green-600 dark:text-green-400 line-through' : 'text-muted-foreground'}`}>
-                              {taskDone ? '✓ ' : ''}{linkedTask.title}
-                            </span>
-                          )}
+                          <span className={`absolute top-0.5 left-1 text-[9px] font-medium pointer-events-none truncate max-w-[calc(100%-8px)] ${doneStyle ? 'text-green-600 dark:text-green-400 line-through' : 'text-muted-foreground'}`}>
+                            {doneStyle ? '✓ ' : ''}{bandTitle}
+                          </span>
                           <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground pointer-events-none">
-                            {running ? '● In corso ' : taskDone ? '✓ ' : '⏱ '}{formatMinutes(mins)}
+                            {running ? '● In corso ' : doneStyle ? '✓ ' : '⏱ '}{formatMinutes(mins)}
                           </span>
                         </div>
                       );

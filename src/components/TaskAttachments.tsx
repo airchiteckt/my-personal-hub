@@ -168,7 +168,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
             {items.map((a, index) => {
               const url = signedUrls[a.id];
               return (
-                <CarouselItem key={a.id} className="basis-[78%] pl-2 sm:basis-[48%]">
+                <CarouselItem key={a.id} className="basis-[52%] pl-2 sm:basis-[38%]">
                   <div className="overflow-hidden rounded-md border bg-accent/30">
                     <button
                       type="button"
@@ -176,16 +176,16 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
                       className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Visualizza ${a.file_name}`}
                     >
-                      <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/60">
+                      <div className="relative flex h-16 items-center justify-center overflow-hidden bg-muted/60">
                         {isImage(a) && url ? (
                           <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
                         ) : isPdf(a) ? (
-                          <FileText className="h-9 w-9 text-destructive" />
+                          <FileText className="h-7 w-7 text-destructive" />
                         ) : (
-                          <File className="h-9 w-9 text-muted-foreground" />
+                          <File className="h-7 w-7 text-muted-foreground" />
                         )}
-                        <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-background/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                          <Eye className="h-3.5 w-3.5" />
+                        <span className="absolute flex h-6 w-6 items-center justify-center rounded-full bg-background/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                          <Eye className="h-3 w-3" />
                         </span>
                       </div>
                       <div className="px-2 pt-2">

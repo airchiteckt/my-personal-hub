@@ -2,7 +2,7 @@ import { EffortPicker, snapEffort } from '@/components/EffortPicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority } from '@/types/prp';
@@ -156,16 +156,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
           <DialogTitle>Nuova Task</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2 overflow-y-auto flex-1 min-h-0 pr-1">
-          <div className="space-y-2">
-            <Label>Titolo</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Descrivi la task"
-              onKeyDown={e => e.key === 'Enter' && handleCreateAndSchedule()}
-              autoFocus
-            />
-          </div>
+          <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} onSubmit={handleCreateAndSchedule} autoFocus />
 
           {/* AI Validation Feedback */}
           <OkrValidationFeedback
@@ -175,7 +166,6 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
             onApplySuggestion={(improved) => setTitle(improved)}
           />
 
-          {/* AI Effort Estimate */}
           {effortLoading && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -188,11 +178,6 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
               AI: {effortData.estimated_minutes}min, {effortData.priority} priority
             </div>
           )}
-
-          <div className="space-y-2">
-            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
-          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">

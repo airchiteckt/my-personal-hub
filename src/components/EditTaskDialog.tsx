@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
@@ -132,14 +133,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
           <DialogTitle>Modifica Task</DialogTitle>
         </DialogHeader>
         <div className="min-w-0 space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label>Titolo</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} />
-          </div>
-
-          <OptionalSection label="Descrizione" hasValue={!!description}>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
-          </OptionalSection>
+          <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} />
 
           {!editing ? (
             <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-accent/30 px-2.5 py-2">

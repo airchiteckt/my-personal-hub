@@ -56,6 +56,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
   const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
   const [editing, setEditing] = useState(false);
+  const timer = useTaskTimer();
+  const isTracking = timer.activeTaskId === task.id;
 
   const projects = getProjectsForEnterprise(enterpriseId);
   const taskReminders = getRemindersForTask(task.id);

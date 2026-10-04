@@ -10,6 +10,7 @@ import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect, useCallback } from 'react';
 import { Archive, Bell, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { TaskAttachments } from '@/components/TaskAttachments';
 
 function OptionalSection({ label, hasValue, children }: { label: string; hasValue: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);

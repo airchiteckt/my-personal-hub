@@ -77,7 +77,6 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       ) : (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {list.map(t => {
-            const ent = getEnterprise(t.enterpriseId);
             const running = timer.activeTaskId === t.id;
             const done = t.status === 'done';
             const w = worked(t.id);

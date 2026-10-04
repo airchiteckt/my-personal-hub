@@ -141,72 +141,107 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note, dettagli, contesto..." rows={2} className="resize-none" />
           </OptionalSection>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Impresa</Label>
-              <Select value={enterpriseId} onValueChange={setEnterpriseId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {enterprises.filter(e => e.status !== 'paused').map(e => (
-                    <SelectItem key={e.id} value={e.id}>
-                      <span className="flex items-center gap-2">
-                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(${e.color})` }} />
-                        {e.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {!editing ? (
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border bg-accent/30 px-2.5 py-2">
+              <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${priority === 'high' ? 'bg-destructive/15 text-destructive' : priority === 'medium' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                {priority === 'high' ? 'P1' : priority === 'medium' ? 'P2' : 'P3'}
+              </span>
+              <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium">
+                {EFFORT_SIZES.find(s => s.minutes === snapEffort(estimatedMinutes))?.label}
+              </span>
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(${enterprises.find(e => e.id === enterpriseId)?.color})` }} />
+                {enterprises.find(e => e.id === enterpriseId)?.name}
+                {projects.find(p => p.id === projectId) && ` · ${projects.find(p => p.id === projectId)?.name}`}
+              </span>
+              {scheduledDate && (
+                <span className="text-[11px] text-muted-foreground">
+                  📅 {new Date(scheduledDate + 'T00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}{scheduledTime ? ` · ${scheduledTime.slice(0, 5)}` : ''}
+                </span>
+              )}
+              {deadline && (
+                <span className="text-[11px] text-muted-foreground">
+                  ⏳ {new Date(deadline).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
+              <button type="button" onClick={() => setEditing(true)} className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10">
+                <Pencil className="h-3 w-3" /> Modifica
+              </button>
             </div>
-            <div className="space-y-2">
-              <Label>Progetto</Label>
-              <Select value={projectId} onValueChange={setProjectId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {projects.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          ) : (
+            <div className="space-y-4 rounded-md border p-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Impresa</Label>
+                  <Select value={enterpriseId} onValueChange={setEnterpriseId}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {enterprises.filter(e => e.status !== 'paused').map(e => (
+                        <SelectItem key={e.id} value={e.id}>
+                          <span className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: `hsl(${e.color})` }} />
+                            {e.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Progetto</Label>
+                  <Select value={projectId} onValueChange={setProjectId}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Priorità</Label>
+                <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                    <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                    <SelectItem value="low">⚪ P3 · Normale</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Impegno</Label>
+                <EffortPicker value={estimatedMinutes} onChange={setEstimatedMinutes} />
+              </div>
+
+              {priorityLimitWarning(tasks, scheduledDate, priority, task.id) && (
+                <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, scheduledDate, priority, task.id)}</p>
+              )}
+
+              <OptionalSection label="Deadline" hasValue={!!deadline}>
+                <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
+              </OptionalSection>
+
+              <OptionalSection label="Pianificazione" hasValue={!!scheduledDate || !!scheduledTime}>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Data</Label>
+                    <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ora</Label>
+                    <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} step={1800} />
+                  </div>
+                </div>
+              </OptionalSection>
+
+              <Button type="button" variant="secondary" size="sm" className="w-full" onClick={() => { doSave(); setEditing(false); }}>
+                Fatto
+              </Button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Priorità</Label>
-            <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
-                <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
-                <SelectItem value="low">⚪ P3 · Normale</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Impegno</Label>
-            <EffortPicker value={estimatedMinutes} onChange={setEstimatedMinutes} />
-          </div>
-
-          {priorityLimitWarning(tasks, scheduledDate, priority, task.id) && (
-            <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, scheduledDate, priority, task.id)}</p>
           )}
-
-          <OptionalSection label="Deadline" hasValue={!!deadline}>
-            <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
-          </OptionalSection>
-
-          <OptionalSection label="Pianificazione" hasValue={!!scheduledDate || !!scheduledTime}>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Data</Label>
-                <Input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Ora</Label>
-                <Input type="time" value={scheduledTime} onChange={e => setScheduledTime(e.target.value)} step={1800} />
-              </div>
-            </div>
-          </OptionalSection>
 
 
           <TaskAttachments taskId={task.id} />

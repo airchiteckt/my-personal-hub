@@ -95,6 +95,7 @@ export function LogTimeDialog({ open, onOpenChange, date, startTime, endTime }: 
             onNotesChange={setNotes}
             onSubmit={save}
             autoFocus
+            titlePlaceholder="Cosa hai fatto?"
           />
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1"><Label className="text-xs">Giorno</Label><Input type="date" value={d} onChange={e => setD(e.target.value)} /></div>

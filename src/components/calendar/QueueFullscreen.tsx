@@ -32,6 +32,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onAddT
   const { tasks, enterprises, projects, focusPeriods, objectives, keyResults, updateTask } = usePrp();
   const [entFilter, setEntFilter] = useState<string>('all');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [dropOver, setDropOver] = useState(false);
   const dayStr = format(date, 'yyyy-MM-dd');
 
   useEffect(() => {
@@ -60,10 +61,10 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onAddT
     return (
       <div
         draggable
-        onDragStart={e => onDragStart(e, t.id)}
+        onDragStart={e => { e.dataTransfer.setData('application/x-serbatoio', t.id); onDragStart(e, t.id); }}
         onDragEnd={onDragEnd}
         onClick={() => onOpenTask(t)}
-        className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 cursor-pointer hover:bg-accent/50"
+        className={`flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-opacity ${inDay ? 'opacity-40' : ''}`}
       >
         <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
         <span className="text-xs font-medium truncate flex-1">{t.title}</span>
@@ -115,7 +116,20 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onAddT
         </Button>
       </div>
 
-      <div className="shrink-0 border-b px-3 py-2">
+      <div
+        className={`shrink-0 border-b px-3 py-2 transition-colors ${dropOver ? 'bg-primary/10 ring-2 ring-inset ring-primary/40' : ''}`}
+        onDragOver={e => { if (e.dataTransfer.types.includes('application/x-serbatoio')) { e.preventDefault(); setDropOver(true); } }}
+        onDragLeave={() => setDropOver(false)}
+        onDrop={e => {
+          const id = e.dataTransfer.getData('application/x-serbatoio');
+          setDropOver(false);
+          if (!id) return;
+          e.preventDefault(); e.stopPropagation();
+          const t = tasks.find(x => x.id === id);
+          if (t && !(t.scheduledDate === dayStr && t.status === 'scheduled')) addToDay(t);
+          onDragEnd?.();
+        }}
+      >
         <TaskQueue date={date} timer={timer} onOpenTask={onOpenTask} onDragStart={onDragStart} onDragEnd={onDragEnd} />
       </div>
 

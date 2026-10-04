@@ -168,7 +168,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
             {items.map((a, index) => {
               const url = signedUrls[a.id];
               return (
-                <CarouselItem key={a.id} className="basis-[78%] pl-2 sm:basis-[48%]">
+                <CarouselItem key={a.id} className="basis-[52%] pl-2 sm:basis-[38%]">
                   <div className="overflow-hidden rounded-md border bg-accent/30">
                     <button
                       type="button"
@@ -176,7 +176,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
                       className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Visualizza ${a.file_name}`}
                     >
-                      <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/60">
+                      <div className="relative flex h-16 items-center justify-center overflow-hidden bg-muted/60">
                         {isImage(a) && url ? (
                           <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
                         ) : isPdf(a) ? (

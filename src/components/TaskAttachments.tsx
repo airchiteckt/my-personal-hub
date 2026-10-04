@@ -180,12 +180,12 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
                         {isImage(a) && url ? (
                           <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
                         ) : isPdf(a) ? (
-                          <FileText className="h-9 w-9 text-destructive" />
+                          <FileText className="h-7 w-7 text-destructive" />
                         ) : (
-                          <File className="h-9 w-9 text-muted-foreground" />
+                          <File className="h-7 w-7 text-muted-foreground" />
                         )}
-                        <span className="absolute flex h-7 w-7 items-center justify-center rounded-full bg-background/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-                          <Eye className="h-3.5 w-3.5" />
+                        <span className="absolute flex h-6 w-6 items-center justify-center rounded-full bg-background/90 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                          <Eye className="h-3 w-3" />
                         </span>
                       </div>
                       <div className="px-2 pt-2">

@@ -29,7 +29,7 @@ const badge: Record<string, string> = {
 const lbl: Record<string, string> = { high: 'P1', medium: 'P2', low: 'P3' };
 
 /** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. */
-export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd, onAdd }: Props) {
+export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: Props) {
   const { tasks, timeEntries, getEnterprise, updateTask } = usePrp();
   const [over, setOver] = useState(false);
   const handleDrop = (e: React.DragEvent) => {
@@ -70,11 +70,10 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd, onA
           {counts.map(c => (
             <span key={c.p} className={c.n > c.max ? 'text-destructive font-semibold' : ''}>{lbl[c.p]} {c.n}/{c.max}</span>
           ))}
-          <button onClick={onAdd} className="flex items-center gap-0.5 text-primary font-medium hover:underline"><Plus className="h-3 w-3" />Task</button>
         </span>
       </div>
       {list.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-1">Nessuna attività. Premi + Task o trascina qui un'attività dal calendario.</p>
+        <p className="text-xs text-muted-foreground py-1">Nessuna attività. Premi "Aggiungi" nella barra qui sotto o trascina qui un'attività dal calendario.</p>
       ) : (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {list.map(t => {

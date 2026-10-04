@@ -1,3 +1,4 @@
+import { EffortPicker, snapEffort } from '@/components/EffortPicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,7 +88,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
   // Auto-apply AI effort suggestion
   useEffect(() => {
     if (effortData && !aiApplied) {
-      setEstimatedMinutes(effortData.estimated_minutes);
+      setEstimatedMinutes(snapEffort(effortData.estimated_minutes));
       setPriority(effortData.priority);
       setAiApplied(true);
     }
@@ -184,7 +185,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
           {effortData && !effortLoading && (
             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <Sparkles className="h-3 w-3 text-primary" />
-              AI: {effortData.estimated_minutes}min, {effortData.priority} priority, impatto {effortData.impact}/sforzo {effortData.effort}
+              AI: {effortData.estimated_minutes}min, {effortData.priority} priority
             </div>
           )}
 

@@ -1,3 +1,4 @@
+import { EffortPicker, snapEffort } from '@/components/EffortPicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,7 +100,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
   // Auto-apply AI suggestion
   useEffect(() => {
     if (effortData && !aiApplied) {
-      setEstimatedMinutes(effortData.estimated_minutes);
+      setEstimatedMinutes(snapEffort(effortData.estimated_minutes));
       setPriority(effortData.priority);
       if (prioritySettings.impactEffortEnabled) {
         setImpact(effortData.impact);
@@ -258,7 +259,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
           {aiApplied && effortData && (
             <div className="flex items-center gap-1.5 text-[11px] text-green-600 dark:text-green-400">
               <Sparkles className="h-3 w-3" />
-              AI: {effortData.estimated_minutes}min, {effortData.priority} priority, impatto {effortData.impact}/sforzo {effortData.effort}
+              AI: {effortData.estimated_minutes}min, {effortData.priority} priority
             </div>
           )}
 

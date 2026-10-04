@@ -945,7 +945,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
 
       {/* Bottom toolbar */}
       <div className="shrink-0 mt-2 rounded-xl border bg-card shadow-sm px-2 py-1.5 flex flex-col gap-1.5">
-        <TaskQueue date={centerDate} timer={timer} onOpenTask={setEditingTask} onDragStart={handleDragStart} onDragEnd={() => setIsDraggingItem(false)} onAdd={() => { setApptDefaults({ date: format(centerDate, 'yyyy-MM-dd') }); setShowCreateTask(true); }} />
+        <TaskQueue date={centerDate} timer={timer} onOpenTask={setEditingTask} onDragStart={handleDragStart} onDragEnd={() => setIsDraggingItem(false)} />
         {activeRituals.length > 0 && (
           <div className="flex items-center gap-1.5 px-1 overflow-x-auto scrollbar-none">
             <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">

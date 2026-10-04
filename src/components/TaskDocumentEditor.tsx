@@ -10,10 +10,11 @@ interface Props {
   onNotesChange: (v: string) => void;
   onSubmit?: () => void;
   autoFocus?: boolean;
+  titlePlaceholder?: string;
 }
 
 /** Single document-like block: plain title (used everywhere) + formatted notes (markdown). */
-export function TaskDocumentEditor({ title, onTitleChange, notes, onNotesChange, onSubmit, autoFocus }: Props) {
+export function TaskDocumentEditor({ title, onTitleChange, notes, onNotesChange, onSubmit, autoFocus, titlePlaceholder = 'Titolo della task' }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [editingNotes, setEditingNotes] = useState(!notes);
 
@@ -65,7 +66,7 @@ export function TaskDocumentEditor({ title, onTitleChange, notes, onNotesChange,
         value={title}
         onChange={e => onTitleChange(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSubmit?.(); } }}
-        placeholder="Titolo della task"
+        placeholder={titlePlaceholder}
         autoFocus={autoFocus}
         className="w-full bg-transparent px-3 pt-3 pb-1 text-lg font-semibold outline-none placeholder:text-muted-foreground/60"
       />

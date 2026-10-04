@@ -80,6 +80,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
 
   const ProjectBlock = ({ p }: { p: Project }) => {
     const list = tasksOf(p.id);
+    if (list.length === 0) return null;
     const k = `p:${p.id}`;
     return (
       <div className="ml-4">
@@ -91,7 +92,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
         </button>
         {!collapsed[k] && (
           <div className="ml-5 space-y-1 pb-1">
-            {list.length === 0 ? <p className="text-[11px] text-muted-foreground">Nessuna attività aperta</p> : list.map(t => <TaskRow key={t.id} t={t} />)}
+            {list.map(t => <TaskRow key={t.id} t={t} />)}
           </div>
         )}
       </div>

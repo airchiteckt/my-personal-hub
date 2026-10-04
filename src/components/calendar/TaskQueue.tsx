@@ -18,7 +18,6 @@ interface Props {
   onOpenTask: (t: Task) => void;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
   onDragEnd?: () => void;
-  onAdd: () => void;
 }
 
 const fmt = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);

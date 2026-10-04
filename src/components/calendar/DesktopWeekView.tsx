@@ -712,7 +712,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                             </span>
                           )}
                           <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground pointer-events-none">
-                            {running ? '● In corso ' : taskDone ? '✓ ' : '⏱ '}{formatMinutes(mins)}{te.description ? ` · ${te.description}` : ''}
+                            {running ? '● In corso ' : taskDone ? '✓ ' : '⏱ '}{formatMinutes(mins)}
                           </span>
                         </div>
                       );

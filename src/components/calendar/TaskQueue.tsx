@@ -127,7 +127,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
                 >
                   <div className="flex items-center gap-1.5">
                     <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
-                    <span className={`text-xs font-medium truncate flex-1 ${done ? 'line-through' : ''}`}>{t.title}</span>
+                    <span className="text-xs font-medium truncate flex-1">{t.title}</span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1">
                     <span className={`text-[10px] ${w > t.estimatedMinutes ? 'text-destructive' : 'text-muted-foreground'}`}>
@@ -139,16 +139,14 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
                         <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: null as unknown as string }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
                       </span>
                     )}
-                    {!done && (
-                      <span className="ml-auto flex gap-1">
-                        {running ? (
-                          <button aria-label="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground"><Pause className="h-3 w-3" /></button>
-                        ) : (
-                          <button aria-label="Avvia" onClick={e => { e.stopPropagation(); timer.start(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Play className="h-3 w-3" /></button>
-                        )}
-                        <button aria-label="Completa" onClick={e => { e.stopPropagation(); timer.complete(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Check className="h-3 w-3" /></button>
-                      </span>
-                    )}
+                    <span className="ml-auto flex gap-1">
+                      {running ? (
+                        <button aria-label="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground"><Pause className="h-3 w-3" /></button>
+                      ) : (
+                        <button aria-label="Avvia" onClick={e => { e.stopPropagation(); timer.start(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Play className="h-3 w-3" /></button>
+                      )}
+                      <button aria-label="Completa" onClick={e => { e.stopPropagation(); timer.complete(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Check className="h-3 w-3" /></button>
+                    </span>
                   </div>
                 </div>
               );

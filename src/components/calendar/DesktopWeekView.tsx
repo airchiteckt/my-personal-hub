@@ -701,6 +701,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                               : `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
                           }}
                           onClick={linkedTask ? (e) => { e.stopPropagation(); setEditingTask(linkedTask); } : undefined}
+                          onMouseDown={linkedTask ? (e) => e.stopPropagation() : undefined}
+                          onPointerDown={linkedTask ? (e) => e.stopPropagation() : undefined}
+                          onTouchStart={linkedTask ? (e) => e.stopPropagation() : undefined}
                           title={linkedTask ? `Apri "${linkedTask.title}"` : undefined}
                         >
                           {linkedTask && (

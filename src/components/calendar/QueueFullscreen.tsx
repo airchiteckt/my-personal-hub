@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronDown, ChevronRight, ArrowDown, CalendarPlus, Target, Flag, FolderKanban } from 'lucide-react';
+import { ChevronDown, ChevronRight, ArrowDown, CalendarPlus, Target, Flag, FolderKanban, Plus } from 'lucide-react';
 import { usePrp } from '@/context/PrpContext';
 import type { Task, TaskPriority, Project } from '@/types/prp';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ interface Props {
   date: Date;
   timer: React.ComponentProps<typeof TaskQueue>['timer'];
   onOpenTask: (t: Task) => void;
+  onAddTask: () => void;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
   onDragEnd?: () => void;
 }
@@ -27,7 +28,7 @@ const badge: Record<TaskPriority, string> = {
 };
 
 /** Coda a tutto schermo: coda del giorno + serbatoio collegato a Focus → Obiettivi → Key Result → Progetti → attività. */
-export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDragStart, onDragEnd }: Props) {
+export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onAddTask, onDragStart, onDragEnd }: Props) {
   const { tasks, enterprises, projects, focusPeriods, objectives, keyResults, updateTask } = usePrp();
   const [entFilter, setEntFilter] = useState<string>('all');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -106,7 +107,10 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
     >
       <div className="shrink-0 flex items-center gap-2 border-b px-4 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <h2 className="text-sm font-semibold">Coda</h2>
-        <Button size="sm" variant="outline" className="ml-auto h-8 text-xs" onClick={onClose}>
+        <Button size="sm" variant="outline" className="ml-auto h-8 text-xs" onClick={onAddTask}>
+          <Plus className="h-3.5 w-3.5 mr-1" />Task
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onClose}>
           <ArrowDown className="h-3.5 w-3.5 mr-1" />Torna al calendario
         </Button>
       </div>

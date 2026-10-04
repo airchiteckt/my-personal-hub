@@ -1076,6 +1076,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         date={centerDate}
         timer={timer}
         onOpenTask={setEditingTask}
+        onAddTask={() => { setApptDefaults({ date: format(centerDate, 'yyyy-MM-dd') }); setShowCreateTask(true); }}
         onDragStart={handleDragStart}
         onDragEnd={() => setIsDraggingItem(false)}
       />

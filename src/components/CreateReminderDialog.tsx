@@ -1,9 +1,10 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect } from 'react';
 
@@ -63,25 +64,20 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg" onInteractOutside={e => e.preventDefault()}>
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden" onInteractOutside={e => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{isFollowUp ? '🔔 Promemoria Follow-up' : '🔔 Nuovo Promemoria'}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label>Titolo</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Es: Richiamare cliente, Verificare consegna..."
-              onKeyDown={e => e.key === 'Enter' && handleSave()}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Descrizione <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Note aggiuntive..." rows={2} className="resize-none" />
-          </div>
+        <div className="min-w-0 space-y-4 pt-2">
+          <TaskDocumentEditor
+            title={title}
+            onTitleChange={setTitle}
+            notes={description}
+            onNotesChange={setDescription}
+            onSubmit={handleSave}
+            autoFocus
+            titlePlaceholder="Cosa vuoi ricordare?"
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
@@ -109,13 +105,8 @@ export function CreateReminderDialog({ open, onOpenChange, defaultDate, defaultT
             </div>
           )}
 
-          <label className="flex items-start gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
-            <input
-              type="checkbox"
-              checked={isUrgent}
-              onChange={e => setIsUrgent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-destructive"
-            />
+          <label className="flex items-start gap-3 rounded-md border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+            <Checkbox checked={isUrgent} onCheckedChange={v => setIsUrgent(v === true)} className="mt-0.5" />
             <span>
               <span className="text-sm font-medium flex items-center gap-1.5">⭐ Importante — chiamata vocale</span>
               <span className="text-xs text-muted-foreground block mt-0.5">

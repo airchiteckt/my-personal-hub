@@ -641,7 +641,41 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                     )}
 
                     {/* Work sessions (logged time) */}
-                    {dayTimeEntries.map(te => {
+                    {(() => {
+                      // Side-by-side layout for overlapping sessions
+                      const teLayout = new Map<string, { col: number; cols: number }>();
+                      const sorted = [...dayTimeEntries].sort((a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime());
+                      const teSpan = (te: typeof sorted[number]) => {
+                        const s = new Date(te.startedAt).getTime();
+                        const e = te.endedAt ? new Date(te.endedAt).getTime() : s + (te.durationMinutes || 30) * 60000;
+                        return [s, Math.max(e, s + 5 * 60000)] as const;
+                      };
+                      let group: typeof sorted = [];
+                      let groupEnd = -1;
+                      const flushGroup = () => {
+                        if (!group.length) return;
+                        const cols: number[] = [];
+                        const assigned = group.map(te => {
+                          const [s] = teSpan(te);
+                          let c = cols.findIndex(end => end <= s);
+                          if (c === -1) { c = cols.length; cols.push(0); }
+                          cols[c] = teSpan(te)[1];
+                          return { id: te.id, col: c };
+                        });
+                        const total = cols.length;
+                        assigned.forEach(a => teLayout.set(a.id, { col: a.col, cols: total }));
+                        group = [];
+                        groupEnd = -1;
+                      };
+                      sorted.forEach(te => {
+                        const [s, e] = teSpan(te);
+                        if (group.length && s >= groupEnd) flushGroup();
+                        group.push(te);
+                        groupEnd = Math.max(groupEnd, e);
+                      });
+                      flushGroup();
+                      return dayTimeEntries.map(te => {
+                      const layout = teLayout.get(te.id) || { col: 0, cols: 1 };
                       const d = new Date(te.startedAt);
                       const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
                       const running = !te.endedAt;
@@ -653,10 +687,12 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       return (
                         <div
                           key={`te-${te.id}`}
-                          className={`absolute left-0 right-0 rounded-md border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'} ${linkedTask ? 'cursor-pointer hover:brightness-110' : 'pointer-events-none'}`}
+                          className={`absolute rounded-md border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'} ${linkedTask ? 'cursor-pointer hover:brightness-110' : 'pointer-events-none'}`}
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, 16),
+                            left: `${(layout.col / layout.cols) * 100}%`,
+                            width: `calc(${100 / layout.cols}% - 2px)`,
                             backgroundColor: taskDone
                               ? 'hsl(142 70% 45% / 0.12)'
                               : `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
@@ -677,7 +713,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                           </span>
                         </div>
                       );
-                    })}
+                      });
+                    })()}
 
                     {/* All items with unified overlap layout */}
                     {(() => {

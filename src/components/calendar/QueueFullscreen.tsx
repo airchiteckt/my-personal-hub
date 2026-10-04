@@ -64,7 +64,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onAddT
         onDragStart={e => { e.dataTransfer.setData('application/x-serbatoio', t.id); onDragStart(e, t.id); }}
         onDragEnd={onDragEnd}
         onClick={() => onOpenTask(t)}
-        className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 cursor-pointer hover:bg-accent/50 ${inDay ? 'opacity-40' : ''}`}
+        className={`flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-opacity ${inDay ? 'opacity-40' : ''}`}
       >
         <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
         <span className="text-xs font-medium truncate flex-1">{t.title}</span>

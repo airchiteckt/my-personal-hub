@@ -13,6 +13,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, Check, ChevronDown, Inbox, Pencil, Trash2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TaskAttachments } from '@/components/TaskAttachments';
+import { useTaskTimer } from '@/hooks/use-task-timer';
+import { Play, Pause } from 'lucide-react';
 
 function OptionalSection({ label, hasValue, children }: { label: string; hasValue: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);

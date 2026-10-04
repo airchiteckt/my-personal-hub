@@ -13,6 +13,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, Check, ChevronDown, Inbox, Pencil, Trash2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TaskAttachments } from '@/components/TaskAttachments';
+import { useTaskTimer } from '@/hooks/use-task-timer';
+import { Play, Pause } from 'lucide-react';
 
 function OptionalSection({ label, hasValue, children }: { label: string; hasValue: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -54,6 +56,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   const [scheduledDate, setScheduledDate] = useState(task.scheduledDate || '');
   const [scheduledTime, setScheduledTime] = useState(task.scheduledTime || '');
   const [editing, setEditing] = useState(false);
+  const timer = useTaskTimer();
+  const isTracking = timer.activeTaskId === task.id;
 
   const projects = getProjectsForEnterprise(enterpriseId);
   const taskReminders = getRemindersForTask(task.id);
@@ -135,18 +139,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={isDone ? handleUncomplete : handleComplete}
-              aria-label={isDone ? 'Riapri task' : 'Segna come completata'}
-              title={isDone ? 'Riapri task' : 'Segna come completata'}
-              className={`group flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDone ? 'border-success bg-success text-success-foreground' : 'border-muted-foreground/50 hover:border-success hover:bg-success/10'}`}
-            >
-              <Check className={`h-3.5 w-3.5 transition-opacity ${isDone ? 'opacity-100' : 'text-success opacity-0 group-hover:opacity-100'}`} strokeWidth={3} />
-            </button>
-            {isDone ? 'Task completata' : 'Modifica Task'}
-          </DialogTitle>
+          <DialogTitle>{isDone ? 'Task completata' : 'Modifica Task'}</DialogTitle>
         </DialogHeader>
         <div className="min-w-0 space-y-4 pt-2">
           <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} />
@@ -310,15 +303,37 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             );
           })()}
 
-          <div className="flex items-center justify-between border-t pt-3">
+          <div className="flex items-center gap-1.5 border-t pt-3">
             <Button variant="ghost" size="icon" onClick={handleDelete} aria-label="Elimina task" title="Elimina task" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
               <Trash2 className="h-4 w-4" />
             </Button>
             {task.status === 'scheduled' && (
-              <Button variant="outline" size="sm" onClick={handleBacklog} className="gap-1.5">
-                <Inbox className="h-3.5 w-3.5" /> Rimanda al Serbatoio
+              <Button variant="ghost" size="icon" onClick={handleBacklog} aria-label="Rimanda al Serbatoio" title="Rimanda al Serbatoio" className="text-muted-foreground hover:text-foreground">
+                <Inbox className="h-4 w-4" />
               </Button>
             )}
+            <div className="ml-auto flex items-center gap-1.5">
+              {!isDone && (
+                <Button
+                  variant={isTracking ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => (isTracking ? timer.pause() : timer.start(task))}
+                >
+                  {isTracking ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {isTracking ? 'Pausa' : 'Avvia'}
+                </Button>
+              )}
+              <Button
+                variant={isDone ? 'outline' : 'default'}
+                size="sm"
+                className="gap-1.5"
+                onClick={isDone ? handleUncomplete : handleComplete}
+              >
+                <Check className="h-3.5 w-3.5" />
+                {isDone ? 'Riapri' : 'Completa'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

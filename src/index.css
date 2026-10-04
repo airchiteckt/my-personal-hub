@@ -45,6 +45,8 @@
     /* Warning */
     --warning: 38 90% 50%;
     --warning-foreground: 38 90% 15%;
+    --success: 142 65% 38%;
+    --success-foreground: 0 0% 100%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
@@ -97,6 +99,8 @@
     /* Warning */
     --warning: 38 90% 60%;
     --warning-foreground: 38 90% 10%;
+    --success: 142 60% 45%;
+    --success-foreground: 0 0% 100%;
 
     /* Sidebar */
     --sidebar-background: 222 30% 9%;

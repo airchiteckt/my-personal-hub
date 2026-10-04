@@ -1,4 +1,4 @@
-import { EffortPicker, snapEffort } from '@/components/EffortPicker';
+import { EffortPicker, EFFORT_SIZES, snapEffort } from '@/components/EffortPicker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect, useCallback } from 'react';
-import { Archive, Bell, ChevronDown } from 'lucide-react';
+import { Archive, Bell, ChevronDown, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TaskAttachments } from '@/components/TaskAttachments';
 

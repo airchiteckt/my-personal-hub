@@ -713,7 +713,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                           </span>
                         </div>
                       );
-                    })}
+                      });
+                    })()}
 
                     {/* All items with unified overlap layout */}
                     {(() => {

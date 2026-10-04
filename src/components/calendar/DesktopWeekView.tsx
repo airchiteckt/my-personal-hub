@@ -687,10 +687,12 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       return (
                         <div
                           key={`te-${te.id}`}
-                          className={`absolute left-0 right-0 rounded-md border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'} ${linkedTask ? 'cursor-pointer hover:brightness-110' : 'pointer-events-none'}`}
+                          className={`absolute rounded-md border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'} ${linkedTask ? 'cursor-pointer hover:brightness-110' : 'pointer-events-none'}`}
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, 16),
+                            left: `${(layout.col / layout.cols) * 100}%`,
+                            width: `calc(${100 / layout.cols}% - 2px)`,
                             backgroundColor: taskDone
                               ? 'hsl(142 70% 45% / 0.12)'
                               : `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,

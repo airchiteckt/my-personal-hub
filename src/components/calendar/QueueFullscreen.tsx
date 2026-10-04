@@ -177,6 +177,9 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
             </section>
           );
         })}
+        {visibleEnts.every(ent => openTasks.every(t => t.enterpriseId !== ent.id)) && (
+          <p className="text-xs text-muted-foreground text-center py-8">Nessuna attività aperta nel serbatoio.</p>
+        )}
       </div>
     </div>
   );

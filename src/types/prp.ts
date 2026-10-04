@@ -132,15 +132,15 @@ export const ENTERPRISE_STATUS_LABELS: Record<EnterpriseStatus, string> = {
 };
 
 export const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  high: 'Alta',
-  medium: 'Media',
-  low: 'Bassa',
+  high: 'P1',
+  medium: 'P2',
+  low: 'P3',
 };
 
 export const URGENCY_LABELS: Record<UrgencyLevel, string> = {
   normal: 'Normale',
   attention: 'Attenzione',
-  high: 'Alta',
+  high: 'P1',
   critical: 'Critica',
 };
 

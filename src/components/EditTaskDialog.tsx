@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
+import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect, useCallback } from 'react';
 import { Archive, Bell, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -37,7 +38,7 @@ interface Props {
 }
 
 export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props) {
-  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask, enterprises, getTimeEntriesForTask } = usePrp();
+  const { tasks, updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask, enterprises, getTimeEntriesForTask } = usePrp();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task.estimatedMinutes);
@@ -86,7 +87,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       enterpriseId,
       projectId,
       scheduledDate: scheduledDate || undefined,
-      scheduledTime: scheduledTime || undefined,
+      scheduledTime: scheduledTime || (null as unknown as string),
       status: task.status === 'done' ? task.status : newStatus,
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
@@ -177,13 +178,17 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
               <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔴 Alta</SelectItem>
-                  <SelectItem value="medium">🟡 Media</SelectItem>
-                  <SelectItem value="low">⚪ Bassa</SelectItem>
+                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {priorityLimitWarning(tasks, scheduledDate, priority, task.id) && (
+            <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, scheduledDate, priority, task.id)}</p>
+          )}
 
           <OptionalSection label="Deadline" hasValue={!!deadline}>
             <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />

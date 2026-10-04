@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
+import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect } from 'react';
 import { useAiInline } from '@/hooks/use-ai-inline';
 import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
@@ -28,7 +29,7 @@ interface EffortEstimate {
 }
 
 export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defaultTime, defaultEndTime }: Props) {
-  const { enterprises, projects, addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
+  const { tasks, enterprises, projects, addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [enterpriseId, setEnterpriseId] = useState('');
@@ -96,7 +97,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
   useEffect(() => {
     if (open) {
       setSchedDate(defaultDate || new Date().toISOString().split('T')[0]);
-      setSchedTime(defaultTime || '09:00');
+      setSchedTime(defaultTime || '');
       if (defaultTime && defaultEndTime) {
         const [sh, sm] = defaultTime.split(':').map(Number);
         const [eh, em] = defaultEndTime.split(':').map(Number);
@@ -126,7 +127,7 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
   }, [enterpriseId, availableProjects]);
 
   const handleCreateAndSchedule = () => {
-    if (!title.trim() || !enterpriseId || !projectId) return;
+    if (!title.trim() || !enterpriseId || !projectId || !schedDate) return;
 
     addTask({
       title: title.trim(),
@@ -224,11 +225,11 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Data</Label>
+              <Label>Giorno</Label>
               <Input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Ora inizio</Label>
+              <Label>Ora <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
               <Input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} />
             </div>
           </div>
@@ -243,17 +244,20 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
               <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔴 Alta</SelectItem>
-                  <SelectItem value="medium">🟡 Media</SelectItem>
-                  <SelectItem value="low">⚪ Bassa</SelectItem>
+                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+          {priorityLimitWarning(tasks, schedDate, priority) && (
+            <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, schedDate, priority)}</p>
+          )}
         </div>
 
         <div className="pt-3 border-t border-border shrink-0">
-          <Button onClick={handleCreateAndSchedule} className="w-full" disabled={!title.trim() || !enterpriseId || !projectId}>
+          <Button onClick={handleCreateAndSchedule} className="w-full" disabled={!title.trim() || !enterpriseId || !projectId || !schedDate}>
             Crea e Pianifica
           </Button>
         </div>

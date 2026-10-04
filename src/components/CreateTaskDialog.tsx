@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
+import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect } from 'react';
 import { useAiInline } from '@/hooks/use-ai-inline';
 import { OkrValidationFeedback } from '@/components/OkrValidationFeedback';
@@ -37,12 +38,14 @@ interface TaskSuggestion {
 }
 
 export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }: Props) {
-  const { addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
+  const { tasks, addTask, prioritySettings, getEnterprise, getProject, getTasksForProject } = usePrp();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [estimatedMinutes, setEstimatedMinutes] = useState(30);
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [deadline, setDeadline] = useState('');
+  const [schedDate, setSchedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [schedTime, setSchedTime] = useState('');
   const [impact, setImpact] = useState(2);
   const [effort, setEffort] = useState(2);
   const [aiApplied, setAiApplied] = useState(false);
@@ -129,7 +132,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
   };
 
   const handleSubmit = () => {
-    if (!title.trim() || !projectId) return;
+    if (!title.trim() || !projectId || !schedDate) return;
     addTask({
       title: title.trim(),
       description: description.trim() || undefined,
@@ -138,6 +141,8 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
       enterpriseId,
       projectId,
       isRecurring: false,
+      scheduledDate: schedDate,
+      scheduledTime: schedTime || undefined,
       ...(deadline ? { deadline } : {}),
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });
@@ -267,13 +272,27 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
               <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="high">🔴 Alta</SelectItem>
-                  <SelectItem value="medium">🟡 Media</SelectItem>
-                  <SelectItem value="low">⚪ Bassa</SelectItem>
+                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Giorno</Label>
+              <Input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Ora <span className="text-muted-foreground text-xs font-normal">(opzionale)</span></Label>
+              <Input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)} />
+            </div>
+          </div>
+          {priorityLimitWarning(tasks, schedDate, priority) && (
+            <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, schedDate, priority)}</p>
+          )}
 
           <div className="space-y-2">
             <Label>Deadline (opzionale)</Label>
@@ -307,7 +326,7 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
             </div>
           )}
 
-          <Button onClick={handleSubmit} className="w-full">Crea Task</Button>
+          <Button onClick={handleSubmit} className="w-full" disabled={!title.trim() || !schedDate}>Crea Task</Button>
         </div>
       </DialogContent>
     </Dialog>

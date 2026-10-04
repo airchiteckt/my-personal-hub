@@ -1,0 +1,110 @@
+import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
+import { Play, Pause, Check, Clock, X, ListOrdered } from 'lucide-react';
+import { usePrp } from '@/context/PrpContext';
+import type { Task } from '@/types/prp';
+import { PRIORITY_DAILY_LIMITS, PRIORITY_ORDER } from '@/lib/priority-limits';
+
+interface Props {
+  date: Date;
+  timer: {
+    activeTaskId: string | null | undefined;
+    now: number;
+    start: (t: Task) => void;
+    pause: () => void;
+    complete: (t: Task) => void;
+  };
+  onOpenTask: (t: Task) => void;
+  onDragStart: (e: React.DragEvent, taskId: string) => void;
+}
+
+const fmt = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);
+const badge: Record<string, string> = {
+  high: 'bg-destructive text-destructive-foreground',
+  medium: 'bg-primary text-primary-foreground',
+  low: 'bg-muted text-muted-foreground',
+};
+const lbl: Record<string, string> = { high: 'P1', medium: 'P2', low: 'P3' };
+
+/** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. */
+export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
+  const { tasks, timeEntries, getEnterprise, updateTask } = usePrp();
+  const dayStr = format(date, 'yyyy-MM-dd');
+  const list = tasks
+    .filter(t => t.scheduledDate === dayStr && t.status !== 'backlog')
+    .sort((a, b) =>
+      (a.status === 'done' ? 1 : 0) - (b.status === 'done' ? 1 : 0) ||
+      PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] ||
+      (a.scheduledTime || '99').localeCompare(b.scheduledTime || '99'));
+
+  const worked = (id: string) => timeEntries.filter(te => te.taskId === id).reduce((s, te) => {
+    if (te.endedAt) return s + (te.durationMinutes || 0);
+    return s + Math.max(0, Math.round((timer.now - new Date(te.startedAt).getTime()) / 60000));
+  }, 0);
+
+  const counts = (['high', 'medium', 'low'] as const).map(p => ({
+    p, n: list.filter(t => t.priority === p).length, max: PRIORITY_DAILY_LIMITS[p],
+  }));
+
+  return (
+    <div className="flex flex-col gap-1 px-1">
+      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
+        <ListOrdered className="h-3 w-3" />
+        <span className="font-medium">Coda · {format(date, 'EEE d MMM', { locale: it })}</span>
+        <span className="ml-auto flex gap-2 normal-case tracking-normal">
+          {counts.map(c => (
+            <span key={c.p} className={c.n > c.max ? 'text-destructive font-semibold' : ''}>{lbl[c.p]} {c.n}/{c.max}</span>
+          ))}
+        </span>
+      </div>
+      {list.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-1">Nessuna attività per questo giorno.</p>
+      ) : (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+          {list.map(t => {
+            const ent = getEnterprise(t.enterpriseId);
+            const running = timer.activeTaskId === t.id;
+            const done = t.status === 'done';
+            const w = worked(t.id);
+            return (
+              <div
+                key={t.id}
+                draggable={!done}
+                onDragStart={e => onDragStart(e, t.id)}
+                onClick={() => onOpenTask(t)}
+                className={`shrink-0 w-[220px] rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'ring-2 ring-primary' : ''} ${done ? 'opacity-50' : ''}`}
+                style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 60%'})` }}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
+                  <span className={`text-xs font-medium truncate flex-1 ${done ? 'line-through' : ''}`}>{t.title}</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className={`text-[10px] ${w > t.estimatedMinutes ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {fmt(w)} / {fmt(t.estimatedMinutes)}
+                  </span>
+                  {t.scheduledTime && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                      <Clock className="h-2.5 w-2.5" />{t.scheduledTime.slice(0, 5)}
+                      <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: null as unknown as string }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
+                    </span>
+                  )}
+                  {!done && (
+                    <span className="ml-auto flex gap-1">
+                      {running ? (
+                        <button aria-label="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground"><Pause className="h-3 w-3" /></button>
+                      ) : (
+                        <button aria-label="Avvia" onClick={e => { e.stopPropagation(); timer.start(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Play className="h-3 w-3" /></button>
+                      )}
+                      <button aria-label="Completa" onClick={e => { e.stopPropagation(); timer.complete(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Check className="h-3 w-3" /></button>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

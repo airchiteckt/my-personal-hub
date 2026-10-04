@@ -303,15 +303,37 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             );
           })()}
 
-          <div className="flex items-center justify-between border-t pt-3">
+          <div className="flex items-center gap-1.5 border-t pt-3">
             <Button variant="ghost" size="icon" onClick={handleDelete} aria-label="Elimina task" title="Elimina task" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
               <Trash2 className="h-4 w-4" />
             </Button>
             {task.status === 'scheduled' && (
-              <Button variant="outline" size="sm" onClick={handleBacklog} className="gap-1.5">
-                <Inbox className="h-3.5 w-3.5" /> Rimanda al Serbatoio
+              <Button variant="ghost" size="icon" onClick={handleBacklog} aria-label="Rimanda al Serbatoio" title="Rimanda al Serbatoio" className="text-muted-foreground hover:text-foreground">
+                <Inbox className="h-4 w-4" />
               </Button>
             )}
+            <div className="ml-auto flex items-center gap-1.5">
+              {!isDone && (
+                <Button
+                  variant={isTracking ? 'secondary' : 'outline'}
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => (isTracking ? timer.pause() : timer.start(task))}
+                >
+                  {isTracking ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                  {isTracking ? 'Pausa' : 'Avvia'}
+                </Button>
+              )}
+              <Button
+                variant={isDone ? 'outline' : 'default'}
+                size="sm"
+                className="gap-1.5"
+                onClick={isDone ? handleUncomplete : handleComplete}
+              >
+                <Check className="h-3.5 w-3.5" />
+                {isDone ? 'Riapri' : 'Completa'}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

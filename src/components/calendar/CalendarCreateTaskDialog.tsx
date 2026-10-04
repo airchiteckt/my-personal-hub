@@ -234,22 +234,20 @@ export function CalendarCreateTaskDialog({ open, onOpenChange, defaultDate, defa
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Durata (minuti)</Label>
-              <Input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(Number(e.target.value))} min={5} step={5} />
-            </div>
-            <div className="space-y-2">
-              <Label>Priorità</Label>
-              <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
-                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
-                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Priorità</Label>
+            <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                <SelectItem value="low">⚪ P3 · Normale</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Impegno</Label>
+            <EffortPicker value={estimatedMinutes} onChange={setEstimatedMinutes} />
           </div>
           {priorityLimitWarning(tasks, schedDate, priority) && (
             <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, schedDate, priority)}</p>

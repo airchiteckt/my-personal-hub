@@ -262,22 +262,20 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Durata (minuti)</Label>
-              <Input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(Number(e.target.value))} min={5} step={5} />
-            </div>
-            <div className="space-y-2">
-              <Label>Priorità</Label>
-              <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
-                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
-                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Priorità</Label>
+            <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                <SelectItem value="low">⚪ P3 · Normale</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Impegno</Label>
+            <EffortPicker value={estimatedMinutes} onChange={setEstimatedMinutes} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -299,32 +297,6 @@ export function CreateTaskDialog({ open, onOpenChange, enterpriseId, projectId }
             <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />
           </div>
 
-          {prioritySettings.impactEffortEnabled && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label>Impatto (1-3)</Label>
-                <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 – Basso</SelectItem>
-                    <SelectItem value="2">2 – Medio</SelectItem>
-                    <SelectItem value="3">3 – Alto</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Sforzo (1-3)</Label>
-                <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 – Basso</SelectItem>
-                    <SelectItem value="2">2 – Medio</SelectItem>
-                    <SelectItem value="3">3 – Alto</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
 
           <Button onClick={handleSubmit} className="w-full" disabled={!title.trim() || !schedDate}>Crea Task</Button>
         </div>

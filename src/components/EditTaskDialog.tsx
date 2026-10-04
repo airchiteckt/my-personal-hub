@@ -169,22 +169,20 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Durata (min)</Label>
-              <Input type="number" value={estimatedMinutes} onChange={e => setEstimatedMinutes(Number(e.target.value))} min={5} step={5} />
-            </div>
-            <div className="space-y-2">
-              <Label>Priorità</Label>
-              <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
-                  <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
-                  <SelectItem value="low">⚪ P3 · Normale</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Priorità</Label>
+            <Select value={priority} onValueChange={v => setPriority(v as TaskPriority)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="high">🔴 P1 · Urgente</SelectItem>
+                <SelectItem value="medium">🟠 P2 · Importante</SelectItem>
+                <SelectItem value="low">⚪ P3 · Normale</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Impegno</Label>
+            <EffortPicker value={estimatedMinutes} onChange={setEstimatedMinutes} />
           </div>
 
           {priorityLimitWarning(tasks, scheduledDate, priority, task.id) && (
@@ -208,34 +206,6 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </div>
           </OptionalSection>
 
-          {prioritySettings.impactEffortEnabled && (
-            <OptionalSection label="Impatto & Sforzo" hasValue={task.impact !== null || task.effort !== null}>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Impatto (1-3)</Label>
-                  <Select value={String(impact)} onValueChange={v => setImpact(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 – Basso</SelectItem>
-                      <SelectItem value="2">2 – Medio</SelectItem>
-                      <SelectItem value="3">3 – Alto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Sforzo (1-3)</Label>
-                  <Select value={String(effort)} onValueChange={v => setEffort(Number(v))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">1 – Basso</SelectItem>
-                      <SelectItem value="2">2 – Medio</SelectItem>
-                      <SelectItem value="3">3 – Alto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </OptionalSection>
-          )}
 
           <TaskAttachments taskId={task.id} />
 

@@ -133,14 +133,14 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
           const krBlocks = objs.map(o => ({
             o,
             krs: keyResults.filter(kr => kr.objectiveId === o.id).map(kr => {
-              const ps = entProjects.filter(p => p.keyResultId === kr.id);
+              const ps = entProjects.filter(p => p.keyResultId === kr.id && tasksOf(p.id).length > 0);
               ps.forEach(p => linkedIds.add(p.id));
               return { kr, ps };
-            }),
-          }));
-          const others = entProjects.filter(p => !linkedIds.has(p.id));
+            }).filter(({ ps }) => ps.length > 0),
+          })).filter(({ krs }) => krs.length > 0);
+          const others = entProjects.filter(p => !linkedIds.has(p.id) && tasksOf(p.id).length > 0);
           const count = openTasks.filter(t => t.enterpriseId === ent.id).length;
-          if (entFilter === 'all' && count === 0) return null;
+          if (count === 0) return null;
           return (
             <section key={ent.id} className="rounded-xl border bg-card p-3">
               <div className="flex items-center gap-2 mb-2">
@@ -148,7 +148,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
                 <h3 className="text-sm font-semibold">{ent.name}</h3>
                 <span className="text-xs text-muted-foreground">({count})</span>
               </div>
-              {focus && (
+              {focus && krBlocks.length > 0 && (
                 <div className="mb-2">
                   <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-primary font-semibold mb-1">
                     <Target className="h-3 w-3" />Focus · {focus.name}
@@ -161,7 +161,7 @@ export function QueueFullscreen({ open, onClose, date, timer, onOpenTask, onDrag
                           <p className="flex items-center gap-1 text-[11px] text-muted-foreground py-0.5">
                             <Flag className="h-3 w-3" />{kr.title}
                           </p>
-                          {ps.length === 0 ? <p className="ml-4 text-[11px] text-muted-foreground italic">Nessun progetto collegato</p> : ps.map(p => <ProjectBlock key={p.id} p={p} />)}
+                          {ps.map(p => <ProjectBlock key={p.id} p={p} />)}
                         </div>
                       ))}
                     </div>

@@ -116,6 +116,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   };
 
   const handleBacklog = () => {
+    if (!window.confirm('Spostare questa attività nel Backlog? Verrà rimossa dal calendario.')) return;
     unscheduleTask(task.id);
     onOpenChange(false);
   };

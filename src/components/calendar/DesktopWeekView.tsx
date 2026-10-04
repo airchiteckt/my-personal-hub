@@ -647,8 +647,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       const running = !te.endedAt;
                       const mins = running ? Math.max(1, Math.round((timer.now - d.getTime()) / 60000)) : (te.durationMinutes || 0);
                       const { top, height } = getTaskPosition(hhmm, mins || 30, slotH);
-                      const ent = getEnterprise(te.enterpriseId);
+                       const ent = getEnterprise(te.enterpriseId);
                       const linkedTask = te.taskId ? tasks.find(t => t.id === te.taskId) : undefined;
+                      const taskDone = linkedTask?.status === 'done';
                       return (
                         <div
                           key={`te-${te.id}`}
@@ -656,14 +657,23 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, 16),
-                            backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
-                            borderColor: `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
+                            backgroundColor: taskDone
+                              ? 'hsl(142 70% 45% / 0.12)'
+                              : `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
+                            borderColor: taskDone
+                              ? 'hsl(142 70% 45% / 0.5)'
+                              : `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
                           }}
                           onClick={linkedTask ? (e) => { e.stopPropagation(); setEditingTask(linkedTask); } : undefined}
                           title={linkedTask ? `Apri "${linkedTask.title}"` : undefined}
                         >
+                          {linkedTask && (
+                            <span className={`absolute top-0.5 left-1 text-[9px] font-medium pointer-events-none truncate max-w-[calc(100%-8px)] ${taskDone ? 'text-green-600 dark:text-green-400 line-through' : 'text-muted-foreground'}`}>
+                              {taskDone ? '✓ ' : ''}{linkedTask.title}
+                            </span>
+                          )}
                           <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground pointer-events-none">
-                            {running ? '● In corso ' : '⏱ '}{formatMinutes(mins)}{te.description ? ` · ${te.description}` : ''}
+                            {running ? '● In corso ' : taskDone ? '✓ ' : '⏱ '}{formatMinutes(mins)}{te.description ? ` · ${te.description}` : ''}
                           </span>
                         </div>
                       );

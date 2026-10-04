@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
+import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect, useCallback } from 'react';
 import { Archive, Bell, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -184,6 +185,10 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
               </Select>
             </div>
           </div>
+
+          {priorityLimitWarning(tasks, scheduledDate, priority, task.id) && (
+            <p className="text-[11px] text-destructive">{priorityLimitWarning(tasks, scheduledDate, priority, task.id)}</p>
+          )}
 
           <OptionalSection label="Deadline" hasValue={!!deadline}>
             <Input type="datetime-local" value={deadline} onChange={e => setDeadline(e.target.value)} />

@@ -20,6 +20,7 @@ import { getRitualCalendarColor, getRitualCategoryLabel, getRitualIcon } from '@
 import { JournalDialog } from './JournalDialog';
 import { TaskFollowUpDialog } from '@/components/TaskFollowUpDialog';
 import { MoonDetailDialog } from './MoonDetailDialog';
+import { EditReminderDialog } from '@/components/EditReminderDialog';
 import { ExternalEventDetailDialog } from './ExternalEventDetailDialog';
 
 const googleSolidColor = (color?: string) => color?.startsWith('#') ? color : `hsl(${color || '210 80% 50%'})`;
@@ -48,6 +49,7 @@ export function MobileDayView() {
   const [followUpTask, setFollowUpTask] = useState<Task | null>(null);
   const [moonDate, setMoonDate] = useState<Date | null>(null);
   const [selectedExternalEvent, setSelectedExternalEvent] = useState<ExternalCalendarEvent | null>(null);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const dayAppts = getAppointmentsForDate(dateStr);
   const dayExternalEvents = getExternalCalendarEventsForDate(dateStr);
   const dayReminders = getRemindersForDate(dateStr);
@@ -191,11 +193,7 @@ export function MobileDayView() {
               const ss = timeToSlot(ritual.suggested_time || '07:00');
               allTimeInfos.push({ id: `ritual-${ritual.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
             });
-            // Reminders
-            dayReminders.forEach(rem => {
-              const ss = timeToSlot(rem.reminderTime || '09:00');
-              allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 1 });
-            });
+            // Reminders: icon-only markers, excluded from overlap layout
 
             const uLayout = computeOverlapLayout(allTimeInfos);
             const uLS = (itemId: string) => {
@@ -359,35 +357,33 @@ export function MobileDayView() {
                     </div>
                   );
                 })}
-                {/* Reminder blocks */}
-                {dayReminders.map(rem => {
+                {/* Reminder markers: icon-only, non distraggono */}
+                {dayReminders.map((rem, idx) => {
                   const time = rem.reminderTime || '09:00';
                   const ss = timeToSlot(time);
                   const top = ss * MOBILE_SLOT_HEIGHT;
                   const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
                   const color = rem.color || ent?.color || '45 90% 50%';
-                  const sty = uLS(`rem-${rem.id}`);
-                  return (
-                    <div
+                   return (
+                    <button
                       key={`rem-${rem.id}`}
-                      className="absolute rounded-xl overflow-hidden z-10 border-2 cursor-pointer"
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setEditingReminder(rem); }}
+                      title={`${time} · ${rem.title}`}
+                      className="absolute z-20 flex items-center justify-center rounded-full border shadow-sm"
                       style={{
-                        top,
-                        height: MOBILE_SLOT_HEIGHT - 4,
-                        ...sty,
-                        backgroundColor: `hsl(${color} / 0.12)`,
-                        borderColor: `hsl(${color} / 0.5)`,
-                        borderStyle: 'solid',
+                        top: top + 2,
+                        left: 4 + (idx % 4) * 24,
+                        width: 22,
+                        height: 22,
+                        backgroundColor: `hsl(${color} / 0.15)`,
+                        borderColor: `hsl(${color} / 0.6)`,
+                        color: `hsl(${color})`,
                       }}
                     >
-                      <div className="p-2 h-full flex flex-col justify-center">
-                        <p className="font-medium text-xs leading-tight truncate flex items-center gap-1">
-                          <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                          {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}{rem.title}
-                        </p>
-                      </div>
-                    </div>
-                  );
+                      <Bell className="h-3 w-3" />
+                    </button>
+                   );
                 })}
               </>
             );
@@ -631,9 +627,17 @@ export function MobileDayView() {
       <ExternalEventDetailDialog
         open={!!selectedExternalEvent}
         onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
-        event={selectedExternalEvent}
+         event={selectedExternalEvent}
         enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
       />
+
+      {editingReminder && (
+        <EditReminderDialog
+          open={!!editingReminder}
+          onOpenChange={(open) => !open && setEditingReminder(null)}
+          reminder={editingReminder}
+        />
+      )}
     </div>
   );
 }

@@ -751,11 +751,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                         const ss = timeToSlot(comp.completed_time!);
                         allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
                       });
-                      // Reminders
-                       dayReminders.forEach(rem => {
-                         const ss = timeToSlot(rem.reminderTime || '09:00');
-                         allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
-                      });
+                      // Reminders: shown as small icon markers, not blocks — excluded from overlap layout
 
                       const uLayout = computeOverlapLayout(allTimeInfos);
                       const uLS = (itemId: string) => {
@@ -942,44 +938,35 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                               />
                             );
                           })}
-                          {/* Reminder cards */}
-                          {dayReminders.map(rem => {
+                          {/* Reminder markers: icon-only, non distraggono */}
+                          {dayReminders.map((rem, idx) => {
                             const time = rem.reminderTime || '09:00';
                             const ss = timeToSlot(time);
                             const topPos = ss * slotH;
-                            const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
+                             const ent = rem.enterpriseId ? getEnterprise(rem.enterpriseId) : null;
                             const color = rem.color || ent?.color || '45 90% 50%';
-                            const sty = uLS(`rem-${rem.id}`);
                             return (
-                              <div
+                              <button
                                 key={`rem-${rem.id}`}
+                                type="button"
                                 draggable
                                 onDragStart={e => { e.stopPropagation(); handleReminderDragStart(e, rem.id); }}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingReminder(rem); }}
-                                className="absolute rounded-lg overflow-hidden z-10 border-2 cursor-grab active:cursor-grabbing group"
+                                title={`${time} · ${rem.title}`}
+                                className="absolute z-20 flex items-center justify-center rounded-full border shadow-sm cursor-grab active:cursor-grabbing hover:scale-110 transition-transform"
                                 style={{
-                                  top: topPos + 1,
-                                  height: Math.max(slotH * 2 - 2, slotH - 4),
-                                  ...sty,
-                                  backgroundColor: `hsl(${color} / 0.12)`,
-                                  borderColor: `hsl(${color} / 0.5)`,
-                                  borderStyle: 'solid',
+                                  top: topPos + 2,
+                                  left: 4 + (idx % 4) * 22,
+                                  width: 20,
+                                  height: 20,
+                                  backgroundColor: `hsl(${color} / 0.15)`,
+                                  borderColor: `hsl(${color} / 0.6)`,
+                                  color: `hsl(${color})`,
                                 }}
                               >
-                                <div className="p-1.5 h-full flex flex-col justify-center">
-                                  <p className="font-medium text-xs leading-tight flex items-start gap-1" title={rem.title}>
-                                    <Bell className="h-3 w-3 shrink-0" style={{ color: `hsl(${color})` }} />
-                                    <span className="min-w-0 break-words line-clamp-2">
-                                      {rem.isUrgent ? '⭐ ' : rem.isFollowUp ? '🔔 ' : ''}
-                                      {rem.title}
-                                    </span>
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
-                                    {time}{ent ? ` · ${ent.name}` : ''}
-                                  </p>
-                                </div>
-                              </div>
+                                <Bell className="h-3 w-3" />
+                              </button>
                             );
                           })}
                         </>

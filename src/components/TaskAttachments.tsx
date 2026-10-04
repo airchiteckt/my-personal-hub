@@ -163,7 +163,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
       </div>
 
       {items.length > 0 && (
-        <Carousel opts={{ align: 'start', dragFree: true }} className="w-full">
+        <Carousel opts={{ align: 'start', dragFree: true }} className="w-full min-w-0">
           <CarouselContent className="-ml-2">
             {items.map((a, index) => {
               const url = signedUrls[a.id];

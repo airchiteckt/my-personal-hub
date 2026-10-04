@@ -126,11 +126,11 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Modifica Task</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
+        <div className="min-w-0 space-y-4 pt-2">
           <div className="space-y-2">
             <Label>Titolo</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} />

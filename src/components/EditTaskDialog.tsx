@@ -126,7 +126,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-lg overflow-x-hidden">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Modifica Task</DialogTitle>
         </DialogHeader>

@@ -627,9 +627,17 @@ export function MobileDayView() {
       <ExternalEventDetailDialog
         open={!!selectedExternalEvent}
         onOpenChange={(open) => !open && setSelectedExternalEvent(null)}
-        event={selectedExternalEvent}
+         event={selectedExternalEvent}
         enterpriseName={selectedExternalEvent?.enterpriseId ? getEnterprise(selectedExternalEvent.enterpriseId)?.name : undefined}
       />
+
+      {editingReminder && (
+        <EditReminderDialog
+          open={!!editingReminder}
+          onOpenChange={(open) => !open && setEditingReminder(null)}
+          reminder={editingReminder}
+        />
+      )}
     </div>
   );
 }

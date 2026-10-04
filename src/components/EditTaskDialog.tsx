@@ -237,6 +237,8 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </OptionalSection>
           )}
 
+          <TaskAttachments taskId={task.id} />
+
           {taskReminders.length > 0 && (
             <div className="space-y-1">
               <Label className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Promemoria collegati</Label>

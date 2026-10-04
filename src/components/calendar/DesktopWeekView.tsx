@@ -751,11 +751,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                         const ss = timeToSlot(comp.completed_time!);
                         allTimeInfos.push({ id: `ritual-comp-${comp.id}`, startSlot: ss, endSlot: ss + Math.ceil(ritual.estimated_minutes / 30) });
                       });
-                      // Reminders
-                       dayReminders.forEach(rem => {
-                         const ss = timeToSlot(rem.reminderTime || '09:00');
-                         allTimeInfos.push({ id: `rem-${rem.id}`, startSlot: ss, endSlot: ss + 2 });
-                      });
+                      // Reminders: shown as small icon markers, not blocks — excluded from overlap layout
 
                       const uLayout = computeOverlapLayout(allTimeInfos);
                       const uLS = (itemId: string) => {

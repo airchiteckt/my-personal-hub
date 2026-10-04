@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Play, Pause, Check, Clock, X, ListOrdered } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Play, Pause, Check, Clock, X, ListOrdered } from 'lucide-react';
 import { usePrp } from '@/context/PrpContext';
 import type { Task } from '@/types/prp';
 import { PRIORITY_DAILY_LIMITS, PRIORITY_ORDER } from '@/lib/priority-limits';
@@ -16,6 +17,8 @@ interface Props {
   };
   onOpenTask: (t: Task) => void;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
+  onDragEnd?: () => void;
+  onAdd: () => void;
 }
 
 const fmt = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);
@@ -27,8 +30,16 @@ const badge: Record<string, string> = {
 const lbl: Record<string, string> = { high: 'P1', medium: 'P2', low: 'P3' };
 
 /** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. */
-export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
+export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd, onAdd }: Props) {
   const { tasks, timeEntries, getEnterprise, updateTask } = usePrp();
+  const [over, setOver] = useState(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setOver(false); onDragEnd?.();
+    const data = e.dataTransfer.getData('text/plain');
+    if (!data.startsWith('task:')) return;
+    const id = data.slice(5);
+    updateTask(id, { status: 'scheduled', scheduledDate: format(date, 'yyyy-MM-dd'), scheduledTime: null as unknown as string });
+  };
   const dayStr = format(date, 'yyyy-MM-dd');
   const list = tasks
     .filter(t => t.scheduledDate === dayStr && t.status !== 'backlog')
@@ -47,7 +58,12 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
   }));
 
   return (
-    <div className="flex flex-col gap-1 px-1">
+    <div
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={handleDrop}
+      className={`flex flex-col gap-1 px-1 rounded-lg transition-colors ${over ? 'bg-primary/10 ring-2 ring-primary/40' : ''}`}
+    >
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
         <ListOrdered className="h-3 w-3" />
         <span className="font-medium">Coda · {format(date, 'EEE d MMM', { locale: it })}</span>
@@ -55,10 +71,11 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
           {counts.map(c => (
             <span key={c.p} className={c.n > c.max ? 'text-destructive font-semibold' : ''}>{lbl[c.p]} {c.n}/{c.max}</span>
           ))}
+          <button onClick={onAdd} className="flex items-center gap-0.5 text-primary font-medium hover:underline"><Plus className="h-3 w-3" />Task</button>
         </span>
       </div>
       {list.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-1">Nessuna attività per questo giorno.</p>
+        <p className="text-xs text-muted-foreground py-1">Nessuna attività. Premi + Task o trascina qui un'attività dal calendario.</p>
       ) : (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
           {list.map(t => {
@@ -71,6 +88,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
                 key={t.id}
                 draggable={!done}
                 onDragStart={e => onDragStart(e, t.id)}
+                onDragEnd={onDragEnd}
                 onClick={() => onOpenTask(t)}
                 className={`shrink-0 w-[220px] rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'ring-2 ring-primary' : ''} ${done ? 'opacity-50' : ''}`}
                 style={{ borderLeft: `3px solid hsl(${ent?.color || '0 0% 60%'})` }}

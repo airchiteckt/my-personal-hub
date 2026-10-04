@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause } from 'lucide-react';
 import { useTaskTimer } from '@/hooks/use-task-timer';
 import { TaskQueue } from '@/components/calendar/TaskQueue';
+import { QueueFullscreen } from './QueueFullscreen';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
@@ -1013,10 +1014,10 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             size="sm"
             className="h-8 text-xs px-2"
             onClick={() => setBacklogOpen(true)}
-            title="Apri backlog"
+            title="Apri la coda a tutto schermo"
           >
             <ListTodo className="h-3.5 w-3.5 mr-1" />
-            Backlog
+            Coda ({tasks.filter(t => t.scheduledDate === format(centerDate, 'yyyy-MM-dd') && t.status === 'scheduled').length})
           </Button>
           <Button
             variant="outline"
@@ -1069,30 +1070,15 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
       </div>
 
-      <Sheet open={backlogOpen} onOpenChange={setBacklogOpen} modal={false}>
-        <SheetContent
-          side="right"
-          onInteractOutside={e => { if (backlogDragging) e.preventDefault(); }}
-          className={cn('w-full sm:max-w-md p-0 flex flex-col gap-0 shadow-2xl transition-opacity duration-150', backlogDragging && 'opacity-0 pointer-events-none')}
-        >
-          <SheetHeader className="px-4 py-3 border-b flex-row items-center justify-between space-y-0">
-            <SheetTitle className="text-sm font-semibold">Backlog</SheetTitle>
-            <Button asChild variant="ghost" size="sm" className="h-7 text-xs gap-1 mr-6" onClick={() => setBacklogOpen(false)}>
-              <Link to="/backlog"><Maximize2 className="h-3.5 w-3.5" /> Apri pagina</Link>
-            </Button>
-          </SheetHeader>
-          <div
-            className="flex-1 overflow-hidden p-3"
-            onDragEnd={() => { setBacklogDragging(false); setBacklogOpen(false); }}
-          >
-            <SmartBacklog
-              onDragStart={(e, id) => { handleDragStart(e, id); setTimeout(() => setBacklogDragging(true), 0); }}
-              onDrop={handleBacklogDrop}
-              onTaskClick={task => { setBacklogOpen(false); setEditingTask(task); }}
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
+      <QueueFullscreen
+        open={backlogOpen}
+        onClose={() => setBacklogOpen(false)}
+        date={centerDate}
+        timer={timer}
+        onOpenTask={setEditingTask}
+        onDragStart={handleDragStart}
+        onDragEnd={() => setIsDraggingItem(false)}
+      />
 
       <CalendarCreateChoice
         open={showChoice}

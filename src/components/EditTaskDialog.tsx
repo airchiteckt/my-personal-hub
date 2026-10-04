@@ -243,6 +243,47 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             </div>
           )}
 
+          {(() => {
+            const entries = getTimeEntriesForTask(task.id)
+              .slice()
+              .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+            if (entries.length === 0) return null;
+            const now = Date.now();
+            const minutesOf = (te: typeof entries[0]) =>
+              te.endedAt
+                ? (te.durationMinutes || 0)
+                : Math.max(1, Math.round((now - new Date(te.startedAt).getTime()) / 60000));
+            const totalMinutes = entries.reduce((sum, te) => sum + minutesOf(te), 0);
+            const fmtDur = (mins: number) => {
+              const h = Math.floor(mins / 60);
+              const m = mins % 60;
+              return h > 0 ? `${h}h${m > 0 ? ` ${m}m` : ''}` : `${m}m`;
+            };
+            const fmtDay = (iso: string) =>
+              new Date(iso).toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short' });
+            const fmtTime = (iso: string) =>
+              `${String(new Date(iso).getHours()).padStart(2, '0')}:${String(new Date(iso).getMinutes()).padStart(2, '0')}`;
+            return (
+              <div className="space-y-1">
+                <Label className="flex items-center gap-1.5">
+                  ⏱ Tempo lavorato
+                  <span className="ml-auto text-xs font-semibold text-primary">Totale: {fmtDur(totalMinutes)}</span>
+                </Label>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {entries.map(te => (
+                    <div key={te.id} className="text-xs bg-accent/50 rounded-md p-2 flex items-center gap-2">
+                      <span className="font-medium capitalize">{fmtDay(te.startedAt)}</span>
+                      <span className="text-muted-foreground">
+                        {fmtTime(te.startedAt)} → {te.endedAt ? fmtTime(te.endedAt) : 'in corso'}
+                      </span>
+                      <span className="ml-auto font-medium">{fmtDur(minutesOf(te))}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex gap-2">
             {task.status === 'done' ? (
               <Button variant="outline" onClick={handleUncomplete} className="flex-1 gap-1.5">

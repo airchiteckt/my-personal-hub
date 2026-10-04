@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { usePrp } from '@/context/PrpContext';
 import { useState } from 'react';
 import { CalendarClock } from 'lucide-react';
@@ -65,33 +65,23 @@ export function CreateAppointmentDialog({ open, onOpenChange, defaultDate, defau
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="h-5 w-5" />
             Nuovo Appuntamento
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 pt-2">
-          <div className="space-y-2">
-            <Label>Titolo</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Es. Call con cliente, Riunione team..."
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Descrizione (opzionale)</Label>
-            <Textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Note aggiuntive..."
-              rows={2}
-            />
-          </div>
+        <div className="min-w-0 space-y-4 pt-2">
+          <TaskDocumentEditor
+            title={title}
+            onTitleChange={setTitle}
+            notes={description}
+            onNotesChange={setDescription}
+            onSubmit={handleSubmit}
+            autoFocus
+            titlePlaceholder="Titolo dell'appuntamento"
+          />
 
           <div className="space-y-2">
             <Label>Data</Label>

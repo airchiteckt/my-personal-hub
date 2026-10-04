@@ -86,7 +86,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
       enterpriseId,
       projectId,
       scheduledDate: scheduledDate || undefined,
-      scheduledTime: scheduledTime || undefined,
+      scheduledTime: scheduledTime || (null as unknown as string),
       status: task.status === 'done' ? task.status : newStatus,
       ...(prioritySettings.impactEffortEnabled ? { impact, effort } : {}),
     });

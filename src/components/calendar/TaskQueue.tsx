@@ -86,7 +86,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart }: Props) {
                   {t.scheduledTime && (
                     <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                       <Clock className="h-2.5 w-2.5" />{t.scheduledTime.slice(0, 5)}
-                      <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: undefined }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
+                      <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: null as unknown as string }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
                     </span>
                   )}
                   {!done && (

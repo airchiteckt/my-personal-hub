@@ -1121,6 +1121,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
       <CalendarCreateChoice
         open={showChoice}
         onOpenChange={setShowChoice}
+        date={apptDefaults.date}
+        startTime={apptDefaults.startTime}
+        endTime={apptDefaults.endTime}
         timeLabel={apptDefaults.date ? `${apptDefaults.date} · ${apptDefaults.startTime ?? ''} – ${apptDefaults.endTime ?? ''}` : undefined}
         onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
         onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}

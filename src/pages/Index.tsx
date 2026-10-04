@@ -861,6 +861,9 @@ const Index = ({ date, onBack }: DayViewProps) => {
       <CalendarCreateChoice
         open={showChoice}
         onOpenChange={setShowChoice}
+        date={createDefaults.date}
+        startTime={createDefaults.startTime}
+        endTime={createDefaults.endTime}
         timeLabel={`Oggi · ${createDefaults.startTime ?? ''} – ${createDefaults.endTime ?? ''}`}
         onChooseAppointment={() => { setShowChoice(false); setTimeout(() => setShowCreateAppt(true), 150); }}
         onChooseTask={() => { setShowChoice(false); setTimeout(() => setShowCreateTask(true), 150); }}

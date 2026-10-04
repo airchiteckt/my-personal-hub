@@ -10,7 +10,7 @@ import { Task, TaskPriority } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { priorityLimitWarning } from '@/lib/priority-limits';
 import { useState, useEffect, useCallback } from 'react';
-import { Archive, Bell, ChevronDown, Pencil } from 'lucide-react';
+import { Bell, Check, ChevronDown, Inbox, Pencil, Trash2 } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { TaskAttachments } from '@/components/TaskAttachments';
 
@@ -105,11 +105,13 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   };
 
   const handleDelete = () => {
+    if (!window.confirm('Eliminare definitivamente questa task? L\'azione non si può annullare.')) return;
     deleteTask(task.id);
     onOpenChange(false);
   };
 
   const handleComplete = () => {
+    doSave();
     completeTask(task.id);
     onOpenChange(false);
     onCompleted?.(task);
@@ -121,16 +123,30 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   };
 
   const handleBacklog = () => {
-    if (!window.confirm('Spostare questa attività nel Backlog? Verrà rimossa dal calendario.')) return;
+    if (!window.confirm('Rimandare questa task al Serbatoio? Verrà tolta dal giorno pianificato.')) return;
+    doSave();
     unscheduleTask(task.id);
     onOpenChange(false);
   };
+
+  const isDone = task.status === 'done';
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Modifica Task</DialogTitle>
+          <DialogTitle className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={isDone ? handleUncomplete : handleComplete}
+              aria-label={isDone ? 'Riapri task' : 'Segna come completata'}
+              title={isDone ? 'Riapri task' : 'Segna come completata'}
+              className={`group flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDone ? 'border-success bg-success text-success-foreground' : 'border-muted-foreground/50 hover:border-success hover:bg-success/10'}`}
+            >
+              <Check className={`h-3.5 w-3.5 transition-opacity ${isDone ? 'opacity-100' : 'text-success opacity-0 group-hover:opacity-100'}`} strokeWidth={3} />
+            </button>
+            {isDone ? 'Task completata' : 'Modifica Task'}
+          </DialogTitle>
         </DialogHeader>
         <div className="min-w-0 space-y-4 pt-2">
           <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} />
@@ -294,25 +310,16 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
             );
           })()}
 
-          <div className="flex gap-2">
-            {task.status === 'done' ? (
-              <Button variant="outline" onClick={handleUncomplete} className="flex-1 gap-1.5">
-                ↩️ Riapri
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={handleComplete} className="flex-1 gap-1.5">
-                ✅ Completa
-              </Button>
-            )}
+          <div className="flex items-center justify-between border-t pt-3">
+            <Button variant="ghost" size="icon" onClick={handleDelete} aria-label="Elimina task" title="Elimina task" className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+              <Trash2 className="h-4 w-4" />
+            </Button>
             {task.status === 'scheduled' && (
-              <Button variant="outline" onClick={handleBacklog} className="gap-1.5">
-                <Archive className="h-3.5 w-3.5" /> Backlog
+              <Button variant="outline" size="sm" onClick={handleBacklog} className="gap-1.5">
+                <Inbox className="h-3.5 w-3.5" /> Rimanda al Serbatoio
               </Button>
             )}
           </div>
-          <Button variant="destructive" onClick={handleDelete} className="w-full">
-            Elimina Task
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

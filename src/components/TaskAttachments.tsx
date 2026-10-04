@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from '@/components/ui/carousel';
-import { Paperclip, Upload, Trash2, Download, Loader2, Eye, File, FileText, Image as ImageIcon } from 'lucide-react';
+import { Paperclip, Upload, Trash2, Download, Loader2, Eye, File, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Attachment {
@@ -176,7 +176,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
                       className="group block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       aria-label={`Visualizza ${a.file_name}`}
                     >
-                      <div className="flex h-24 items-center justify-center overflow-hidden bg-muted/60">
+                      <div className="relative flex h-24 items-center justify-center overflow-hidden bg-muted/60">
                         {isImage(a) && url ? (
                           <img src={url} alt="" className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]" />
                         ) : isPdf(a) ? (
@@ -232,7 +232,7 @@ export function TaskAttachments({ taskId }: { taskId: string }) {
                         <iframe src={url} title={a.file_name} className="h-full w-full bg-background" />
                       ) : (
                         <div className="flex max-w-sm flex-col items-center gap-3 px-6 text-center">
-                          <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                          <File className="h-10 w-10 text-muted-foreground" />
                           <p className="break-words text-sm font-medium">{a.file_name}</p>
                           <p className="text-xs text-muted-foreground">Questo formato non dispone di anteprima.</p>
                         </div>

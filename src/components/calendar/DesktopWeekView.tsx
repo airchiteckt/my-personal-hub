@@ -646,18 +646,21 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       const mins = running ? Math.max(1, Math.round((timer.now - d.getTime()) / 60000)) : (te.durationMinutes || 0);
                       const { top, height } = getTaskPosition(hhmm, mins || 30, slotH);
                       const ent = getEnterprise(te.enterpriseId);
+                      const linkedTask = te.taskId ? tasks.find(t => t.id === te.taskId) : undefined;
                       return (
                         <div
                           key={`te-${te.id}`}
-                          className={`absolute left-0 right-0 rounded-md pointer-events-none border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'}`}
+                          className={`absolute left-0 right-0 rounded-md border ${running ? 'z-20 border-solid animate-pulse' : 'z-0 border-dashed'} ${linkedTask ? 'cursor-pointer hover:brightness-110' : 'pointer-events-none'}`}
                           style={{
                             top: top + 1,
                             height: Math.max(height - 2, 16),
                             backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / ${running ? 0.18 : 0.07})`,
                             borderColor: `hsl(${ent?.color || '0 0% 50%'} / 0.4)`,
                           }}
+                          onClick={linkedTask ? (e) => { e.stopPropagation(); setEditingTask(linkedTask); } : undefined}
+                          title={linkedTask ? `Apri "${linkedTask.title}"` : undefined}
                         >
-                          <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground">
+                          <span className="absolute bottom-0.5 right-1 text-[9px] text-muted-foreground pointer-events-none">
                             {running ? '● In corso ' : '⏱ '}{formatMinutes(mins)}{te.description ? ` · ${te.description}` : ''}
                           </span>
                         </div>

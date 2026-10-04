@@ -37,7 +37,7 @@ interface Props {
 }
 
 export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props) {
-  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask, enterprises } = usePrp();
+  const { updateTask, deleteTask, completeTask, uncompleteTask, unscheduleTask, prioritySettings, getProjectsForEnterprise, getRemindersForTask, enterprises, getTimeEntriesForTask } = usePrp();
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
   const [estimatedMinutes, setEstimatedMinutes] = useState(task.estimatedMinutes);

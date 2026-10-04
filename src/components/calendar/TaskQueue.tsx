@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { useState } from 'react';
-import { Plus, Play, Pause, Check, Clock, X, ListOrdered } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Play, Pause, Check, Clock, X, ListOrdered, ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePrp } from '@/context/PrpContext';
 import type { Task } from '@/types/prp';
 import { PRIORITY_DAILY_LIMITS, PRIORITY_ORDER } from '@/lib/priority-limits';
@@ -28,10 +28,14 @@ const badge: Record<string, string> = {
 };
 const lbl: Record<string, string> = { high: 'P1', medium: 'P2', low: 'P3' };
 
-/** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. */
+/** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. Scorrevole orizzontalmente con frecce. */
 export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: Props) {
-  const { tasks, timeEntries, getEnterprise, updateTask } = usePrp();
+  const { tasks, timeEntries, updateTask } = usePrp();
   const [over, setOver] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault(); setOver(false); onDragEnd?.();
     const data = e.dataTransfer.getData('text/plain');
@@ -47,6 +51,26 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] ||
       (a.scheduledTime || '99').localeCompare(b.scheduledTime || '99'));
 
+  const updateArrows = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 4);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateArrows();
+    const el = scrollerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(updateArrows);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [list.length, updateArrows]);
+
+  const scrollByDir = (dir: number) => {
+    scrollerRef.current?.scrollBy({ left: dir * 244, behavior: 'smooth' });
+  };
+
   const worked = (id: string) => timeEntries.filter(te => te.taskId === id).reduce((s, te) => {
     if (te.endedAt) return s + (te.durationMinutes || 0);
     return s + Math.max(0, Math.round((timer.now - new Date(te.startedAt).getTime()) / 60000));
@@ -61,7 +85,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setOver(true); }}
       onDragLeave={() => setOver(false)}
       onDrop={handleDrop}
-      className={`flex flex-col gap-1 px-1 rounded-lg transition-colors ${over ? 'bg-primary/10 ring-2 ring-primary/40' : ''}`}
+      className={`relative flex flex-col gap-1 px-1 rounded-lg transition-colors ${over ? 'bg-primary/10 ring-2 ring-primary/40' : ''}`}
     >
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
         <ListOrdered className="h-3 w-3" />
@@ -75,48 +99,72 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       {list.length === 0 ? (
         <p className="text-xs text-muted-foreground py-1">Nessuna attività. Premi "Aggiungi" nella barra qui sotto o trascina qui un'attività dal calendario.</p>
       ) : (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-          {list.map(t => {
-            const running = timer.activeTaskId === t.id;
-            const done = t.status === 'done';
-            const w = worked(t.id);
-            return (
-              <div
-                key={t.id}
-                draggable={!done}
-                onDragStart={e => onDragStart(e, t.id)}
-                onDragEnd={onDragEnd}
-                onClick={() => onOpenTask(t)}
-                className={`shrink-0 w-[220px] rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40' : ''} ${done ? 'opacity-50' : ''}`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
-                  <span className={`text-xs font-medium truncate flex-1 ${done ? 'line-through' : ''}`}>{t.title}</span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className={`text-[10px] ${w > t.estimatedMinutes ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {fmt(w)} / {fmt(t.estimatedMinutes)}
-                  </span>
-                  {t.scheduledTime && (
-                    <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                      <Clock className="h-2.5 w-2.5" />{t.scheduledTime.slice(0, 5)}
-                      <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: null as unknown as string }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
+        <div className="relative">
+          {canLeft && (
+            <button
+              aria-label="Scorri a sinistra"
+              onClick={() => scrollByDir(-1)}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-7 w-7 flex items-center justify-center rounded-full border bg-card/95 shadow-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+          )}
+          <div
+            ref={scrollerRef}
+            onScroll={updateArrows}
+            className="flex gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-pl-1 pb-0.5"
+          >
+            {list.map(t => {
+              const running = timer.activeTaskId === t.id;
+              const done = t.status === 'done';
+              const w = worked(t.id);
+              return (
+                <div
+                  key={t.id}
+                  draggable={!done}
+                  onDragStart={e => onDragStart(e, t.id)}
+                  onDragEnd={onDragEnd}
+                  onClick={() => onOpenTask(t)}
+                  className={`shrink-0 w-[220px] snap-start rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40' : ''} ${done ? 'opacity-50' : ''}`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>
+                    <span className={`text-xs font-medium truncate flex-1 ${done ? 'line-through' : ''}`}>{t.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className={`text-[10px] ${w > t.estimatedMinutes ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {fmt(w)} / {fmt(t.estimatedMinutes)}
                     </span>
-                  )}
-                  {!done && (
-                    <span className="ml-auto flex gap-1">
-                      {running ? (
-                        <button aria-label="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground"><Pause className="h-3 w-3" /></button>
-                      ) : (
-                        <button aria-label="Avvia" onClick={e => { e.stopPropagation(); timer.start(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Play className="h-3 w-3" /></button>
-                      )}
-                      <button aria-label="Completa" onClick={e => { e.stopPropagation(); timer.complete(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Check className="h-3 w-3" /></button>
-                    </span>
-                  )}
+                    {t.scheduledTime && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                        <Clock className="h-2.5 w-2.5" />{t.scheduledTime.slice(0, 5)}
+                        <button aria-label="Rimuovi orario" title="Rimuovi orario" onClick={e => { e.stopPropagation(); updateTask(t.id, { scheduledTime: null as unknown as string }); }} className="hover:text-foreground"><X className="h-2.5 w-2.5" /></button>
+                      </span>
+                    )}
+                    {!done && (
+                      <span className="ml-auto flex gap-1">
+                        {running ? (
+                          <button aria-label="Pausa" onClick={e => { e.stopPropagation(); timer.pause(); }} className="h-5 w-5 flex items-center justify-center rounded bg-primary text-primary-foreground"><Pause className="h-3 w-3" /></button>
+                        ) : (
+                          <button aria-label="Avvia" onClick={e => { e.stopPropagation(); timer.start(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Play className="h-3 w-3" /></button>
+                        )}
+                        <button aria-label="Completa" onClick={e => { e.stopPropagation(); timer.complete(t); }} className="h-5 w-5 flex items-center justify-center rounded border hover:bg-accent"><Check className="h-3 w-3" /></button>
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          {canRight && (
+            <button
+              aria-label="Scorri a destra"
+              onClick={() => scrollByDir(1)}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-7 w-7 flex items-center justify-center rounded-full border bg-card/95 shadow-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
         </div>
       )}
     </div>

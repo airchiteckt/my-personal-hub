@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { TaskDocumentEditor } from '@/components/TaskDocumentEditor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { usePrp } from '@/context/PrpContext';
@@ -29,6 +29,7 @@ export function LogTimeDialog({ open, onOpenChange, date, startTime, endTime }: 
   const [enterpriseId, setEnterpriseId] = useState('');
   const [projectId, setProjectId] = useState(NONE);
   const [description, setDescription] = useState('');
+  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function LogTimeDialog({ open, onOpenChange, date, startTime, endTime }: 
     setEnd(endTime || '10:00');
     setProjectId(NONE);
     setDescription('');
+    setNotes('');
     setEnterpriseId(prev => prev || enterprises[0]?.id || '');
   }, [open, date, startTime, endTime, enterprises]);
 
@@ -67,7 +69,7 @@ export function LogTimeDialog({ open, onOpenChange, date, startTime, endTime }: 
       }
       await addTimeEntry({
         enterpriseId, projectId: pid, taskId: undefined,
-        description: description.trim() || 'Sessione di lavoro',
+        description: [description.trim(), notes.trim()].filter(Boolean).join('\n') || 'Sessione di lavoro',
         startedAt: s.toISOString(), endedAt: e.toISOString(), durationMinutes: mins,
       } as any);
       toast.success(`Segnato: ${Math.floor(mins / 60) ? `${Math.floor(mins / 60)}h ` : ''}${mins % 60 ? `${mins % 60}m` : ''}`.trim());
@@ -86,12 +88,13 @@ export function LogTimeDialog({ open, onOpenChange, date, startTime, endTime }: 
           <DialogTitle className="text-base">Tempo lavorato</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <Textarea
+          <TaskDocumentEditor
+            title={description}
+            onTitleChange={setDescription}
+            notes={notes}
+            onNotesChange={setNotes}
+            onSubmit={save}
             autoFocus
-            placeholder="Cosa hai fatto?"
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            rows={2}
           />
           <div className="grid grid-cols-3 gap-2">
             <div className="space-y-1"><Label className="text-xs">Giorno</Label><Input type="date" value={d} onChange={e => setD(e.target.value)} /></div>

@@ -139,18 +139,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-h-[90dvh] w-[calc(100vw-2rem)] max-w-lg overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={isDone ? handleUncomplete : handleComplete}
-              aria-label={isDone ? 'Riapri task' : 'Segna come completata'}
-              title={isDone ? 'Riapri task' : 'Segna come completata'}
-              className={`group flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${isDone ? 'border-success bg-success text-success-foreground' : 'border-muted-foreground/50 hover:border-success hover:bg-success/10'}`}
-            >
-              <Check className={`h-3.5 w-3.5 transition-opacity ${isDone ? 'opacity-100' : 'text-success opacity-0 group-hover:opacity-100'}`} strokeWidth={3} />
-            </button>
-            {isDone ? 'Task completata' : 'Modifica Task'}
-          </DialogTitle>
+          <DialogTitle>{isDone ? 'Task completata' : 'Modifica Task'}</DialogTitle>
         </DialogHeader>
         <div className="min-w-0 space-y-4 pt-2">
           <TaskDocumentEditor title={title} onTitleChange={setTitle} notes={description} onNotesChange={setDescription} />

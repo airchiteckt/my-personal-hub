@@ -124,3 +124,11 @@
     font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   }
 }
+
+@layer utilities {
+  @keyframes working-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.55); }
+    50% { box-shadow: 0 0 0 6px hsl(var(--primary) / 0); }
+  }
+  .animate-working { animation: working-pulse 1.6s ease-in-out infinite; }
+}

@@ -86,7 +86,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
                 onDragStart={e => onDragStart(e, t.id)}
                 onDragEnd={onDragEnd}
                 onClick={() => onOpenTask(t)}
-                className={`shrink-0 w-[220px] snap-start rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40' : ''}`}
+                className={`shrink-0 w-[220px] snap-start rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40 animate-working' : ''}`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>

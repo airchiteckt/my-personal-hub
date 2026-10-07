@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 import { RitualData, RitualCompletion, shouldCompleteOnDate } from '@/lib/ritual-utils';
 import type { JournalEntry } from '@/components/calendar/JournalDialog';
+import { launchFireworks } from '@/lib/fireworks';
 
 export interface ActivityLog {
   id: string;
@@ -283,6 +284,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
   const [reminders, setReminders] = useState<Reminder[]>([]);
 
   const userId = user?.id;
+  const [syncTick, setSyncTick] = useState(0);
 
   // --- Initial fetch ---
   useEffect(() => {
@@ -346,7 +348,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
     load();
-  }, [userId]);
+  }, [userId, syncTick]);
 
   // --- Realtime subscriptions ---
   useEffect(() => {
@@ -419,6 +421,30 @@ export function PrpProvider({ children }: { children: ReactNode }) {
       }).subscribe(),
     ];
     return () => { channels.forEach(ch => supabase.removeChannel(ch)); };
+  }, [userId, syncTick]);
+
+  // Riallineamento quando l'app torna in primo piano (iPad/telefono sospendono il realtime)
+  useEffect(() => {
+    if (!userId) return;
+    let last = Date.now();
+    const bump = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - last < 3000) return;
+      last = Date.now();
+      setSyncTick(n => n + 1);
+    };
+    document.addEventListener('visibilitychange', bump);
+    window.addEventListener('focus', bump);
+    window.addEventListener('online', bump);
+    window.addEventListener('pageshow', bump);
+    const iv = setInterval(() => { last = 0; bump(); }, 120_000);
+    return () => {
+      document.removeEventListener('visibilitychange', bump);
+      window.removeEventListener('focus', bump);
+      window.removeEventListener('online', bump);
+      window.removeEventListener('pageshow', bump);
+      clearInterval(iv);
+    };
   }, [userId]);
 
   // --- Mutations (all include user_id) ---
@@ -566,6 +592,7 @@ export function PrpProvider({ children }: { children: ReactNode }) {
 
   const completeTask = useCallback(async (id: string) => {
     const now = new Date().toISOString();
+    launchFireworks();
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'done' as const, completedAt: now } : t));
     await supabase.from('tasks').update({ status: 'done', completed_at: now }).eq('id', id);
   }, []);

@@ -521,11 +521,35 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                 const dayAppts = getAppointmentsForDate(dayDate);
                 const dayExternalEvents = getExternalCalendarEventsForDate(dayDate);
                 const dayReminders = getRemindersForDate(dayDate);
-                const dayTimeEntries = timeEntries.filter(te => {
+                const allDayTE = timeEntries.filter(te => {
                   const d = new Date(te.startedAt);
                   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
                   return local === dayDate && (te.durationMinutes || !te.endedAt);
                 });
+                // Il tracking di una task già presente sul calendario estende la card stessa invece di creare una fascia separata
+                const dayTaskIds = new Set(dayTasks.map(t => t.id));
+                const dayTimeEntries = allDayTE.filter(te => !te.taskId || !dayTaskIds.has(te.taskId));
+                const trackSpan = new Map<string, { s: number; e: number; mins: number; running: boolean }>();
+                allDayTE.forEach(te => {
+                  if (!te.taskId || !dayTaskIds.has(te.taskId)) return;
+                  const d = new Date(te.startedAt);
+                  const running = !te.endedAt;
+                  const mins = running ? Math.max(1, Math.round((timer.now - d.getTime()) / 60000)) : (te.durationMinutes || 0);
+                  const s = d.getHours() * 60 + d.getMinutes();
+                  const cur = trackSpan.get(te.taskId);
+                  trackSpan.set(te.taskId, cur
+                    ? { s: Math.min(cur.s, s), e: Math.max(cur.e, s + mins), mins: cur.mins + mins, running: cur.running || running }
+                    : { s, e: s + mins, mins, running });
+                });
+                const taskSpan = (t: typeof dayTasks[0]) => {
+                  const [h, m] = (t.scheduledTime || '09:00').split(':').map(Number);
+                  let s = h * 60 + (m || 0);
+                  let e = s + t.estimatedMinutes;
+                  const tr = trackSpan.get(t.id);
+                  if (tr) { s = Math.min(s, tr.s); e = Math.max(e, tr.e); }
+                  return { s, e, tr };
+                };
+                const hm = (x: number) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
                 const isCurrent = isToday(day);
 
                 return (

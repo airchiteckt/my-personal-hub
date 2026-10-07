@@ -521,11 +521,35 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                 const dayAppts = getAppointmentsForDate(dayDate);
                 const dayExternalEvents = getExternalCalendarEventsForDate(dayDate);
                 const dayReminders = getRemindersForDate(dayDate);
-                const dayTimeEntries = timeEntries.filter(te => {
+                const allDayTE = timeEntries.filter(te => {
                   const d = new Date(te.startedAt);
                   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
                   return local === dayDate && (te.durationMinutes || !te.endedAt);
                 });
+                // Il tracking di una task già presente sul calendario estende la card stessa invece di creare una fascia separata
+                const dayTaskIds = new Set(dayTasks.map(t => t.id));
+                const dayTimeEntries = allDayTE.filter(te => !te.taskId || !dayTaskIds.has(te.taskId));
+                const trackSpan = new Map<string, { s: number; e: number; mins: number; running: boolean }>();
+                allDayTE.forEach(te => {
+                  if (!te.taskId || !dayTaskIds.has(te.taskId)) return;
+                  const d = new Date(te.startedAt);
+                  const running = !te.endedAt;
+                  const mins = running ? Math.max(1, Math.round((timer.now - d.getTime()) / 60000)) : (te.durationMinutes || 0);
+                  const s = d.getHours() * 60 + d.getMinutes();
+                  const cur = trackSpan.get(te.taskId);
+                  trackSpan.set(te.taskId, cur
+                    ? { s: Math.min(cur.s, s), e: Math.max(cur.e, s + mins), mins: cur.mins + mins, running: cur.running || running }
+                    : { s, e: s + mins, mins, running });
+                });
+                const taskSpan = (t: typeof dayTasks[0]) => {
+                  const [h, m] = (t.scheduledTime || '09:00').split(':').map(Number);
+                  let s = h * 60 + (m || 0);
+                  let e = s + t.estimatedMinutes;
+                  const tr = trackSpan.get(t.id);
+                  if (tr) { s = Math.min(s, tr.s); e = Math.max(e, tr.e); }
+                  return { s, e, tr };
+                };
+                const hm = (x: number) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
                 const isCurrent = isToday(day);
 
                 return (
@@ -724,9 +748,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                     {(() => {
                       const allTimeInfos: TaskTimeInfo[] = [];
                       dayTasks.forEach(t => {
-                        const time = t.scheduledTime || '09:00';
-                        const ss = timeToSlot(time);
-                        allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: ss + Math.ceil(t.estimatedMinutes / 30) });
+                        const { s, e } = taskSpan(t);
+                        const ss = timeToSlot(hm(s));
+                        allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: Math.max(ss + 1, ss + Math.ceil((e - s) / 30)) });
                       });
                       dayAppts.forEach(appt => {
                         const ss = timeToSlot(appt.startTime);
@@ -766,8 +790,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       return (
                         <>
                           {dayTasks.map(task => {
-                            const time = task.scheduledTime || '09:00';
-                            const { top, height } = getTaskPosition(time, task.estimatedMinutes, slotH);
+                            const sp = taskSpan(task);
+                            const { top, height } = getTaskPosition(hm(sp.s), sp.e - sp.s, slotH);
                             const ent = getEnterprise(task.enterpriseId);
                             const isDone = task.status === 'done';
                             const sty = uLS(task.id);
@@ -778,13 +802,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 onDragStart={e => !isDone && handleDragStart(e, task.id)}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? "opacity-40" : ""} ${timer.activeTaskId === task.id ? "animate-working" : ""}`}
+                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone && !sp.tr ? "opacity-40" : ""} ${timer.activeTaskId === task.id ? "animate-working" : ""}`}
                                 style={{
                                   top: top + 1,
                                   height: Math.max(height - 2, slotH - 4),
                                   ...sty,
-                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
-                                  borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
+                                  backgroundColor: isDone && sp.tr ? 'hsl(var(--success) / 0.12)' : `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
+                                  borderLeft: `3px solid ${isDone && sp.tr ? 'hsl(var(--success))' : `hsl(${ent?.color || '0 0% 50%'})`}`,
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
@@ -795,6 +819,11 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                                   </p>
+                                  {sp.tr && (
+                                    <p className="mt-auto text-[10px] font-medium text-muted-foreground truncate">
+                                      {sp.tr.running ? '● In corso ' : isDone ? '✓ ' : '⏱ '}{formatMinutes(sp.tr.mins)} lavorati
+                                    </p>
+                                  )}
                                 </div>
                                 {!isDone && (
                                   <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5">

@@ -748,9 +748,9 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                     {(() => {
                       const allTimeInfos: TaskTimeInfo[] = [];
                       dayTasks.forEach(t => {
-                        const time = t.scheduledTime || '09:00';
-                        const ss = timeToSlot(time);
-                        allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: ss + Math.ceil(t.estimatedMinutes / 30) });
+                        const { s, e } = taskSpan(t);
+                        const ss = timeToSlot(hm(s));
+                        allTimeInfos.push({ id: t.id, startSlot: ss, endSlot: Math.max(ss + 1, ss + Math.ceil((e - s) / 30)) });
                       });
                       dayAppts.forEach(appt => {
                         const ss = timeToSlot(appt.startTime);
@@ -790,8 +790,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                       return (
                         <>
                           {dayTasks.map(task => {
-                            const time = task.scheduledTime || '09:00';
-                            const { top, height } = getTaskPosition(time, task.estimatedMinutes, slotH);
+                            const sp = taskSpan(task);
+                            const { top, height } = getTaskPosition(hm(sp.s), sp.e - sp.s, slotH);
                             const ent = getEnterprise(task.enterpriseId);
                             const isDone = task.status === 'done';
                             const sty = uLS(task.id);
@@ -802,13 +802,13 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 onDragStart={e => !isDone && handleDragStart(e, task.id)}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? "opacity-40" : ""} ${timer.activeTaskId === task.id ? "animate-working" : ""}`}
+                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone && !sp.tr ? "opacity-40" : ""} ${timer.activeTaskId === task.id ? "animate-working" : ""}`}
                                 style={{
                                   top: top + 1,
                                   height: Math.max(height - 2, slotH - 4),
                                   ...sty,
-                                  backgroundColor: `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
-                                  borderLeft: `3px solid hsl(${ent?.color || '0 0% 50%'})`,
+                                  backgroundColor: isDone && sp.tr ? 'hsl(var(--success) / 0.12)' : `hsl(${ent?.color || '0 0% 50%'} / 0.15)`,
+                                  borderLeft: `3px solid ${isDone && sp.tr ? 'hsl(var(--success))' : `hsl(${ent?.color || '0 0% 50%'})`}`,
                                 }}
                               >
                                 <div className="p-1.5 h-full flex flex-col">
@@ -819,6 +819,11 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
                                     {ent?.name} · {formatMinutes(task.estimatedMinutes)}
                                   </p>
+                                  {sp.tr && (
+                                    <p className="mt-auto text-[10px] font-medium text-muted-foreground truncate">
+                                      {sp.tr.running ? '● In corso ' : isDone ? '✓ ' : '⏱ '}{formatMinutes(sp.tr.mins)} lavorati
+                                    </p>
+                                  )}
                                 </div>
                                 {!isDone && (
                                   <div className="absolute top-0.5 right-0.5 flex items-center gap-0.5">

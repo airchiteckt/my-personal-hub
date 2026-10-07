@@ -778,7 +778,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
                                 onDragStart={e => !isDone && handleDragStart(e, task.id)}
                                 onMouseDown={e => e.stopPropagation()}
                                 onClick={e => { e.stopPropagation(); setEditingTask(task); }}
-                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? 'opacity-40' : ''}`}
+                                className={`absolute rounded-lg overflow-hidden cursor-pointer group z-10 ${isDone ? "opacity-40" : ""} ${timer.activeTaskId === task.id ? "animate-working" : ""}`}
                                 style={{
                                   top: top + 1,
                                   height: Math.max(height - 2, slotH - 4),

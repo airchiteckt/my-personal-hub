@@ -7,6 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useAuth } from '@/context/AuthContext';
 import { usePrp } from '@/context/PrpContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,6 +56,9 @@ const SRConstructor = typeof window !== 'undefined'
   ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   : null;
 
+export type RadarScope = { type: 'enterprise' | 'focus' | 'objective' | 'key_result' | 'project'; id: string; label: string };
+export const openRadarScope = (sc: RadarScope) => window.dispatchEvent(new CustomEvent('radar:open-scope', { detail: sc }));
+
 // Shared hook for all Radar logic
 function useRadar() {
   const { session } = useAuth();
@@ -67,6 +71,17 @@ function useRadar() {
 
   const [view, setView] = useState<RadarView>('home');
   const [messages, setMessages] = useState<Msg[]>([]);
+  // Conversazione dedicata (impresa, Focus, obiettivo, Key Result, progetto): salvata e sincronizzata
+  const [scope, setScopeState] = useState<RadarScope | null>(null);
+  const scopeLoadedRef = useRef(false);
+  const openScope = async (sc: RadarScope | null) => {
+    scopeLoadedRef.current = false;
+    setScopeState(sc); setPendingActions([]);
+    if (!sc) { setMessages([]); return; }
+    const { data } = await supabase.from('radar_threads').select('messages').eq('scope_type', sc.type).eq('scope_id', sc.id).maybeSingle();
+    setMessages(((data?.messages as unknown) as Msg[]) || []);
+    scopeLoadedRef.current = true;
+  };
   const [pendingActions, setPendingActions] = useState<GlobalAction[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +103,17 @@ function useRadar() {
   const greetingCacheRef = useRef<Blob | null>(null);
   const isStartingRecognitionRef = useRef(false);
   const wakeLockRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!scope || !scopeLoadedRef.current || isLoading) return;
+    const t = setTimeout(() => {
+      supabase.from('radar_threads').upsert(
+        { user_id: session?.user?.id, scope_type: scope.type, scope_id: scope.id, label: scope.label, messages: messages as unknown as never },
+        { onConflict: 'user_id,scope_type,scope_id' },
+      ).then(({ error }) => { if (error) console.error('radar thread save', error); });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [messages, isLoading, scope, session?.user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -275,6 +301,7 @@ function useRadar() {
       azioniGiaEseguiteInQuestaChat: pendingActions.filter(a => a.applied).map(a => ({ tipo: a.type, dati: a.data })),
       azioniRifiutateInQuestaChat: pendingActions.filter(a => a.rejected).map(a => ({ tipo: a.type, dati: a.data })),
       notaAzioni: 'Le azioni elencate in azioniGiaEseguiteInQuestaChat sono GIÀ state eseguite e confermate: non riproporle mai. Le azioni in azioniRifiutateInQuestaChat sono state annullate dall\'utente: non riproporle a meno di richiesta esplicita.',
+      conversazioneDedicata: scope ? { tipo: scope.type, id: scope.id, nome: scope.label, nota: `Questa conversazione è dedicata a ${scope.label} (${scope.type}, UUID ${scope.id}). Concentrati su questo elemento: aiuta a configurare e migliorare Focus, obiettivi, Key Result, progetti e attività collegati, proponendo sempre le modifiche come azioni da approvare.` } : null,
       currentSection, currentEnterpriseId, currentDate: today, currentQuarter: `Q${currentQ} ${now.getFullYear()}`,
 
       enterprises: enterprises.map(e => ({ id: e.id, name: e.name, status: e.status, phase: e.phase, businessCategory: e.businessCategory, color: e.color })),
@@ -542,6 +569,7 @@ function useRadar() {
   };
 
   return {
+    scope, openScope,
     view, setView, messages, setMessages, pendingActions, setPendingActions, timeline,
     input, setInput, isLoading, scrollRef, inputRef, callState, callActive,
     callDuration, voiceEnabled, setVoiceEnabled, startCall, endCall, sendTyped,
@@ -852,9 +880,12 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
     const isMine = () => (variant === 'fab') === window.matchMedia('(min-width: 768px)').matches;
     const onToggle = () => { if (isMine()) setExpanded(v => !v); };
     const onVoice = () => { if (!isMine()) return; setExpanded(true); r.startCall(); };
+    const onScope = (e: Event) => { if (!isMine()) return; r.openScope((e as CustomEvent).detail); setExpanded(true); r.setView('chat'); };
     window.addEventListener('radar:toggle', onToggle);
     window.addEventListener('radar:voice', onVoice);
+    window.addEventListener('radar:open-scope', onScope);
     return () => {
+      window.removeEventListener('radar:open-scope', onScope);
       window.removeEventListener('radar:toggle', onToggle);
       window.removeEventListener('radar:voice', onVoice);
     };
@@ -893,6 +924,13 @@ export function AiAssistant({ variant = 'dock' }: { variant?: 'dock' | 'inline' 
 
   const headerBlock = (
     <div className="shrink-0 border-b border-border/40 overflow-hidden">
+      {r.scope && (
+        <div className="flex items-center gap-2 px-4 py-1.5 bg-accent/50 text-xs">
+          <FolderKanban className="h-3 w-3 text-primary shrink-0" />
+          <span className="truncate flex-1">Conversazione su <strong>{r.scope.label}</strong></span>
+          <button onClick={() => r.openScope(null)} className="text-muted-foreground hover:text-foreground" title="Torna alla conversazione generale">Esci</button>
+        </div>
+      )}
       <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-br from-primary/[0.05] to-transparent">
         <div className="flex items-center gap-2.5">
           {r.view !== 'chat' && r.view !== 'home' && (

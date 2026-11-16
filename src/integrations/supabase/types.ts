@@ -1139,6 +1139,39 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_threads: {
+        Row: {
+          created_at: string
+          id: string
+          label: string | null
+          messages: Json
+          scope_id: string
+          scope_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          messages?: Json
+          scope_id: string
+          scope_type: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string | null
+          messages?: Json
+          scope_id?: string
+          scope_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reminders: {
         Row: {
           call_status: string | null

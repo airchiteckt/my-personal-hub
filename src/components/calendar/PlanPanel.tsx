@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Plus, X, Inbox, CalendarDays, Sun, Sparkles } from 'lucide-react';
+import { Plus, X, Inbox, CalendarDays, Sun, Sparkles, Maximize2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { usePrp } from '@/context/PrpContext';
 import type { Task } from '@/types/prp';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ const taskIdFrom = (e: React.DragEvent) => {
 /** Pannello "Piano" a lato del calendario: Oggi e Settimana (sprint) + Backlog. */
 export function PlanPanel({ date, timer, onClose, onOpenTask, onAddTask, onDragStart, onDragEnd }: Props) {
   const { tasks, updateTask } = usePrp();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('today');
   const [overTab, setOverTab] = useState<Tab | null>(null);
   const [overDay, setOverDay] = useState<string | null>(null);
@@ -152,6 +154,7 @@ export function PlanPanel({ date, timer, onClose, onOpenTask, onAddTask, onDragS
           </div>
         )}
 
+        {tab === 'backlog' && <button onClick={() => navigate('/backlog')} className="w-full mb-2 flex items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Maximize2 className="h-3 w-3" />Apri Backlog completo</button>}
         {tab === 'backlog' && <BacklogTree date={date} onOpenTask={onOpenTask} onDragStart={onDragStart} onDragEnd={onDragEnd} />}
       </div>
     </aside>

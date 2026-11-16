@@ -153,7 +153,7 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
             <span className="truncate">{p.name}</span>
             <span className="text-muted-foreground font-normal">({list.length})</span>
           </button>
-          {!projectId && <button title="Apri la pagina del progetto" onClick={() => navigate(`/backlog/progetto/${p.id}`)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-accent">
+          {!projectId && <button title="Apri la pagina del progetto" onClick={() => navigate(`/planner/progetto/${p.id}`)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-accent">
             <ArrowUpRight className="h-3.5 w-3.5" />
           </button>}
         </div>

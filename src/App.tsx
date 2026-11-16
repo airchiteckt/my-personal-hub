@@ -83,6 +83,7 @@ function ProtectedRoutes() {
           <Route path="/backlog" element={<Backlog />} />
           <Route path="/backlog/progetto/:projectId" element={<ProjectPlan />} />
           <Route path="/planner" element={<Planner />} />
+          <Route path="/planner/progetto/:projectId" element={<ProjectPlan />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

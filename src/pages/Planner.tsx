@@ -5,6 +5,7 @@ import {
   Target, ChevronRight, ChevronDown, Plus, X, CalendarDays,
   ChevronLeft, ChevronRight as ChevronRightIcon, Layers, Flag,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,11 +29,12 @@ function krProgress(kr: KeyResult): number {
 
 export default function Planner() {
   const {
-    enterprises, focusPeriods, objectives, projects, tasks, prioritySettings,
+    enterprises, focusPeriods, keyResults, objectives, projects, tasks, prioritySettings,
     getObjectivesForFocus, getKeyResultsForObjective, getProjectsForKeyResult,
     getTasksForProject, getTasksForDate, getAppointmentsForDate,
     getEnterprise, getProjectType, scheduleTask, unscheduleTask,
   } = usePrp();
+  const navigate = useNavigate();
 
   const [enterpriseFilter, setEnterpriseFilter] = useState<string>('all');
   const [date, setDate] = useState<Date>(new Date());
@@ -200,7 +202,7 @@ export default function Planner() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Piano</h1>
           <p className="text-sm text-muted-foreground">
-            Dagli obiettivi alla giornata: scegli cosa fare oggi partendo da Focus, Obiettivi e Progetti.
+            I tuoi progetti, impresa per impresa. Entra in un progetto per organizzarne le attività e pianificarlo con Radar.
           </p>
         </div>
         <Select value={enterpriseFilter} onValueChange={setEnterpriseFilter}>
@@ -217,124 +219,48 @@ export default function Planner() {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-        {/* Strategy tree */}
-        <Card className="p-3 flex flex-col min-h-[420px]">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="h-4 w-4 text-primary" />
-            <h2 className="text-sm font-semibold">Focus attivi → Obiettivi → Key Result → Progetti</h2>
-          </div>
-          <Separator className="mb-2" />
-          <ScrollArea className="flex-1 max-h-[calc(100dvh-260px)] pr-2">
-            {activeFocus.length === 0 && (
-              <p className="text-sm text-muted-foreground py-6 text-center">
-                Nessun Focus attivo. Creane uno dalla scheda impresa per pianificare in modo strategico.
-              </p>
-            )}
-            <div className="space-y-3">
-              {activeFocus.map(focus => {
-                const ent = getEnterprise(focus.enterpriseId);
-                const objs = getObjectivesForFocus(focus.id);
-                const fKey = `f-${focus.id}`;
-                const fOpen = expanded[fKey] ?? true;
-                return (
-                  <div key={focus.id} className="rounded-lg border p-2">
-                    <button className="flex items-center gap-2 w-full text-left" onClick={() => toggle(fKey)}>
-                      {fOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      {ent && <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: `hsl(${ent.color})` }} />}
-                      <span className="text-sm font-semibold truncate">{focus.name}</span>
-                      {ent && enterpriseFilter === 'all' && (
-                        <span className="text-[11px] text-muted-foreground shrink-0 max-w-[120px] truncate" title={ent.name}>
-                          {ent.name}
-                        </span>
-                      )}
-                      <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
-                        {format(new Date(focus.endDate), 'd MMM', { locale: it })}
-                      </span>
-                    </button>
-
-                    {fOpen && (
-                      <div className="mt-2 space-y-2 pl-4">
-                        {objs.length === 0 && (
-                          <p className="text-[11px] text-muted-foreground italic">Nessun obiettivo in questo Focus</p>
-                        )}
-                        {objs.map(obj => {
-                          const krs = getKeyResultsForObjective(obj.id);
-                          const oKey = `o-${obj.id}`;
-                          const oOpen = expanded[oKey] ?? true;
-                          const oProgress = krs.length
-                            ? Math.round(krs.reduce((s, k) => s + krProgress(k), 0) / krs.length)
-                            : 0;
-                          return (
-                            <div key={obj.id} className="rounded-md bg-muted/40 p-2">
-                              <button className="flex items-center gap-2 w-full text-left" onClick={() => toggle(oKey)}>
-                                {oOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                                <Flag className="h-3.5 w-3.5 text-primary shrink-0" />
-                                <span className="text-sm font-medium truncate">{obj.title}</span>
-                                <span className="text-[11px] text-muted-foreground ml-auto shrink-0">{oProgress}%</span>
-                              </button>
-                              <Progress value={oProgress} className="h-1 mt-1.5" />
-
-                              {oOpen && (
-                                <div className="mt-2 space-y-2 pl-4">
-                                  {krs.length === 0 && (
-                                    <p className="text-[11px] text-muted-foreground italic">Nessun Key Result</p>
-                                  )}
-                                  {krs.map(kr => {
-                                    const kProjects = getProjectsForKeyResult(kr.id);
-                                    const kKey = `k-${kr.id}`;
-                                    const kOpen = expanded[kKey] ?? true;
-                                    return (
-                                      <div key={kr.id}>
-                                        <button className="flex items-center gap-2 w-full text-left" onClick={() => toggle(kKey)}>
-                                          {kOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                                          <span className="text-[13px] truncate">{kr.title}</span>
-                                          <span className="text-[11px] text-muted-foreground ml-auto shrink-0">{krProgress(kr)}%</span>
-                                        </button>
-                                        {kOpen && (
-                                          <div className="mt-1 space-y-1 pl-4">
-                                            {kProjects.length === 0
-                                              ? <p className="text-[11px] text-muted-foreground italic">Nessun progetto collegato</p>
-                                              : kProjects.map(p => renderProject(p, enterpriseFilter === 'all'))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Operational / maintenance projects not linked to KRs */}
-              {(() => {
-                const others = projects
-                  .filter(p => !p.keyResultId)
-                  .filter(p => enterpriseFilter === 'all' || p.enterpriseId === enterpriseFilter)
-                  .filter(p => (backlogByProject.get(p.id) || []).length > 0);
-                if (others.length === 0) return null;
-                const key = 'others';
-                const open = expanded[key] ?? false;
-                return (
-                  <div className="rounded-lg border p-2">
-                    <button className="flex items-center gap-2 w-full text-left" onClick={() => toggle(key)}>
-                      {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      <Layers className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-semibold">Progetti operativi e di mantenimento</span>
-                      <span className="text-[11px] text-muted-foreground ml-auto">{others.length}</span>
-                    </button>
-                    {open && <div className="mt-2 space-y-1 pl-4">{others.map(p => renderProject(p, true))}</div>}
-                  </div>
-                );
-              })()}
-            </div>
-          </ScrollArea>
-        </Card>
+        {/* Progetti */}
+        <div className="space-y-4 min-w-0">
+          {enterprises.filter(e => enterpriseFilter === 'all' || e.id === enterpriseFilter).map(ent => {
+            const entProjects = projects.filter(p => p.enterpriseId === ent.id);
+            if (entProjects.length === 0) return null;
+            return (
+              <section key={ent.id}>
+                <h2 className="flex items-center gap-2 text-sm font-semibold mb-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `hsl(${ent.color})` }} />{ent.name}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {entProjects.map(p => {
+                    const list = backlogByProject.get(p.id) || [];
+                    const planned = tasks.filter(t => t.projectId === p.id && t.status === 'scheduled').length;
+                    const kr = p.keyResultId ? keyResults.find(k => k.id === p.keyResultId) : undefined;
+                    return (
+                      <Card key={p.id} className="p-3 flex flex-col gap-2 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate(`/planner/progetto/${p.id}`)}>
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{p.name}</p>
+                            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
+                              {kr ? <><Flag className="h-3 w-3 shrink-0" />{kr.title}</> : PROJECT_TYPE_LABELS[p.type]}
+                            </p>
+                          </div>
+                          <ChevronRightIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        </div>
+                        <div className="flex gap-3 text-[11px] text-muted-foreground">
+                          <span><strong className="text-foreground">{list.length}</strong> nel backlog</span>
+                          <span><strong className="text-foreground">{planned}</strong> pianificate</span>
+                        </div>
+                        {list.slice(0, 3).map(t => (
+                          <div key={t.id} onClick={e => e.stopPropagation()}>{renderTaskRow(t)}</div>
+                        ))}
+                        {list.length > 3 && <p className="text-[11px] text-muted-foreground">+ altre {list.length - 3}</p>}
+                      </Card>
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
+        </div>
 
         {/* Day panel */}
         <Card

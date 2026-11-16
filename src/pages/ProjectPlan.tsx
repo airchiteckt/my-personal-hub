@@ -32,7 +32,7 @@ export default function ProjectPlan() {
   return (
     <div className="flex flex-col h-[calc(100dvh-3.5rem)] w-full max-w-7xl mx-auto p-4 gap-3">
       <div className="flex items-start gap-2 shrink-0">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/backlog')} aria-label="Torna al Piano"><ChevronLeft className="h-4 w-4" /></Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/planner')} aria-label="Torna al Piano"><ChevronLeft className="h-4 w-4" /></Button>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
             {ent && <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${ent.color})` }} />}{ent?.name}

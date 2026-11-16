@@ -28,8 +28,8 @@ export default function Backlog() {
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-lg font-bold leading-tight">Backlog</h1>
-          <p className="text-xs text-muted-foreground">Organizza le attività per progetto. Tocca P1/P2/P3 per cambiare priorità, trascina un'attività su un altro progetto per spostarla, usa il calendario accanto a ogni attività per metterla in piano.</p>
+          <h1 className="text-lg font-bold leading-tight">Piano</h1>
+          <p className="text-xs text-muted-foreground">Organizza le attività per progetto; apri un progetto con la freccia per pianificarlo insieme a Radar. Tocca P1/P2/P3 per cambiare priorità, trascina un'attività su un altro progetto per spostarla, usa il calendario accanto a ogni attività per metterla in piano.</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => setCreating(true)}><Plus className="h-3.5 w-3.5 mr-1" />Task</Button>
       </div>

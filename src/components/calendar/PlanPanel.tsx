@@ -154,7 +154,7 @@ export function PlanPanel({ date, timer, onClose, onOpenTask, onAddTask, onDragS
           </div>
         )}
 
-        {tab === 'backlog' && <button onClick={() => navigate('/backlog')} className="w-full mb-2 flex items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Maximize2 className="h-3 w-3" />Apri Backlog completo</button>}
+        {tab === 'backlog' && <button onClick={() => navigate('/backlog')} className="w-full mb-2 flex items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-[11px] text-muted-foreground hover:text-foreground"><Maximize2 className="h-3 w-3" />Apri Piano completo</button>}
         {tab === 'backlog' && <BacklogTree date={date} onOpenTask={onOpenTask} onDragStart={onDragStart} onDragEnd={onDragEnd} />}
       </div>
     </aside>

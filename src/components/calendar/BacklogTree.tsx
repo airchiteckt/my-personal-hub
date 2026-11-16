@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { addDays, differenceInDays, format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronDown, ChevronRight, CalendarPlus, Target, Flag, FolderKanban, Search, Plus, Radar, Clock3, Inbox } from 'lucide-react';
+import { ChevronDown, ChevronRight, CalendarPlus, Target, Flag, FolderKanban, Search, Plus, ArrowUpRight, Clock3, Inbox } from 'lucide-react';
 import { usePrp } from '@/context/PrpContext';
 import type { Task, TaskPriority, Project } from '@/types/prp';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as DayPicker } from '@/components/ui/calendar';
 import { PRIORITY_ORDER, priorityLimitWarning } from '@/lib/priority-limits';
-import { openRadarScope } from '@/components/AiAssistant';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface Props {
@@ -20,6 +20,8 @@ interface Props {
   onDragEnd?: () => void;
   /** 'page' = vista completa per organizzare (progetti aperti, aggiunta rapida, spostamento tra progetti) */
   variant?: 'panel' | 'page';
+  /** Mostra solo questo progetto (pagina dedicata) */
+  projectId?: string;
 }
 
 const lbl: Record<TaskPriority, string> = { high: 'P1', medium: 'P2', low: 'P3' };
@@ -32,7 +34,8 @@ const badge: Record<TaskPriority, string> = {
 const STALE_DAYS = 30;
 
 /** Backlog gerarchico: Focus → Obiettivi → Key Result → Progetti → attività, più progetti operativi/manutenzione. */
-export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant = 'panel' }: Props) {
+export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant = 'panel', projectId }: Props) {
+  const navigate = useNavigate();
   const { tasks, enterprises, projects, focusPeriods, objectives, keyResults, updateTask, addTask } = usePrp();
   const page = variant === 'page';
   const [entFilter, setEntFilter] = useState<string>('all');
@@ -56,7 +59,7 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
     .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || a.createdAt.localeCompare(b.createdAt));
   const isOpen = (k: string) => open[k] ?? (page || filtering);
   const toggle = (k: string) => setOpen(c => ({ ...c, [k]: !isOpen(k) }));
-  const visibleEnts = enterprises.filter(e => entFilter === 'all' || e.id === entFilter);
+  const visibleEnts = enterprises.filter(e => projectId ? projects.some(p => p.id === projectId && p.enterpriseId === e.id) : (entFilter === 'all' || e.id === entFilter));
 
   const planOn = (t: Task, d: Date) => {
     const ds = format(d, 'yyyy-MM-dd');
@@ -150,9 +153,9 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
             <span className="truncate">{p.name}</span>
             <span className="text-muted-foreground font-normal">({list.length})</span>
           </button>
-          <button title="Parla con Radar di questo progetto" onClick={() => openRadarScope({ type: 'project', id: p.id, label: p.name })} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-accent">
-            <Radar className="h-3.5 w-3.5" />
-          </button>
+          {!projectId && <button title="Apri la pagina del progetto" onClick={() => navigate(`/backlog/progetto/${p.id}`)} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-accent">
+            <ArrowUpRight className="h-3.5 w-3.5" />
+          </button>}
         </div>
         {isOpen(k) && (
           <div className="ml-3 space-y-1 pb-1">
@@ -179,7 +182,7 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
   };
 
   const sections = visibleEnts.map(ent => {
-    const entProjects = projects.filter(p => p.enterpriseId === ent.id);
+    const entProjects = projects.filter(p => p.enterpriseId === ent.id && (!projectId || p.id === projectId));
     const hasTasks = (p: Project) => tasksOf(p.id).length > 0 || (page && !filtering);
     const focus = focusPeriods.find(f => f.enterpriseId === ent.id && f.status === 'active');
     const objs = focus ? objectives.filter(o => o.focusPeriodId === focus.id) : [];
@@ -193,32 +196,26 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
       }).filter(({ ps }) => ps.length > 0),
     })).filter(({ krs }) => krs.length > 0);
     const others = entProjects.filter(p => !linkedIds.has(p.id) && hasTasks(p));
-    const count = openTasks.filter(t => t.enterpriseId === ent.id).length;
+    const count = openTasks.filter(t => t.enterpriseId === ent.id && (!projectId || t.projectId === projectId)).length;
     if (count === 0 && !(page && !filtering && entProjects.length > 0)) return null;
     return (
       <section key={ent.id} className={`rounded-lg border bg-background p-2 ${page ? 'break-inside-avoid mb-3' : ''}`}>
         <div className="flex items-center gap-2 mb-1">
           <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${ent.color})` }} />
           <h3 className="text-xs font-semibold flex-1">{ent.name} <span className="text-[11px] text-muted-foreground font-normal">({count})</span></h3>
-          <button title="Parla con Radar di questa impresa" onClick={() => openRadarScope({ type: 'enterprise', id: ent.id, label: ent.name })} className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-primary hover:bg-accent">
-            <Radar className="h-3.5 w-3.5" />
-          </button>
         </div>
         {focus && krBlocks.length > 0 && (
           <div className="mb-1">
             <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-primary font-semibold mb-0.5">
               <Target className="h-3 w-3" /><span className="flex-1">Focus · {focus.name}</span>
-              <button title="Parla con Radar di questo Focus" onClick={() => openRadarScope({ type: 'focus', id: focus.id, label: focus.name })} className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary normal-case"><Radar className="h-3 w-3" /></button>
             </p>
             {krBlocks.map(({ o, krs }) => (
               <div key={o.id} className="ml-1 mb-1">
                 <p className="text-[11px] font-semibold flex items-center gap-1"><span className="flex-1">{o.title}</span>
-                  <button title="Parla con Radar di questo obiettivo" onClick={() => openRadarScope({ type: 'objective', id: o.id, label: o.title })} className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground hover:text-primary"><Radar className="h-3 w-3" /></button>
                 </p>
                 {krs.map(({ kr, ps }) => (
                   <div key={kr.id} className="ml-1">
                     <p className="flex items-center gap-1 text-[10px] text-muted-foreground py-0.5"><Flag className="h-3 w-3" /><span className="flex-1">{kr.title}</span>
-                      <button title="Parla con Radar di questo Key Result" onClick={() => openRadarScope({ type: 'key_result', id: kr.id, label: kr.title })} className="h-5 w-5 flex items-center justify-center rounded hover:text-primary"><Radar className="h-3 w-3" /></button>
                     </p>
                     {ps.map(p => <ProjectBlock key={p.id} p={p} />)}
                   </div>
@@ -249,14 +246,14 @@ export function BacklogTree({ date, onOpenTask, onDragStart, onDragEnd, variant 
           <Switch checked={showPlanned} onCheckedChange={setShowPlanned} className="scale-75" />Mostra pianificate
         </label>
       </div>
-      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+      {!projectId && <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
         {[{ id: 'all', name: 'Tutte' }, ...enterprises].map(e => (
           <Button key={e.id} size="sm" variant={entFilter === e.id ? 'default' : 'outline'} className="h-6 px-2 text-[11px] shrink-0" onClick={() => setEntFilter(e.id)}>
             {e.name}
           </Button>
         ))}
-      </div>
-      <div className={page ? 'columns-1 md:columns-2 xl:columns-3 gap-3' : 'flex flex-col gap-2'}>{sections}</div>
+      </div>}
+      <div className={page && !projectId ? 'columns-1 md:columns-2 xl:columns-3 gap-3' : 'flex flex-col gap-2'}>{sections}</div>
       {sections.length === 0 && (
         <p className="text-xs text-muted-foreground text-center py-6">{filtering ? 'Nessuna attività trovata.' : 'Nessuna attività aperta nel backlog.'}</p>
       )}

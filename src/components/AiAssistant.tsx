@@ -1357,3 +1357,56 @@ export function RadarFullPage() {
     </div>
   );
 }
+
+/** Radar incorporato in una pagina (es. pagina progetto): conversazione dedicata salvata e sincronizzata. */
+export function RadarEmbedded({ scope, intro }: { scope: RadarScope; intro?: string }) {
+  const r = useRadar();
+  useEffect(() => { r.openScope(scope); r.setView('chat'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [scope.type, scope.id]);
+  const starters = [
+    'Aiutami a definire le attività di questo progetto',
+    'Collega questo progetto a Focus, obiettivo e Key Result',
+    'Proponi cosa pianificare questa settimana',
+  ];
+  return (
+    <div className="h-full rounded-xl border bg-card overflow-hidden flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-3 border-b shrink-0">
+        <RadarIcon size={18} className="text-primary" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold leading-tight">Radar</p>
+          <p className="text-[11px] text-muted-foreground truncate">Pianifica con me: {scope.label}</p>
+        </div>
+      </div>
+      <div ref={r.scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {r.messages.length === 0 && (
+          <div className="flex flex-col gap-2 py-4">
+            <p className="text-xs text-muted-foreground">{intro || 'Ti aiuto a costruire il piano: Focus, obiettivi, Key Result e attività. Ogni modifica passa dalla tua approvazione.'}</p>
+            {starters.map(s => (
+              <button key={s} onClick={() => r.handleSend(s)} className="text-left text-xs rounded-lg border px-3 py-2 hover:bg-accent">{s}</button>
+            ))}
+          </div>
+        )}
+        {r.timeline.map((item) => item.kind === 'msg' ? (
+          <div key={item.key} className={`flex ${item.msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${item.msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted/50 text-foreground border border-border/40'}`}>
+              {item.msg.role === 'assistant' ? <div className="prose prose-sm max-w-none dark:prose-invert [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sm"><ReactMarkdown>{stripToolCallTags(item.msg.content)}</ReactMarkdown></div> : <p className="whitespace-pre-wrap text-sm">{item.msg.content}</p>}
+            </div>
+          </div>
+        ) : (
+          <ActionConfirmCard key={item.key} action={item.action} getActionIcon={r.getActionIcon} getActionLabel={r.getActionLabel} getActionDescription={r.getActionDescription} getActionTypeLabel={r.getActionTypeLabel} onApprove={() => r.approveAction(item.action)} onReject={() => r.rejectAction(item.action)} />
+        ))}
+        {r.isLoading && r.messages[r.messages.length - 1]?.role !== 'assistant' && (
+          <div className="flex items-center gap-2 text-muted-foreground text-xs"><Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />Sto pensando…</div>
+        )}
+      </div>
+      <div className="border-t p-3 shrink-0">
+        {r.messages.length > 0 && (
+          <button onClick={() => { r.setMessages([]); r.setPendingActions([]); }} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mb-2"><Trash2 className="h-3 w-3" />Nuova conversazione</button>
+        )}
+        <div className="flex items-end gap-1.5 rounded-xl border border-input px-3 py-1.5">
+          <textarea ref={r.inputRef} value={r.input} onChange={r.handleTextareaInput} onKeyDown={r.handleKeyDown} placeholder="Scrivi a Radar…" className="flex-1 bg-transparent text-sm resize-none border-0 outline-none min-h-[36px] max-h-[120px] py-1.5" rows={1} disabled={r.isLoading} />
+          <Button size="icon" onClick={() => r.handleSend()} disabled={!r.input.trim() || r.isLoading} className="shrink-0 h-8 w-8 rounded-lg"><Send className="h-4 w-4" /></Button>
+        </div>
+      </div>
+    </div>
+  );
+}

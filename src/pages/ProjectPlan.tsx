@@ -35,7 +35,7 @@ export default function ProjectPlan() {
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/planner')} aria-label="Torna al Piano"><ChevronLeft className="h-4 w-4" /></Button>
         <div className="flex-1 min-w-0">
           <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-            {ent && <span className="h-2 w-2 rounded-full" style={{ background: `hsl(${ent.color})` }} />}{ent?.name}
+            {ent && <button onClick={() => navigate(`/planner/impresa/${ent.id}`)} className="flex items-center gap-1.5 hover:text-primary"><span className="h-2 w-2 rounded-full" style={{ background: `hsl(${ent.color})` }} />{ent.name}</button>}
           </p>
           <h1 className="text-lg font-bold leading-tight truncate">{project.name}</h1>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">

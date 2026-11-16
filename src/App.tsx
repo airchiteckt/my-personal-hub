@@ -18,6 +18,7 @@ import Requests from "./pages/Requests";
 import Rituals from "./pages/Rituals";
 import Backlog from "./pages/Backlog";
 import ProjectPlan from "./pages/ProjectPlan";
+import EnterprisePlan from "./pages/EnterprisePlan";
 import Planner from "./pages/Planner";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
@@ -84,6 +85,7 @@ function ProtectedRoutes() {
           <Route path="/backlog/progetto/:projectId" element={<ProjectPlan />} />
           <Route path="/planner" element={<Planner />} />
           <Route path="/planner/progetto/:projectId" element={<ProjectPlan />} />
+          <Route path="/planner/impresa/:enterpriseId" element={<EnterprisePlan />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

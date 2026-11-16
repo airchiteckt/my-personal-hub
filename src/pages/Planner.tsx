@@ -223,12 +223,14 @@ export default function Planner() {
         <div className="space-y-4 min-w-0">
           {enterprises.filter(e => enterpriseFilter === 'all' || e.id === enterpriseFilter).map(ent => {
             const entProjects = projects.filter(p => p.enterpriseId === ent.id);
-            if (entProjects.length === 0) return null;
+            
             return (
               <section key={ent.id}>
-                <h2 className="flex items-center gap-2 text-sm font-semibold mb-2">
+                <button onClick={() => navigate(`/planner/impresa/${ent.id}`)} className="flex items-center gap-2 text-sm font-semibold mb-2 hover:text-primary">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `hsl(${ent.color})` }} />{ent.name}
-                </h2>
+                  <span className="text-[11px] font-normal text-muted-foreground">Focus, obiettivi e progetti</span>
+                  <ChevronRightIcon className="h-3.5 w-3.5" />
+                </button>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {entProjects.map(p => {
                     const list = backlogByProject.get(p.id) || [];

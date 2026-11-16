@@ -1359,10 +1359,10 @@ export function RadarFullPage() {
 }
 
 /** Radar incorporato in una pagina (es. pagina progetto): conversazione dedicata salvata e sincronizzata. */
-export function RadarEmbedded({ scope, intro }: { scope: RadarScope; intro?: string }) {
+export function RadarEmbedded({ scope, intro, starters: customStarters }: { scope: RadarScope; intro?: string; starters?: string[] }) {
   const r = useRadar();
   useEffect(() => { r.openScope(scope); r.setView('chat'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [scope.type, scope.id]);
-  const starters = [
+  const starters = customStarters ?? [
     'Aiutami a definire le attività di questo progetto',
     'Collega questo progetto a Focus, obiettivo e Key Result',
     'Proponi cosa pianificare questa settimana',

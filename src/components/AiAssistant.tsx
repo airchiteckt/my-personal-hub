@@ -1367,7 +1367,7 @@ export function RadarEmbedded({ scope, intro, starters: customStarters, kickoff 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kick, r.messages.length]);
   const newCycle = () => {
-    if (r.messages.length > 0 && !window.confirm('Avviare un nuovo ciclo di consulenza? La conversazione attuale verrà archiviata e Radar ripartirà dall\'analisi dell\'impresa.')) return;
+    if (r.messages.length > 0 && !window.confirm('Avviare un nuovo ciclo di consulenza? La conversazione attuale verrà cancellata e Radar ripartirà dall\'analisi dell\'impresa.')) return;
     r.setMessages([]); r.setPendingActions([]); setKick(true);
   };
   useEffect(() => { r.openScope(scope); r.setView('chat'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [scope.type, scope.id]);

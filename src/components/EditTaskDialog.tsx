@@ -127,7 +127,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
   };
 
   const handleBacklog = () => {
-    if (!window.confirm('Rimandare questa task al Serbatoio? Verrà tolta dal giorno pianificato.')) return;
+    if (!window.confirm('Rimandare questa task nel Backlog? Verrà tolta dal giorno pianificato.')) return;
     doSave();
     unscheduleTask(task.id);
     onOpenChange(false);
@@ -308,7 +308,7 @@ export function EditTaskDialog({ open, onOpenChange, task, onCompleted }: Props)
               <Trash2 className="h-4 w-4" />
             </Button>
             {task.status === 'scheduled' && (
-              <Button variant="ghost" size="icon" onClick={handleBacklog} aria-label="Rimanda al Serbatoio" title="Rimanda al Serbatoio" className="text-muted-foreground hover:text-foreground">
+              <Button variant="ghost" size="icon" onClick={handleBacklog} aria-label="Rimanda nel Backlog" title="Rimanda nel Backlog" className="text-muted-foreground hover:text-foreground">
                 <Inbox className="h-4 w-4" />
               </Button>
             )}

@@ -18,6 +18,8 @@ interface Props {
   onOpenTask: (t: Task) => void;
   onDragStart: (e: React.DragEvent, taskId: string) => void;
   onDragEnd?: () => void;
+  vertical?: boolean;
+  hideHeader?: boolean;
 }
 
 const fmt = (m: number) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`);
@@ -29,7 +31,7 @@ const badge: Record<string, string> = {
 const lbl: Record<string, string> = { high: 'P1', medium: 'P2', low: 'P3' };
 
 /** Coda Operativa: task del giorno ordinate per priorità, con Avvia/Pausa/Completa. Scorrevole orizzontalmente con il touch. */
-export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: Props) {
+export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd, vertical, hideHeader }: Props) {
   const { tasks, timeEntries, updateTask } = usePrp();
   const [over, setOver] = useState(false);
 
@@ -63,7 +65,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
       onDrop={handleDrop}
       className={`relative flex flex-col gap-1 px-1 rounded-lg transition-colors ${over ? 'bg-primary/10 ring-2 ring-primary/40' : ''}`}
     >
-      <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
+      {!hideHeader && <div className="flex items-center gap-2 text-[10px] text-muted-foreground uppercase tracking-wider">
         <ListOrdered className="h-3 w-3" />
         <span className="font-medium">Coda · {format(date, 'EEE d MMM', { locale: it })}</span>
         <span className="ml-auto flex gap-2 normal-case tracking-normal">
@@ -71,11 +73,11 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
             <span key={c.p} className={c.n > c.max ? 'text-destructive font-semibold' : ''}>{lbl[c.p]} {c.n}/{c.max}</span>
           ))}
         </span>
-      </div>
+      </div>}
       {list.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-1">Nessuna attività. Premi "Aggiungi" nella barra qui sotto o trascina qui un'attività dal calendario.</p>
+        <p className="text-xs text-muted-foreground py-1">Nessuna attività per questo giorno. Trascina qui un'attività dal Backlog o dal calendario.</p>
       ) : (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-pl-1 pb-0.5">
+        <div className={vertical ? "flex flex-col gap-1.5" : "flex gap-1.5 overflow-x-auto scrollbar-none snap-x snap-mandatory scroll-pl-1 pb-0.5"}>
           {list.map(t => {
             const running = timer.activeTaskId === t.id;
             const w = worked(t.id);
@@ -86,7 +88,7 @@ export function TaskQueue({ date, timer, onOpenTask, onDragStart, onDragEnd }: P
                 onDragStart={e => onDragStart(e, t.id)}
                 onDragEnd={onDragEnd}
                 onClick={() => onOpenTask(t)}
-                className={`shrink-0 w-[220px] snap-start rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40 animate-working' : ''}`}
+                className={`${vertical ? 'w-full bg-card' : 'shrink-0 w-[220px] snap-start'} rounded-lg border px-2 py-1.5 cursor-pointer hover:bg-accent/50 transition-colors ${running ? 'bg-accent/40 animate-working' : ''}`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className={`text-[9px] font-bold px-1 rounded ${badge[t.priority]}`}>{lbl[t.priority]}</span>

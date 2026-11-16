@@ -6,8 +6,7 @@ import { usePrp } from '@/context/PrpContext';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Plus, CalendarClock, Repeat, Check, X, BookOpen, Bell, Send, ListTodo, Aperture, Radar, Play, Pause } from 'lucide-react';
 import { useTaskTimer } from '@/hooks/use-task-timer';
-import { TaskQueue } from '@/components/calendar/TaskQueue';
-import { QueueFullscreen } from './QueueFullscreen';
+import { PlanPanel } from './PlanPanel';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Link } from 'react-router-dom';
 import { Maximize2 } from 'lucide-react';
@@ -191,7 +190,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
   const [slotSelectMode, setSlotSelectMode] = useState(false);
   const [selectedSlots, setSelectedSlots] = useState<SelectedSlot[]>([]);
   const [showSlotDialog, setShowSlotDialog] = useState(false);
-  const [backlogOpen, setBacklogOpen] = useState(false);
+  const [planOpen, setPlanOpenState] = useState<boolean>(() => { const v = localStorage.getItem('flydeck:plan-open'); return v === null ? window.innerWidth >= 1000 : v === '1'; });
+  const setPlanOpen = (v: boolean) => { localStorage.setItem('flydeck:plan-open', v ? '1' : '0'); setPlanOpenState(v); };
   const [backlogDragging, setBacklogDragging] = useState(false);
   const [focus, setFocus] = useState<number>(() => {
     if (typeof window === 'undefined') return 45;
@@ -399,7 +399,8 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
 
   return (
     <div ref={focusSurfaceRef} className="flex flex-col h-full">
-
+      <div className="flex flex-1 min-h-0 gap-3">
+      <div className="flex-1 min-w-0 flex flex-col min-h-0">
       {isOverview ? (
         <CalendarOverview mode={focusMode} centerDate={centerDate} onOpenDay={openOverviewDay} />
       ) : <div className="flex flex-1 min-h-0 gap-3">
@@ -1010,10 +1011,22 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
 
       </div>}
+      </div>
+      {planOpen && (
+        <PlanPanel
+          date={centerDate}
+          timer={timer}
+          onClose={() => setPlanOpen(false)}
+          onOpenTask={setEditingTask}
+          onAddTask={() => { setApptDefaults({ date: format(centerDate, 'yyyy-MM-dd') }); setShowCreateTask(true); }}
+          onDragStart={handleDragStart}
+          onDragEnd={() => setIsDraggingItem(false)}
+        />
+      )}
+      </div>
 
       {/* Bottom toolbar */}
       <div className="shrink-0 mt-2 rounded-xl border bg-card shadow-sm px-2 py-1.5 flex flex-col gap-1.5">
-        <TaskQueue date={centerDate} timer={timer} onOpenTask={setEditingTask} onDragStart={handleDragStart} onDragEnd={() => setIsDraggingItem(false)} />
         {activeRituals.length > 0 && (
           <div className="flex items-center gap-1.5 px-1 overflow-x-auto scrollbar-none">
             <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider whitespace-nowrap shrink-0">
@@ -1077,14 +1090,14 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
             {slotSelectMode ? (selectedSlots.length > 0 ? `Proponi (${selectedSlots.length})` : 'Esci') : 'Proponi'}
           </Button>
           <Button
-            variant="outline"
+            variant={planOpen ? 'default' : 'outline'}
             size="sm"
             className="h-8 text-xs px-2"
-            onClick={() => setBacklogOpen(true)}
-            title="Apri la coda a tutto schermo"
+            onClick={() => setPlanOpen(!planOpen)}
+            title="Mostra o nascondi il pannello Piano"
           >
             <ListTodo className="h-3.5 w-3.5 mr-1" />
-            Coda ({tasks.filter(t => t.scheduledDate === format(centerDate, 'yyyy-MM-dd') && t.status === 'scheduled').length})
+            Piano ({tasks.filter(t => t.scheduledDate === format(centerDate, 'yyyy-MM-dd') && t.status === 'scheduled').length})
           </Button>
           <Button
             variant="outline"
@@ -1137,16 +1150,7 @@ export function DesktopWeekView({ onOpenDay }: { onOpenDay?: (date: Date) => voi
         </div>
       </div>
 
-      <QueueFullscreen
-        open={backlogOpen}
-        onClose={() => setBacklogOpen(false)}
-        date={centerDate}
-        timer={timer}
-        onOpenTask={setEditingTask}
-        onAddTask={() => { setApptDefaults({ date: format(centerDate, 'yyyy-MM-dd') }); setShowCreateTask(true); }}
-        onDragStart={handleDragStart}
-        onDragEnd={() => setIsDraggingItem(false)}
-      />
+
 
       <CalendarCreateChoice
         open={showChoice}

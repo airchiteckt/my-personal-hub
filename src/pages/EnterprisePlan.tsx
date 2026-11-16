@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, ChevronDown, Plus, Target, Flag, FolderKanban } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Trash2, Plus, Target, Flag, FolderKanban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Progress } from '@/components/ui/progress';
 import { differenceInDays, format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -22,7 +23,8 @@ import { usePrp } from '@/context/PrpContext';
 export default function EnterprisePlan() {
   const { enterpriseId = '' } = useParams();
   const navigate = useNavigate();
-  const { getEnterprise, focusPeriods, objectives, keyResults, projects, tasks } = usePrp();
+  const { getEnterprise, focusPeriods, objectives, keyResults, projects, tasks, deleteFocusPeriod, deleteObjective, deleteKeyResult, deleteProject } = usePrp();
+  const [toDelete, setToDelete] = useState<{ kind: 'focus' | 'objective' | 'kr' | 'project'; id: string; label: string } | null>(null);
   const [newFocus, setNewFocus] = useState(false);
   const [objFor, setObjFor] = useState<string | null>(null);
   const [krFor, setKrFor] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export default function EnterprisePlan() {
         <FolderKanban className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         <span className="text-sm font-medium truncate flex-1">{p.name}</span>
         <span className="text-[11px] text-muted-foreground shrink-0">{open} attività</span>
+        <span role="button" title="Elimina" onClick={e => { e.stopPropagation(); setToDelete({ kind: 'project', id: p.id, label: p.name }); }} className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></span>
         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
       </button>
     );
@@ -91,6 +94,7 @@ export default function EnterprisePlan() {
                       <p className="text-xl font-bold tabular-nums">{fProg}%</p>
                       <p className="text-[11px] text-muted-foreground">{left >= 0 ? `${left} giorni rimasti` : 'Concluso'}</p>
                     </div>
+                    <button title="Elimina" onClick={e => { e.stopPropagation(); setToDelete({ kind: 'focus', id: current.id, label: current.name }); }} className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                   <Progress value={fProg} className="h-2" />
                   <div className="flex items-center text-[11px] text-muted-foreground">
@@ -113,6 +117,7 @@ export default function EnterprisePlan() {
                           <span className="text-sm font-semibold truncate">{o.title}</span>
                         </button>
                         <span className={`text-xs font-semibold tabular-nums ${oProg >= 70 ? 'text-primary' : 'text-muted-foreground'}`}>{oProg}%</span>
+                        <button title="Elimina" onClick={e => { e.stopPropagation(); setToDelete({ kind: 'objective', id: o.id, label: o.title }); }} className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
                       </div>
                       <Progress value={oProg} className="h-1.5" />
                       {!closed && (
@@ -128,6 +133,7 @@ export default function EnterprisePlan() {
                                   <span className="text-[11px] text-muted-foreground tabular-nums shrink-0">
                                     {kr.metricType === 'boolean' ? (kr.currentValue >= 1 ? 'Fatto' : 'Da fare') : `${kr.currentValue} / ${kr.targetValue}${kr.metricType === 'percentage' ? '%' : ''}`}
                                   </span>
+                                  <button title="Elimina" onClick={e => { e.stopPropagation(); setToDelete({ kind: 'kr', id: kr.id, label: kr.title }); }} className="h-6 w-6 shrink-0 flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10"><Trash2 className="h-3.5 w-3.5" /></button>
                                 </div>
                                 <Progress value={pct} className="h-1" />
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
@@ -165,10 +171,37 @@ export default function EnterprisePlan() {
           <RadarEmbedded
             scope={{ type: 'enterprise', id: ent.id, label: ent.name }}
             intro="Ti aiuto a costruire il piano di questa impresa: Focus, obiettivi, Key Result e progetti. Ogni creazione passa dalla tua approvazione."
-            starters={['Aiutami a definire il Focus dei prossimi 90 giorni', 'Proponi obiettivi e Key Result per il Focus attivo', 'Quali progetti servono per raggiungere i Key Result?']}
+            kickoff={`Avviamo un nuovo ciclo di consulenza per l'impresa "${ent.name}". Analizza lo stato attuale (Focus, obiettivi, Key Result, progetti e attività), dimmi cosa funziona e cosa no, poi fammi le domande necessarie per definire il prossimo Focus di 90 giorni con obiettivi, Key Result e progetti. Procedi un passo alla volta.`}
+            starters={['Avvia un ciclo di consulenza completo su questa impresa', 'Aiutami a definire il Focus dei prossimi 90 giorni', 'Proponi obiettivi e Key Result per il Focus attivo', 'Quali progetti servono per raggiungere i Key Result?']}
           />
         </div>
       </div>
+      <AlertDialog open={!!toDelete} onOpenChange={o => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Eliminare "{toDelete?.label}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete?.kind === 'focus' && 'Verranno eliminati anche gli obiettivi e i Key Result di questo Focus. I progetti restano ma non saranno più collegati.'}
+              {toDelete?.kind === 'objective' && 'Verranno eliminati anche i suoi Key Result. I progetti restano ma non saranno più collegati.'}
+              {toDelete?.kind === 'kr' && 'I progetti collegati restano ma non saranno più collegati a questo Key Result.'}
+              {toDelete?.kind === 'project' && 'Verranno eliminate anche le attività del progetto.'}
+              {' '}L'operazione non si può annullare.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annulla</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => {
+              if (!toDelete) return;
+              const { kind, id } = toDelete;
+              if (kind === 'focus') { deleteFocusPeriod(id); setSelFocus(null); }
+              if (kind === 'objective') deleteObjective(id);
+              if (kind === 'kr') deleteKeyResult(id);
+              if (kind === 'project') deleteProject(id);
+              setToDelete(null);
+            }}>Elimina</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <CreateFocusPeriodDialog open={newFocus} onOpenChange={setNewFocus} enterpriseId={ent.id} />
       <CreateObjectiveDialog open={!!objFor} onOpenChange={o => !o && setObjFor(null)} enterpriseId={ent.id} focusPeriodId={objFor || ''} />
       <CreateKeyResultDialog open={!!krFor} onOpenChange={o => !o && setKrFor(null)} enterpriseId={ent.id} objectiveId={krFor || ''} />

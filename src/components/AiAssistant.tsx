@@ -1359,8 +1359,17 @@ export function RadarFullPage() {
 }
 
 /** Radar incorporato in una pagina (es. pagina progetto): conversazione dedicata salvata e sincronizzata. */
-export function RadarEmbedded({ scope, intro, starters: customStarters }: { scope: RadarScope; intro?: string; starters?: string[] }) {
+export function RadarEmbedded({ scope, intro, starters: customStarters, kickoff }: { scope: RadarScope; intro?: string; starters?: string[]; kickoff?: string }) {
   const r = useRadar();
+  const [kick, setKick] = useState(false);
+  useEffect(() => {
+    if (kick && r.messages.length === 0 && kickoff) { setKick(false); r.handleSend(kickoff); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kick, r.messages.length]);
+  const newCycle = () => {
+    if (r.messages.length > 0 && !window.confirm('Avviare un nuovo ciclo di consulenza? La conversazione attuale verrà archiviata e Radar ripartirà dall\'analisi dell\'impresa.')) return;
+    r.setMessages([]); r.setPendingActions([]); setKick(true);
+  };
   useEffect(() => { r.openScope(scope); r.setView('chat'); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [scope.type, scope.id]);
   const starters = customStarters ?? [
     'Aiutami a definire le attività di questo progetto',
@@ -1375,6 +1384,7 @@ export function RadarEmbedded({ scope, intro, starters: customStarters }: { scop
           <p className="text-sm font-semibold leading-tight">Radar</p>
           <p className="text-[11px] text-muted-foreground truncate">Pianifica con me: {scope.label}</p>
         </div>
+        {kickoff && <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={newCycle} disabled={r.isLoading}>Nuovo ciclo di consulenza</Button>}
       </div>
       <div ref={r.scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
         {r.messages.length === 0 && (

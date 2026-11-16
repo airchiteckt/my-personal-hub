@@ -202,64 +202,44 @@ export default function Planner() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">Piano</h1>
           <p className="text-sm text-muted-foreground">
-            I tuoi progetti, impresa per impresa. Entra in un progetto per organizzarne le attività e pianificarlo con Radar.
+            Scegli un'impresa per lavorare su Focus, obiettivi e progetti insieme a Radar.
           </p>
         </div>
-        <Select value={enterpriseFilter} onValueChange={setEnterpriseFilter}>
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Tutte le imprese" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tutte le imprese</SelectItem>
-            {enterprises.map(e => (
-              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4">
-        {/* Progetti */}
-        <div className="space-y-4 min-w-0">
-          {enterprises.filter(e => enterpriseFilter === 'all' || e.id === enterpriseFilter).map(ent => {
+        {/* Imprese */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 content-start min-w-0">
+          {enterprises.map(ent => {
             const entProjects = projects.filter(p => p.enterpriseId === ent.id);
-            
+            const focus = focusPeriods.find(f => f.enterpriseId === ent.id && f.status === 'active');
+            const objs = focus ? objectives.filter(o => o.focusPeriodId === focus.id) : [];
+            const krs = keyResults.filter(k => objs.some(o => o.id === k.objectiveId));
+            const prog = krs.length ? Math.round(krs.reduce((a, k) => a + krProgress(k), 0) / krs.length) : 0;
+            const backlog = tasks.filter(t => t.enterpriseId === ent.id && t.status === 'backlog').length;
+            const planned = tasks.filter(t => t.enterpriseId === ent.id && t.status === 'scheduled').length;
             return (
-              <section key={ent.id}>
-                <button onClick={() => navigate(`/planner/impresa/${ent.id}`)} className="flex items-center gap-2 text-sm font-semibold mb-2 hover:text-primary">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: `hsl(${ent.color})` }} />{ent.name}
-                  <span className="text-[11px] font-normal text-muted-foreground">Focus, obiettivi e progetti</span>
-                  <ChevronRightIcon className="h-3.5 w-3.5" />
-                </button>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {entProjects.map(p => {
-                    const list = backlogByProject.get(p.id) || [];
-                    const planned = tasks.filter(t => t.projectId === p.id && t.status === 'scheduled').length;
-                    const kr = p.keyResultId ? keyResults.find(k => k.id === p.keyResultId) : undefined;
-                    return (
-                      <Card key={p.id} className="p-3 flex flex-col gap-2 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => navigate(`/planner/progetto/${p.id}`)}>
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{p.name}</p>
-                            <p className="text-[11px] text-muted-foreground truncate flex items-center gap-1">
-                              {kr ? <><Flag className="h-3 w-3 shrink-0" />{kr.title}</> : PROJECT_TYPE_LABELS[p.type]}
-                            </p>
-                          </div>
-                          <ChevronRightIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        </div>
-                        <div className="flex gap-3 text-[11px] text-muted-foreground">
-                          <span><strong className="text-foreground">{list.length}</strong> nel backlog</span>
-                          <span><strong className="text-foreground">{planned}</strong> pianificate</span>
-                        </div>
-                        {list.slice(0, 3).map(t => (
-                          <div key={t.id} onClick={e => e.stopPropagation()}>{renderTaskRow(t)}</div>
-                        ))}
-                        {list.length > 3 && <p className="text-[11px] text-muted-foreground">+ altre {list.length - 3}</p>}
-                      </Card>
-                    );
-                  })}
+              <Card key={ent.id} onClick={() => navigate(`/planner/impresa/${ent.id}`)} className="p-4 flex flex-col gap-3 cursor-pointer hover:border-primary/50 transition-colors">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: `hsl(${ent.color})` }} />
+                  <p className="text-base font-semibold truncate flex-1">{ent.name}</p>
+                  <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </section>
+                {focus ? (
+                  <div className="space-y-1">
+                    <p className="flex items-center gap-1.5 text-xs"><Target className="h-3.5 w-3.5 text-primary" /><span className="font-medium truncate">{focus.name}</span><span className="ml-auto text-muted-foreground">{prog}%</span></p>
+                    <Progress value={prog} className="h-1.5" />
+                    <p className="text-[11px] text-muted-foreground">{objs.length} obiettivi · {krs.length} Key Result · fino al {format(new Date(focus.endDate), 'd MMM', { locale: it })}</p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nessun Focus attivo. Entra per definirlo con Radar.</p>
+                )}
+                <div className="flex gap-4 text-[11px] text-muted-foreground border-t pt-2">
+                  <span><strong className="text-foreground">{entProjects.length}</strong> progetti</span>
+                  <span><strong className="text-foreground">{backlog}</strong> nel backlog</span>
+                  <span><strong className="text-foreground">{planned}</strong> pianificate</span>
+                </div>
+              </Card>
             );
           })}
         </div>

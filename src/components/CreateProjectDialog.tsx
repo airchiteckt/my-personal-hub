@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { ProjectType } from '@/types/prp';
+import { ProjectType, PROJECT_TYPE_LABELS } from '@/types/prp';
 import { usePrp } from '@/context/PrpContext';
 import { useState, useEffect, useMemo } from 'react';
 import { useAiInline } from '@/hooks/use-ai-inline';
@@ -64,7 +64,7 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
   }, [name]);
 
   useEffect(() => {
-    if (okrData?.suggested_type) setType(okrData.suggested_type);
+    if (okrData?.suggested_type) setType(okrData.suggested_type === 'strategic' ? 'strategic' : 'operational');
   }, [okrData]);
 
   // Auto-clear KR when switching to non-strategic
@@ -168,7 +168,7 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
                       Allineamento: {okrData.alignment_score}/5
                     </div>
                     <Badge variant="outline" className="text-[10px]">
-                      Tipo: {okrData.suggested_type}
+                      Tipo: {PROJECT_TYPE_LABELS[okrData.suggested_type]}
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground">{okrData.alignment_note}</p>
@@ -179,12 +179,11 @@ export function CreateProjectDialog({ open, onOpenChange, enterpriseId }: Props)
 
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Select value={type} onValueChange={v => setType(v as ProjectType)}>
+            <Select value={type === 'strategic' ? 'strategic' : 'gestione'} onValueChange={v => setType(v === 'strategic' ? 'strategic' : 'operational')}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="strategic">🔵 Strategic</SelectItem>
-                <SelectItem value="operational">🟡 Operational</SelectItem>
-                <SelectItem value="maintenance">⚪ Maintenance</SelectItem>
+                <SelectItem value="strategic">Crescita</SelectItem>
+                <SelectItem value="gestione">Gestione</SelectItem>
               </SelectContent>
             </Select>
           </div>

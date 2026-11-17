@@ -346,14 +346,16 @@ const EnterpriseDetail = () => {
                         </CollapsibleTrigger>
                         <CollapsibleContent className="mt-3">
                           <div className="space-y-2">
-                            {(['strategic', 'operational', 'maintenance'] as const).map(type => {
-                              const projs = unlinkedProjects.filter(p => p.type === type);
+                            {([
+                              { key: 'crescita', label: 'Crescita', types: ['strategic'] },
+                              { key: 'gestione', label: 'Gestione', types: ['operational', 'maintenance'] },
+                            ] as const).map(type => {
+                              const projs = unlinkedProjects.filter(p => (type.types as readonly string[]).includes(p.type));
                               if (projs.length === 0) return null;
-                              const labels: Record<string, string> = { strategic: '🔵 Strategic', operational: '🟡 Operational', maintenance: '⚪ Maintenance' };
                               return (
-                                <div key={type}>
+                                <div key={type.key}>
                                   <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5 font-medium">
-                                    {labels[type]} ({projs.length})
+                                    {type.label} ({projs.length})
                                   </p>
                                   <div className="space-y-1.5 ml-1">
                                     {projs.map(p => {

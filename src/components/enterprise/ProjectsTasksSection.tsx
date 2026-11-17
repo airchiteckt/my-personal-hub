@@ -6,8 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Plus, Trash2, Check, Clock, ChevronDown, Target, Layers, Edit2, PackagePlus, AlertTriangle } from 'lucide-react';
 import { usePrp } from '@/context/PrpContext';
-import { PROJECT_TYPE_LABELS, TASK_STATUS_LABELS, ENTERPRISE_TEMPLATES } from '@/types/prp';
-import type { Project, Task, ProjectType, EnterpriseTemplateType } from '@/types/prp';
+import { PROJECT_FAMILY_LABELS, projectFamily, TASK_STATUS_LABELS, ENTERPRISE_TEMPLATES } from '@/types/prp';
+import type { Project, Task, ProjectType, ProjectFamily, EnterpriseTemplateType } from '@/types/prp';
 import { formatMinutes } from '@/lib/calendar-utils';
 import { getUrgencyLevel, getUrgencyDot } from '@/lib/priority-engine';
 import { toast } from 'sonner';
@@ -22,7 +22,7 @@ interface Props {
   onEditTask: (task: Task) => void;
 }
 
-type FilterType = 'all' | ProjectType;
+type FilterType = 'all' | ProjectFamily;
 
 const typeStyles: Record<string, string> = {
   strategic: 'bg-strategic-light text-strategic',
@@ -38,10 +38,9 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
   const template = ENTERPRISE_TEMPLATES[enterpriseType];
   const total = allProjects.length;
 
-  const counts: Record<ProjectType, number> = {
-    strategic: allProjects.filter(p => p.type === 'strategic').length,
-    operational: allProjects.filter(p => p.type === 'operational').length,
-    maintenance: allProjects.filter(p => p.type === 'maintenance').length,
+  const counts: Record<ProjectFamily, number> = {
+    crescita: allProjects.filter(p => projectFamily(p.type) === 'crescita').length,
+    gestione: allProjects.filter(p => projectFamily(p.type) === 'gestione').length,
   };
 
   const pct = (n: number) => total > 0 ? Math.round((n / total) * 100) : 0;
@@ -60,16 +59,15 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
   };
 
   // Filtered projects
-  const filtered = filter === 'all' ? allProjects : allProjects.filter(p => p.type === filter);
+  const filtered = filter === 'all' ? allProjects : allProjects.filter(p => projectFamily(p.type) === filter);
 
   // Smart alerts
-  const showStrategicAlert = hasActiveFocus && counts.strategic === 0;
+  const showStrategicAlert = hasActiveFocus && counts.crescita === 0;
 
   const filterButtons: { key: FilterType; label: string; count: number }[] = [
     { key: 'all', label: 'Tutti', count: total },
-    { key: 'strategic', label: '🔵 Strategic', count: counts.strategic },
-    { key: 'operational', label: '🟡 Operational', count: counts.operational },
-    { key: 'maintenance', label: '⚪ Maintenance', count: counts.maintenance },
+    { key: 'crescita', label: 'Crescita', count: counts.crescita },
+    { key: 'gestione', label: 'Gestione', count: counts.gestione },
   ];
 
   return (
@@ -110,7 +108,7 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
               <p className="text-[10px] text-muted-foreground leading-tight">{fb.label}</p>
               {percentage !== null && (
                 <p className={`text-[10px] mt-0.5 font-medium ${
-                  fb.key === 'strategic' && fb.count === 0 && hasActiveFocus
+                  fb.key === 'crescita' && fb.count === 0 && hasActiveFocus
                     ? 'text-destructive'
                     : 'text-muted-foreground'
                 }`}>
@@ -147,7 +145,7 @@ export function ProjectsTasksSection({ enterpriseId, enterpriseType, hasActiveFo
         </Card>
       ) : filtered.length === 0 ? (
         <Card className="p-6 text-center border-dashed">
-          <p className="text-muted-foreground text-sm">Nessun progetto {filter !== 'all' ? PROJECT_TYPE_LABELS[filter] : ''}</p>
+          <p className="text-muted-foreground text-sm">Nessun progetto {filter !== 'all' ? `di ${PROJECT_FAMILY_LABELS[filter]}` : ''}</p>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -195,7 +193,7 @@ function ProjectCard({ project, onCreateTask, onEditProject, onEditTask, complet
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <h3 className="font-semibold text-sm truncate">{project.name}</h3>
           <Badge className={`${typeStyles[project.type]} shrink-0 text-[10px]`}>
-            {PROJECT_TYPE_LABELS[project.type]}
+            {PROJECT_FAMILY_LABELS[projectFamily(project.type)]}
           </Badge>
           {project.keyResultId && (
             <Badge variant="outline" className="text-[10px] gap-1 shrink-0">

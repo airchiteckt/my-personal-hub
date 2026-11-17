@@ -47,9 +47,9 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
   const hasKR = !!keyResultId;
   const isValid = isStrategic ? hasKR : !hasKR;
   const validationError = isStrategic && !hasKR 
-    ? 'I progetti Strategic devono essere collegati a un Key Result attivo'
+    ? 'I progetti di Crescita devono essere collegati a un Key Result attivo'
     : !isStrategic && hasKR
-    ? `I progetti ${type === 'operational' ? 'Operational' : 'Maintenance'} non possono essere collegati a KR`
+    ? 'I progetti di Gestione non possono essere collegati a un Key Result'
     : null;
 
   useEffect(() => {
@@ -88,12 +88,11 @@ export function EditProjectDialog({ open, onOpenChange, project }: Props) {
 
           <div className="space-y-2">
             <Label>Tipo</Label>
-            <Select value={type} onValueChange={v => setType(v as ProjectType)}>
+            <Select value={isStrategic ? 'strategic' : 'gestione'} onValueChange={v => setType(v === 'strategic' ? 'strategic' : (project.type === 'maintenance' ? 'maintenance' : 'operational'))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="strategic">🔵 Strategic</SelectItem>
-                <SelectItem value="operational">🟡 Operational</SelectItem>
-                <SelectItem value="maintenance">⚪ Maintenance</SelectItem>
+                <SelectItem value="strategic">Crescita</SelectItem>
+                <SelectItem value="gestione">Gestione</SelectItem>
               </SelectContent>
             </Select>
           </div>

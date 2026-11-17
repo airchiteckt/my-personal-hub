@@ -119,10 +119,20 @@ export const ENTERPRISE_COLORS = [
   { name: 'Rosso', value: '0 75% 50%' },
 ] as const;
 
+/** Famiglia di lavoro: Crescita (spinge i Key Result) o Gestione (tiene in piedi l'impresa). */
+export type ProjectFamily = 'crescita' | 'gestione';
+
+export const PROJECT_FAMILY_LABELS: Record<ProjectFamily, string> = {
+  crescita: 'Crescita',
+  gestione: 'Gestione',
+};
+
+export const projectFamily = (type: ProjectType): ProjectFamily => (type === 'strategic' ? 'crescita' : 'gestione');
+
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
-  strategic: '🔵 Strategic',
-  operational: '🟡 Operational',
-  maintenance: '⚪ Maintenance',
+  strategic: 'Crescita',
+  operational: 'Gestione',
+  maintenance: 'Gestione',
 };
 
 export const ENTERPRISE_STATUS_LABELS: Record<EnterpriseStatus, string> = {

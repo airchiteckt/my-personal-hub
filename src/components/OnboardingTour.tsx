@@ -51,11 +51,10 @@ const STEPS: Step[] = [
   {
     icon: ListChecks,
     title: '3. Aggiungi Progetti e Task',
-    description: 'I Progetti si dividono in Strategici (collegati ai KR), Operativi e di Manutenzione. Ogni Task appartiene sempre a un Progetto.',
+    description: 'I Progetti si dividono in Crescita (collegati ai Key Result) e Gestione ordinaria. Ogni Task appartiene sempre a un Progetto.',
     highlights: [
-      'Strategic: spinge i risultati del Focus',
-      'Operational: gestisce il day-by-day',
-      'Maintenance: mantiene attivo l\'esistente',
+      'Crescita: spinge i risultati del Focus',
+      'Gestione: tiene in piedi l\'impresa ogni giorno',
     ],
   },
   {

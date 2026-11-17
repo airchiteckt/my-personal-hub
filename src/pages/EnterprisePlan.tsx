@@ -157,7 +157,7 @@ export default function EnterprisePlan() {
           })()}
           {others.length > 0 && (
             <Card className="p-3 space-y-1.5">
-              <p className="text-xs font-semibold text-muted-foreground">Progetti operativi e di manutenzione</p>
+              <p className="text-xs font-semibold text-muted-foreground">Gestione ordinaria</p>
               {others.map(p => (
                 <div key={p.id} className="relative">
                   <ProjectCard p={p} />

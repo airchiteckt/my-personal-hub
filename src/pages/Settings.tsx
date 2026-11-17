@@ -135,7 +135,7 @@ const Settings = () => {
                   <FolderKanban className="h-5 w-5 text-primary" />
                   <div>
                     <h3 className="font-semibold">Peso Tipo Progetto</h3>
-                    <p className="text-xs text-muted-foreground">Strategic pesa di più, Maintenance meno</p>
+                    <p className="text-xs text-muted-foreground">I progetti di Crescita pesano di più, quelli di Gestione meno</p>
                   </div>
                 </div>
                 <Switch checked={prioritySettings.strategicWeightEnabled} onCheckedChange={v => update('strategicWeightEnabled', v)} />
@@ -144,9 +144,9 @@ const Settings = () => {
               {prioritySettings.strategicWeightEnabled && (
                 <div className="space-y-3 pt-2 border-t mt-4">
                   {[
-                    { label: '🔵 Strategic', key: 'strategicWeight' as const, min: -3, max: 5 },
-                    { label: '🟡 Operational', key: 'operationalWeight' as const, min: -3, max: 5 },
-                    { label: '⚪ Maintenance', key: 'maintenanceWeight' as const, min: -3, max: 5 },
+                    { label: 'Crescita', key: 'strategicWeight' as const, min: -3, max: 5 },
+                    { label: 'Gestione', key: 'operationalWeight' as const, min: -3, max: 5 },
+                    { label: 'Gestione (cura)', key: 'maintenanceWeight' as const, min: -3, max: 5 },
                   ].map(item => (
                     <div key={item.key} className="flex items-center gap-4">
                       <span className="text-sm w-32 shrink-0">{item.label}</span>

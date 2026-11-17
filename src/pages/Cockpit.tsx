@@ -9,6 +9,7 @@ import { CheckCircle2, Clock, TrendingUp, Building2 } from 'lucide-react';
 import { format, startOfWeek, addDays, subWeeks } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { formatMinutes } from '@/lib/calendar-utils';
+import { projectFamily } from '@/types/prp';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const getAppointmentMinutes = (a: { startTime: string; endTime: string }) => {
@@ -86,15 +87,14 @@ function DashboardTab() {
   }, [completedTasks, appointments]);
 
   const timeByType = useMemo(() => {
-    const map = { strategic: 0, operational: 0, maintenance: 0 };
+    const map = { crescita: 0, gestione: 0 };
     for (const t of [...scheduledTasks, ...completedTasks]) {
       const proj = projects.find(p => p.id === t.projectId);
-      if (proj) map[proj.type] += t.estimatedMinutes;
+      if (proj) map[projectFamily(proj.type)] += t.estimatedMinutes;
     }
     return [
-      { name: '🔵 Strategic', minutes: map.strategic, color: 'hsl(220, 80%, 55%)' },
-      { name: '🟡 Operational', minutes: map.operational, color: 'hsl(38, 90%, 50%)' },
-      { name: '⚪ Maintenance', minutes: map.maintenance, color: 'hsl(220, 10%, 70%)' },
+      { name: 'Crescita', minutes: map.crescita, color: 'hsl(220, 80%, 55%)' },
+      { name: 'Gestione', minutes: map.gestione, color: 'hsl(38, 90%, 50%)' },
     ].filter(d => d.minutes > 0);
   }, [scheduledTasks, completedTasks, projects]);
 
